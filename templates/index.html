@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Tus exámenes, en lenguaje simple{% endblock %}
+
+{% block content %}
+{% if recent_docs %}
+  {% set latest = recent_docs[0] %}
+  <section class="hero card">
+    <h1>Hola, de vuelta 👋</h1>
+    <p>Tu último documento sigue aquí, esperando por ti.</p>
+  </section>
+
+  <section class="card reminder-card" aria-label="Último documento">
+    <p class="eyebrow">Tu último documento</p>
+    <h2>{{ latest.type_label }} · {{ latest.fecha }}</h2>
+    <p class="lead">{{ latest.idea_principal }}</p>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="/resultado/{{ latest.id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">Ver explicación</a>
+      <a class="btn btn-ghost" href="#subir">Subir nuevo documento</a>
+    </div>
+  </section>
+
+  {% if recent_docs|length > 1 %}
+  <section aria-label="Documentos anteriores">
+    <h2>Anteriormente</h2>
+    <ul class="doc-list">
+      {% for doc in recent_docs[1:] %}
+      <li class="card doc-item">
+        <a href="/resultado/{{ doc.id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">
+          <strong>{{ doc.type_label }}</strong> · {{ doc.fecha }}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+{% else %}
+  <section class="hero card">
+    <h1>Entiende tus exámenes de una vez</h1>
+    <p>Sube tu examen médico en PDF y te lo explicamos en lenguaje simple y amable: qué salió bien, qué necesita atención y qué preguntarle a tu doctor.</p>
+  </section>
+
+  <section class="card accepts-card" aria-label="Qué acepta MiFicha">
+    <h2>¿Qué puedes subir?</h2>
+    <ul class="check-list">
+      <li>🧪 Resultados de laboratorio, con o sin rangos de referencia</li>
+      <li>📄 Informes narrativos, como un PET scan o una resonancia</li>
+      <li>📝 Pedidos de examen: te explicamos qué te mandó el doctor y para qué es cada prueba</li>
+      <li>👩‍⚕️ Notas del doctor</li>
+    </ul>
+  </section>
+{% endif %}
+
+<section id="subir" class="card upload-card" aria-label="Subir documento">
+  <h2>{{ "Subir nuevo documento" if recent_docs else "Sube tu primer documento" }}</h2>
+  <form action="/subir" method="post" enctype="multipart/form-data">
+    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
+    <label class="file-drop" for="archivo">
+      <span class="file-icon">📎</span>
+      <span class="file-text">Elige tu archivo PDF</span>
+      <span class="file-hint">Solo PDF, de tu celular o tu computadora</span>
+      <input type="file" id="archivo" name="archivo" accept=".pdf" required>
+    </label>
+    <label class="field">
+      <span>Tipo de documento <em>(opcional)</em></span>
+      <select name="tipo_doc">
+        <option value="">No lo sé / déjalo a MiFicha</option>
+        <option value="resultado">Resultado de examen</option>
+        <option value="pedido">Pedido de examen</option>
+        <option value="informe">Informe narrativo (ej. PET scan)</option>
+        <option value="nota">Nota del doctor</option>
+      </select>
+    </label>
+    <button class="btn btn-primary btn-large" type="submit">Explicar mi documento ✨</button>
+    <p class="micro-note">Verás la explicación completa antes de crear cualquier cuenta.</p>
+  </form>
+</section>
+{% endblock %}

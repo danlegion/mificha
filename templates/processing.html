@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Leyendo tu documento…{% endblock %}
+
+{% block content %}
+<section class="card processing-card" aria-live="polite">
+  <div class="spinner" aria-hidden="true"></div>
+  <h1>Estamos leyendo tu documento…</h1>
+  <p>Esto suele tomar unos segundos. No cierres esta página.</p>
+  <p class="micro-note">Si tarda mucho, te avisaremos aquí mismo.</p>
+
+  <div class="error-box" id="processing-error" hidden>
+    <h2>Ups, algo salió mal 😕</h2>
+    <p id="processing-error-msg">No pudimos leer tu documento.</p>
+    <a class="btn btn-primary" href="/">Intentar con otro archivo</a>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.MIFicha = window.MIFicha || {};
+  window.MIFicha.estadoUrl = "/api/v1/estado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}";
+  window.MIFicha.resultadoUrl = "/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}";
+  window.MIFicha.startPolling();
+</script>
+{% endblock %}

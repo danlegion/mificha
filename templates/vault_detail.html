@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Explicación guardada{% endblock %}
+
+{% block content %}
+{% include "_explanation.html" %}
+
+<section class="card original-card" aria-label="Documento original">
+  <h2>📄 Documento original</h2>
+  <p>Si tu doctor quiere ver el documento tal como lo subiste:</p>
+  <div class="btn-row">
+    <a class="btn btn-primary" href="{{ doc.original_url }}" target="_blank" rel="noopener">Ver documento original</a>
+  </div>
+</section>
+
+<section class="card doctor-share" aria-label="Compartir con tu doctor">
+  <h2>👩‍⚕️ Compartir con mi doctor</h2>
+  <p>Muéstrale esta explicación en tu celular, o comparte el enlace del resumen desde la <a href="#compartir">sección de compartir</a>. Para el documento completo, usa el botón de arriba.</p>
+</section>
+
+{% if history %}
+<section class="card history-card" aria-label="Historial de valores">
+  <h2>📈 Cómo han cambiado tus valores</h2>
+  {% for h in history %}
+  <details class="detail-section">
+    <summary>{{ h.biomarker_name }}</summary>
+    <div class="detail-body">
+      <table class="history-table">
+        <thead>
+          <tr><th>Fecha</th><th>Valor</th><th>Estado</th></tr>
+        </thead>
+        <tbody>
+          {% for row in h.entries %}
+          <tr{% if row.is_current %} class="current-row"{% endif %}>
+            <td>{{ row.date_label }}</td>
+            <td>{{ row.value }}{% if row.unit %} {{ row.unit }}{% endif %}</td>
+            <td>{{ row.flag_label }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

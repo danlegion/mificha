@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Mi ficha{% endblock %}
+
+{% block content %}
+<section class="hero card">
+  <h1>Mi ficha 💚</h1>
+  <p>Aquí están todos tus documentos explicados, en un solo lugar.</p>
+  <a class="btn btn-primary" href="/#subir">Subir nuevo documento</a>
+</section>
+
+{% if docs %}
+<section class="doc-grid" aria-label="Tus documentos">
+  {% for doc in docs %}
+  <a class="card doc-card" href="/ficha/{{ doc.id }}">
+    <p class="eyebrow">{{ doc.type_label }} · {{ doc.date_label }}</p>
+    <p class="lead">{{ doc.summary_short }}</p>
+    <p class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</p>
+  </a>
+  {% endfor %}
+</section>
+{% else %}
+<section class="card empty-state">
+  <h2>Todavía no tienes documentos guardados</h2>
+  <p>Sube tu primer examen y te lo explicamos en lenguaje simple.</p>
+  <a class="btn btn-primary" href="/#subir">Subir documento</a>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Guarda tu resultado{% endblock %}
+
+{% block content %}
+<section class="card register-card">
+  <h1>💚 Guarda tu resultado</h1>
+  <p>Crea tu cuenta con tu correo y tu teléfono. Tu explicación quedará a salvo y podrás consultarla cuando quieras.</p>
+
+  {% if error %}
+  <div class="error-box" role="alert">
+    <p>{{ error }}</p>
+  </div>
+  {% endif %}
+
+  <form action="/guardar/{{ intake_id }}" method="post">
+    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
+    <label class="field">
+      <span>Correo electrónico</span>
+      <input type="email" name="email" required autocomplete="email" placeholder="tu@correo.com">
+    </label>
+    <label class="field">
+      <span>Teléfono</span>
+      <input type="tel" name="telefono" required autocomplete="tel" placeholder="+593 99 123 4567">
+      <small>Lo usaremos para tu cuenta. Solo te escribiremos por WhatsApp si nos das un permiso aparte.</small>
+    </label>
+    <button class="btn btn-primary btn-large" type="submit">Crear mi cuenta y guardar</button>
+    <p class="micro-note">Al continuar aceptas nuestros términos y el aviso de privacidad.</p>
+  </form>
+</section>
+{% endblock %}

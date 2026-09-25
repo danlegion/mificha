@@ -1,0 +1,114 @@
+{# Partial: explanation display shared by result.html and vault_detail.html.
+   Expects `exp` in context. #}
+
+<div class="disclaimer-box" role="note">
+  MiFicha explica tu documento en lenguaje simple, pero no hace diagnósticos ni reemplaza a tu doctor.
+</div>
+
+<section class="card level1" aria-label="Resumen">
+  <p class="eyebrow">{{ exp.type_label }}</p>
+  <h1 class="summary">{{ exp.summary_simple }}</h1>
+
+  <div class="urgency urgency-{{ exp.urgency.level }}" role="status">
+    <p class="urgency-level">{{ exp.urgency.label }}</p>
+    <p class="urgency-action"><strong>Qué hacer:</strong> {{ exp.urgency.action }}</p>
+    <p class="urgency-timeframe"><strong>Cuándo:</strong> {{ exp.urgency.timeframe }}</p>
+    <p class="urgency-reason"><strong>Por qué:</strong> {{ exp.urgency.reason }}</p>
+  </div>
+</section>
+
+{% if exp.uncertain_fields %}
+<section class="card uncertain-card" aria-label="Datos por confirmar">
+  <h2>🔍 Confirma estos datos</h2>
+  <p>Algunos datos no quedaron claros al leer el documento. Revisa y corrígelos si los conoces — aparecen marcados <span class="flag flag-uncertain">por confirmar</span>.</p>
+</section>
+{% endif %}
+
+<section class="card" aria-label="Entender más">
+  <h2>Entender más 💡</h2>
+
+  {% if exp.biomarkers %}
+  <details class="detail-section">
+    <summary>Valores de tu examen ({{ exp.biomarkers|length }})</summary>
+    <div class="detail-body">
+      {% for b in exp.biomarkers %}
+      <article class="bio-card">
+        <header>
+          <h3>{{ b.name }}</h3>
+          {% if b.flag_uncertain %}
+          <span class="flag flag-uncertain">por confirmar</span>
+          {% endif %}
+        </header>
+        <p class="bio-value">{{ b.value }}{% if b.unit %} {{ b.unit }}{% endif %}
+          {% if b.flag %}<span class="flag flag-{{ b.flag_key | default('') }}">{{ b.flag }}</span>{% endif %}
+        </p>
+        {% if b.ref_range %}<p class="bio-range">Rango de referencia: {{ b.ref_range }}</p>{% endif %}
+        <p class="bio-explain">{{ b.plain_explanation }}</p>
+        {% if b.possible_health_effect %}
+        <p class="bio-effect"><strong>Posible efecto en tu salud:</strong> {{ b.possible_health_effect }}</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+  {% if exp.narrative_findings %}
+  <details class="detail-section">
+    <summary>Hallazgos del informe</summary>
+    <div class="detail-body">
+      {% for f in exp.narrative_findings %}
+      <article class="narrative-item">
+        <h3>{{ f.heading }}</h3>
+        <p>{{ f.simple_explanation }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+  {% if exp.ordered_tests %}
+  <details class="detail-section">
+    <summary>Pedidos de examen ({{ exp.ordered_tests|length }})</summary>
+    <div class="detail-body">
+      {% for t in exp.ordered_tests %}
+      <article class="order-card">
+        <h3>{{ t.name }}</h3>
+        <p><strong>Qué es:</strong> {{ t.what_it_is }}</p>
+        <p><strong>Suele usarse para…</strong> {{ t.usual_objectives }}</p>
+        {% if t.preparation %}<p><strong>Preparación:</strong> {{ t.preparation }}</p>{% endif %}
+        {% if t.question_for_doctor %}
+        <p class="doctor-q">❓ <strong>Pregunta para tu doctor:</strong> {{ t.question_for_doctor }}</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+  {% if exp.recommendations %}
+  <details class="detail-section">
+    <summary>Recomendaciones generales</summary>
+    <div class="detail-body">
+      <ul class="check-list">
+        {% for r in exp.recommendations %}
+        <li>{{ r }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </details>
+  {% endif %}
+
+  {% if exp.questions_for_doctor %}
+  <details class="detail-section">
+    <summary>Preguntas para tu doctor</summary>
+    <div class="detail-body">
+      <ol class="number-list">
+        {% for q in exp.questions_for_doctor %}
+        <li>{{ q }}</li>
+        {% endfor %}
+      </ol>
+    </div>
+  </details>
+  {% endif %}
+</section>

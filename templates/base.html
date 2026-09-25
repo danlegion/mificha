@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MiFicha explica tus exámenes médicos en lenguaje simple.">
+  <title>{% block title %}MiFicha{% endblock %} · MiFicha</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#1f8a70">
+</head>
+<body>
+  {% if demo_mode|default(false) or dev_auth|default(false) %}
+  <div class="dev-banner" role="note">Modo demostración — nada de esto es un diagnóstico</div>
+  {% endif %}
+
+  <header class="site-header">
+    <div class="container">
+      <a class="wordmark" href="/">MiFicha 🐉</a>
+      <p class="tagline">Entiende tus exámenes. Cuida a tu familia.</p>
+    </div>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>MiFicha explica tus documentos en lenguaje simple, pero no hace diagnósticos ni reemplaza a tu doctor.</p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Explicación de tu documento{% endblock %}
+
+{% block content %}
+{% include "_explanation.html" %}
+
+{% if exp.uncertain_fields %}
+<section class="card correct-card" id="corregir" aria-label="Corregir datos">
+  <h2>✏️ Corrige lo que no quedó claro</h2>
+  <form action="/resultado/{{ intake_id }}/corregir" method="post">
+    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
+    {% for field in exp.uncertain_fields %}
+    <label class="field">
+      <span>{{ field.label }} <span class="flag flag-uncertain">por confirmar</span></span>
+      <input type="text" name="{{ field.key }}" value="{{ field.guessed_value | default('') }}" placeholder="Escribe el valor correcto">
+      {% if field.hint %}<small>{{ field.hint }}</small>{% endif %}
+    </label>
+    {% endfor %}
+    <button class="btn btn-primary" type="submit">Guardar correcciones</button>
+  </form>
+</section>
+{% endif %}
+
+{% if not is_saved %}
+<section class="card save-cta" aria-label="Guardar en MiFicha">
+  <h2>💚 Guarda tu resultado en MiFicha</h2>
+  <ul class="check-list">
+    <li>No se borra: tu explicación queda a salvo</li>
+    <li>Consúltalo cuando quieras, desde donde estés</li>
+    <li>Compártelo con tu doctor fácilmente</li>
+    <li>Ve cómo cambian tus valores con el tiempo</li>
+  </ul>
+  <a class="btn btn-primary btn-large" href="/guardar/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">Guardar en MiFicha</a>
+</section>
+{% endif %}
+
+<section class="card share-card" id="compartir" aria-label="Compartir">
+  <h2>📤 Compartir un resumen</h2>
+  <p>Crea un enlace privado con solo el resumen y la urgencia. Se puede revocar cuando quieras.</p>
+
+  {% if share %}
+  <div class="share-active">
+    <p class="eyebrow">Enlace activo</p>
+    <div class="share-preview">
+      <h3>Esto es exactamente lo que verá quien abra el enlace:</h3>
+      <p class="summary">{{ share.summary_simple }}</p>
+      {% if share.include_urgency %}
+      <p class="urgency urgency-{{ share.urgency_level }}">
+        <span class="urgency-level">{{ share.urgency_label }}</span> — {{ share.action }}
+      </p>
+      {% endif %}
+      <p class="micro-note">Expira: {{ share.expires_label }} · Sin PDF, sin otros datos, sin tu identidad.</p>
+    </div>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="https://wa.me/?text={{ share.text_encoded }}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
+      <button class="btn btn-ghost copy-btn" type="button" data-copy="{{ share.url }}">Copiar enlace</button>
+    </div>
+    <form action="/compartir/{{ intake_id }}/revocar" method="post">
+      {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
+      <button class="btn btn-danger" type="submit">Revocar enlace</button>
+    </form>
+  </div>
+  {% else %}
+  <form action="/compartir/{{ intake_id }}" method="post">
+    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
+    <fieldset class="share-options">
+      <legend>Incluir en el enlace</legend>
+      <label class="checkbox-row">
+        <input type="checkbox" name="incluir_resumen" value="1" checked>
+        <span>Resumen en lenguaje simple</span>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" name="incluir_urgencia" value="1" checked>
+        <span>Nivel de urgencia y qué hacer</span>
+      </label>
+    </fieldset>
+    <button class="btn btn-primary" type="submit">Crear enlace para compartir</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,2 +1,104 @@
-# mificha
-MiFicha — entiende tus exámenes. Cuida a tu familia. (health app: plain-language lab result explanations + personal health vault)
+# MiFicha v0.1 — prototipo
+
+MiFicha es un prototipo de app de salud que explica documentos médicos en español simple: resultados de laboratorio, informes narrativos (por ejemplo un PET) y órdenes de exámenes. Por cada documento dice qué significa cada valor, qué tan fuera de rango está, qué efecto podría tener en la salud y qué tan urgente es buscar atención médica — sin dar diagnósticos.
+
+## Requisitos
+
+- Python 3.11 o superior
+- (Opcional) claves de API para modo real: Anthropic, Supabase, proveedor OCR
+
+## Instalación
+
+```bash
+cd ~/workspace/mificha
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+## Cómo correr
+
+```bash
+cd ~/workspace/mificha
+source .venv/bin/activate
+uvicorn app.main:app --reload
+```
+
+La app queda en http://localhost:8000 (o el `PORT` de tu `.env`).
+
+## Variables de entorno
+
+| Variable | Obligatoria | Default (si vacía) | Descripción |
+|---|---|---|---|
+| `ANTHROPIC_API_KEY` | No | modo demo | Clave de Anthropic. Vacía = explicación local determinista, sin llamadas de red. |
+| `LLM_MODEL` | No | default del backend | Modelo LLM para modo real. |
+| `SUPABASE_URL` | No | SQLite local | URL del proyecto Supabase (producción). |
+| `SUPABASE_ANON_KEY` | No | — | Clave anónima de Supabase. |
+| `SUPABASE_SERVICE_KEY` | No | — | Clave de servicio de Supabase (solo servidor). |
+| `OCR_PROVIDER` | No | `null` | `null` \| `azure` \| `google`. `null` = las páginas escaneadas solo se marcan, sin OCR. |
+| `AZURE_DI_ENDPOINT` | Si `OCR_PROVIDER=azure` | — | Endpoint de Azure Document Intelligence. |
+| `AZURE_DI_KEY` | Si `OCR_PROVIDER=azure` | — | Clave de Azure Document Intelligence. |
+| `GOOGLE_DOCAI_PROJECT` | Si `OCR_PROVIDER=google` | — | Proyecto de Google Document AI. |
+| `SECRET_KEY` | Sí | — | Firma de sesiones/tokens. **Cámbiala en producción.** |
+| `DATABASE_URL` | No | `./data/mificha.db` | Vacía = SQLite local. |
+| `STORAGE_DIR` | No | `./data/originales` | Carpeta donde se guardan los PDFs subidos. |
+| `PORT` | No | `8000` | Puerto del servidor. |
+| `BASE_URL` | No | `http://localhost:8000` | URL pública; construye los enlaces de WhatsApp. En producción usa tu dominio. |
+
+## Qué funciona sin keys (modo demo)
+
+- Explicación local determinista (sin LLM): plantillas en español simple, sin llamadas de red.
+- Auth de desarrollo (sin Supabase).
+- SQLite local en `./data/mificha.db` y PDFs en `./data/originales`.
+- Detección de páginas escaneadas: se marcan como tales (sin OCR no se extrae su texto).
+
+## Para producción hay que conectar
+
+1. **Supabase**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` (y `DATABASE_URL` si usas Postgres directo).
+2. **Anthropic**: `ANTHROPIC_API_KEY` (y `LLM_MODEL` si quieres fijar el modelo) para la explicación en lenguaje natural.
+3. **OCR**: `OCR_PROVIDER=azure|google` con sus credenciales, para extraer texto de PDFs escaneados.
+
+## Cómo correr los tests
+
+```bash
+cd ~/workspace/mificha
+python -m pytest -q
+```
+
+- Los tests no hacen llamadas de red y generan sus PDFs en memoria (PyMuPDF).
+- El test de explicación vía LLM está marcado `skip` (requiere `ANTHROPIC_API_KEY`).
+- Contratos que cubren: `tests/test_pdf_extract.py` (extracción de PDFs), `tests/test_urgency.py` (niveles de urgencia), `tests/test_schemas.py` (modelo Explanation).
+
+## Estructura del proyecto
+
+```
+mificha/
+├── app/
+│   ├── main.py                 # app FastAPI (backend)
+│   ├── schemas.py              # modelos pydantic de la Explanation
+│   └── services/
+│       ├── pdf_extract.py      # extract_document(pdf_bytes) -> dict
+│       ├── urgency.py          # decide_urgency(signals) -> dict
+│       └── explain.py          # explicación (demo local o LLM)
+├── static/                     # assets frontend
+├── templates/                  # vistas
+├── tests/                      # suite pytest (contratos)
+├── data/                       # SQLite + PDFs (local, no va a git)
+├── .env.example
+├── requirements.txt
+└── README.md
+```
+
+## Qué está implementado vs. qué es stub
+
+- **Real**: extracción de texto de PDFs digitales, detección de páginas escaneadas (menos de 20 caracteres → escaneada), reglas de urgencia, esquemas de la Explanation.
+- **Stub / demo**: explicación en lenguaje simple sin LLM (plantillas deterministas); OCR de escaneados (solo se marcan hasta conectar un proveedor); auth dev y SQLite local.
+
+## Reglas duras
+
+1. **Los rangos de referencia salen solo del documento.** Nunca inventar rangos ni valores.
+2. **Sin diagnósticos.** Se explican valores y hallazgos; no se dice qué enfermedad tiene el usuario.
+3. **La prioridad de una orden se cita literal** en la explicación; nunca se inventa.
+4. **Ante dato crítico incierto, ser conservador**: nunca `no_urgente`.
+5. **Lenguaje simple** en español: valores fuera de rango marcados con qué tan lejos están, y guía visible de si/cuándo buscar atención médica.

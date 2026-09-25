@@ -1,0 +1,121 @@
+"""MiFicha v0.1 — ingesta: POST /subir."""
+
+import logging
+import os
+import uuid
+
+from fastapi import APIRouter, BackgroundTasks, File, Form, Request, UploadFile
+from fastapi.responses import RedirectResponse
+
+from app import config
+from app.db import dal
+from app.routers import hash_token, new_guest_token, templates
+from app.services.pipeline import UnprocessableDocument, process_intake
+from app.storage import quarantine_path, store_original
+
+log = logging.getLogger("mificha.ingest")
+
+router = APIRouter()
+
+
+def _validar_pdf(pdf_bytes: bytes) -> str | None:
+    """Devuelve mensaje de error en español o None si el PDF es válido."""
+    if not pdf_bytes.startswith(b"%PDF"):
+        return "El archivo no parece ser un PDF válido."
+    mb = len(pdf_bytes) / (1024 * 1024)
+    if mb > config.MAX_PDF_MB:
+        return (
+            f"El archivo pesa {mb:.1f} MB y el límite es {config.MAX_PDF_MB} MB."
+        )
+    try:
+        import fitz
+
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        n = doc.page_count
+        doc.close()
+    except Exception:
+        return "No pudimos abrir el PDF. Revisa que no esté dañado."
+    if n == 0:
+        return "El PDF no tiene páginas."
+    if n > config.MAX_PDF_PAGES:
+        return (
+            f"El PDF tiene {n} páginas y el límite es {config.MAX_PDF_PAGES}."
+        )
+    return None
+
+
+def _run_pipeline(intake_id: str):
+    """Tarea en segundo plano: procesa el PDF en cuarentena."""
+    intake = dal.get_intake(intake_id)
+    if not intake:
+        log.error("Intake %s no existe; no se procesa.", intake_id)
+        return
+    qpath = quarantine_path(intake_id)
+    try:
+        with open(qpath, "rb") as f:
+            pdf_bytes = f.read()
+    except OSError as exc:
+        log.error("No se pudo leer cuarentena de %s: %s", intake_id, exc)
+        dal.set_intake_ready(intake_id, status="failed",
+                             detail="No se pudo leer el archivo subido.")
+        return
+    try:
+        exp = process_intake(intake_id, pdf_bytes, intake.get("doc_type_hint"))
+    except UnprocessableDocument as exc:
+        log.info("Intake %s rechazado: %s", intake_id, exc)
+        dal.set_intake_ready(intake_id, status="rejected", detail=str(exc))
+        return
+    except Exception as exc:  # noqa: BLE001 - no tumbar el worker
+        log.exception("Intake %s falló: %s", intake_id, exc)
+        dal.set_intake_ready(
+            intake_id, status="failed",
+            detail="Ocurrió un error al procesar tu documento. Intenta de nuevo.",
+        )
+        return
+    dal.set_intake_ready(intake_id, explanation=exp, status="ready")
+    try:
+        os.remove(qpath)
+    except OSError:
+        pass
+
+
+@router.post("/subir")
+async def subir(
+    request: Request,
+    background: BackgroundTasks,
+    archivo: UploadFile = File(...),
+    tipo_doc: str = Form(default=""),
+):
+    contenido = await archivo.read()
+    error = _validar_pdf(contenido)
+    if error:
+        return templates.TemplateResponse(
+            request,
+            "error.html",
+            {"request": request, "message": error, "detail": None,
+             "dev_auth": False, "demo_mode": False},
+            status_code=400,
+        )
+
+    intake_id = uuid.uuid4().hex
+    guest_token = new_guest_token()
+    with open(quarantine_path(intake_id), "wb") as f:
+        f.write(contenido)
+    original_key = store_original(intake_id, contenido)
+
+    dal.save_intake(
+        {
+            "id": intake_id,
+            "guest_token_hash": hash_token(guest_token),
+            "status": "processing",
+            "doc_type_hint": (tipo_doc or "").strip() or None,
+            "original_key": original_key,
+        }
+    )
+    # Log sin contenido clínico: solo tamaños y estado.
+    log.info("Nuevo intake %s (%d bytes, hint=%s)",
+             intake_id, len(contenido), tipo_doc or "-")
+    background.add_task(_run_pipeline, intake_id)
+    return RedirectResponse(
+        f"/procesando/{intake_id}?t={guest_token}", status_code=303
+    )
