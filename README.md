@@ -31,8 +31,10 @@ La app queda en http://localhost:8000 (o el `PORT` de tu `.env`).
 
 | Variable | Obligatoria | Default (si vacía) | Descripción |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | No | modo demo | Clave de Anthropic. Vacía = explicación local determinista, sin llamadas de red. |
-| `LLM_MODEL` | No | default del backend | Modelo LLM para modo real. |
+| `GEMINI_API_KEY` | No | modo demo | Clave de Gemini (AI Studio). Primera opción si está presente. |
+| `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Modelo Gemini (verificado en free tier). |
+| `ANTHROPIC_API_KEY` | No | modo demo | Clave de Anthropic (alternativa). Vacías ambas = explicación local determinista, sin llamadas de red. |
+| `LLM_MODEL` | No | default del backend | Modelo LLM para Anthropic. |
 | `SUPABASE_URL` | No | SQLite local | URL del proyecto Supabase (producción). |
 | `SUPABASE_ANON_KEY` | No | — | Clave anónima de Supabase. |
 | `SUPABASE_SERVICE_KEY` | No | — | Clave de servicio de Supabase (solo servidor). |
@@ -56,7 +58,7 @@ La app queda en http://localhost:8000 (o el `PORT` de tu `.env`).
 ## Para producción hay que conectar
 
 1. **Supabase**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` (y `DATABASE_URL` si usas Postgres directo).
-2. **Anthropic**: `ANTHROPIC_API_KEY` (y `LLM_MODEL` si quieres fijar el modelo) para la explicación en lenguaje natural.
+2. **Gemini (o Anthropic)**: `GEMINI_API_KEY` (y `GEMINI_MODEL` si quieres fijar el modelo) para la explicación en lenguaje natural. Alternativa: `ANTHROPIC_API_KEY` + `LLM_MODEL`.
 3. **OCR**: `OCR_PROVIDER=azure|google` con sus credenciales, para extraer texto de PDFs escaneados.
 
 ## Cómo correr los tests
@@ -67,7 +69,7 @@ python -m pytest -q
 ```
 
 - Los tests no hacen llamadas de red y generan sus PDFs en memoria (PyMuPDF).
-- El test de explicación vía LLM está marcado `skip` (requiere `ANTHROPIC_API_KEY`).
+- `tests/test_explain_llm.py` prueba los proveedores con la red mockeada.
 - Contratos que cubren: `tests/test_pdf_extract.py` (extracción de PDFs), `tests/test_urgency.py` (niveles de urgencia), `tests/test_schemas.py` (modelo Explanation).
 
 ## Estructura del proyecto

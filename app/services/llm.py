@@ -7,6 +7,8 @@ Contrato:
     `extracted` es el dict de `pdf_extract.extract_document` (el pipeline le
     añade la clave "doc_type_hint" antes de llamar).
 
+    GeminiProvider: usa GEMINI_API_KEY y el modelo de la variable
+    GEMINI_MODEL (default "gemini-3.5-flash-lite", verificado en free tier).
     AnthropicProvider: usa ANTHROPIC_API_KEY y el modelo de la variable
     LLM_MODEL (default "claude-sonnet-4-5-20250929").
     DemoExplainer: alternativa determinista basada en reglas; se usa SOLO
@@ -27,6 +29,10 @@ import json
 import logging
 import os
 import re
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from app.services.urgency import decide_urgency
 
@@ -149,6 +155,97 @@ def _extraer_json(texto: str) -> str:
     if inicio != -1 and fin != -1 and fin > inicio:
         return t[inicio : fin + 1]
     return t
+
+
+class GeminiProvider(LLMProvider):
+    """Explicación con el API de Gemini (AI Studio).
+
+    La clave va como query param `key` (lo que el API espera). Reintenta
+    429/503 con backoff porque el free tier los devuelve bajo carga.
+    """
+
+    is_demo = False
+    endpoint_tpl = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        "{model}:generateContent"
+    )
+
+    def __init__(self, model: str = None, api_key: str = None):
+        self.model = model or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY", "")
+
+    def explain(self, extracted: dict) -> dict:
+        if not self.api_key:
+            raise RuntimeError("GEMINI_API_KEY no está configurada.")
+        texto = (extracted.get("full_text") or "")[:12000]
+        hint = extracted.get("doc_type_hint")
+        pista = (
+            f"\nEl usuario indicó que el tipo de documento es: {hint}."
+            if hint
+            else ""
+        )
+        cuerpo = {
+            "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": (
+                                "Explica este documento médico en español "
+                                "simple. Devuelve solo el JSON."
+                                f"{pista}\n\nTEXTO DEL DOCUMENTO:\n{texto}"
+                            )
+                        }
+                    ],
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 6000,
+                "responseMimeType": "application/json",
+            },
+        }
+        url = self.endpoint_tpl.format(model=self.model)
+        # La clave en query param, como pide el API de Gemini.
+        url = url + "?key=" + urllib.parse.quote(self.api_key, safe="")
+        crudo = self._post(url, cuerpo)
+        data = json.loads(_extraer_json(crudo))
+        data["demo_mode"] = False
+        return data
+
+    def _post(self, url: str, cuerpo: dict) -> str:
+        payload = json.dumps(cuerpo, ensure_ascii=False).encode("utf-8")
+        ultimo_error = None
+        for intento in range(4):
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/json; charset=utf-8"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    data = json.load(resp)
+                partes = data["candidates"][0]["content"]["parts"]
+                return "".join(p.get("text", "") for p in partes)
+            except urllib.error.HTTPError as exc:
+                ultimo_error = exc
+                if exc.code in (429, 503) and intento < 3:
+                    espera = 2 ** (intento + 1)
+                    log.warning(
+                        "Gemini HTTP %s, reintentando en %ss", exc.code, espera
+                    )
+                    time.sleep(espera)
+                    continue
+                raise RuntimeError(
+                    f"Gemini devolvió HTTP {exc.code}"
+                ) from exc
+            except (KeyError, IndexError, TypeError) as exc:
+                raise RuntimeError(
+                    "Respuesta inesperada de Gemini"
+                ) from exc
+        raise RuntimeError(f"Gemini no respondió: {ultimo_error}")
 
 
 # ---------------------------------------------------------------------------
@@ -659,9 +756,16 @@ class DemoExplainer(LLMProvider):
 
 
 def get_llm_provider() -> LLMProvider:
-    """Fábrica: Anthropic si hay API key; si no, DemoExplainer (solo demo)."""
+    """Fábrica: Gemini si hay API key, si no Anthropic; si no, DemoExplainer.
+
+    El orden refleja la llave que Daniel conectó para el prototipo.
+    DemoExplainer es SOLO para desarrollo sin llave (modo demo).
+    """
+    if os.getenv("GEMINI_API_KEY", "").strip():
+        log.info("Proveedor LLM: Gemini")
+        return GeminiProvider()
     if os.getenv("ANTHROPIC_API_KEY", "").strip():
         log.info("Proveedor LLM: Anthropic")
         return AnthropicProvider()
-    log.info("Sin ANTHROPIC_API_KEY: usando DemoExplainer (modo demo)")
+    log.info("Sin API key de LLM: usando DemoExplainer (modo demo)")
     return DemoExplainer()
