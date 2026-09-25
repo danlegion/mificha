@@ -292,7 +292,7 @@ def _detectar_tipo(texto: str, hint) -> str:
         "exam_order": sum(k in t for k in ["orden de", "solicitud de examen", "se solicita", "pedido de", "solicito"]),
         "narrative_report": sum(k in t for k in ["informe", "hallazgo", "impresión", "pet-ct", "tomografía", "resonancia", "ecografía", "radiografía"]),
         "doctor_note": sum(k in t for k in ["nota médica", "evolución", "motivo de consulta", "examen físico", "plan:"]),
-        "lab_result": sum(k in t for k in ["laboratorio", "hemograma", "bioquímica", "rango de referencia", "valores de referencia"]),
+        "lab_result": sum(k in t for k in ["laboratorio", "hemograma", "biometria", "hematolog", "bioquímica", "bioquimica", "rango de referencia", "valor de referencia", "valores de referencia", "glóbulos", "globulos", "plaquetas", "hemoglobina", "colesterol", "triglicéridos", "glucosa", "creatinina", "uroanálisis", "orina", "tiroides", "química sanguínea"]),
     }
     mejor = max(puntajes, key=puntajes.get)
     return mejor if puntajes[mejor] > 0 else "lab_result"
@@ -401,27 +401,35 @@ class DemoExplainer(LLMProvider):
             if b["incierto"]:
                 uncertain.append(b["incierto"])
 
+        # Solo los valores confirmados (con rango) cuentan para el resumen y
+        # la urgencia. Los "por confirmar" van a uncertain_fields para que el
+        # usuario los revise, pero nunca generan una falsa tranquilidad.
+        confirmados = [b for b in biomarcadores if b["flag"] != "por confirmar"]
+        hay_inciertos = len(biomarcadores) > len(confirmados)
+
         if anormales := [a["name"] for a in abnormal]:
             resumen = (
-                f"Tu examen de laboratorio muestra {len(biomarcadores)} valores. "
+                f"Tu examen de laboratorio muestra {len(confirmados)} valores. "
                 f"Fuera de su rango de referencia: {', '.join(anormales)}."
             )
-        elif biomarcadores:
+        elif confirmados:
             resumen = (
-                f"Tu examen de laboratorio muestra {len(biomarcadores)} valores "
+                f"Tu examen de laboratorio muestra {len(confirmados)} valores "
                 "y todos están dentro de su rango de referencia."
             )
         else:
             resumen = (
-                "No pudimos identificar valores de laboratorio claros en el "
-                "documento."
+                "Detectamos que es un examen de laboratorio, pero no pudimos "
+                "leer sus valores con confianza. Revisa el documento original "
+                "abajo."
             )
             uncertain.append(
                 {
                     "field": "biomarkers",
                     "reason": (
                         "No se encontraron líneas con formato de resultado de "
-                        "laboratorio (nombre, valor y rango)."
+                        "laboratorio (nombre, valor y rango) que pudiéramos "
+                        "leer con confianza."
                     ),
                 }
             )
@@ -443,7 +451,10 @@ class DemoExplainer(LLMProvider):
                     "¿Hay algo que deba vigilar en casa?",
                 ],
             },
-            {"abnormal": abnormal, "has_critical_flag": critico},
+            {"abnormal": abnormal, "has_critical_flag": critico,
+             # Sin valores confirmados no afirmamos "todo normal": la duda
+             # amerita por precaución al menos agendar una cita.
+             "has_uncertain_critical": hay_inciertos or not confirmados},
         )
 
     def _parsear_linea_lab(self, linea: str):
@@ -467,7 +478,9 @@ class DemoExplainer(LLMProvider):
 
         valor = valor_num
         lo, hi = _parse_rango(rango_crudo or "")
-        critico = bool(re.search(r"[!*]|cr[ií]tico|p[áa]nico", linea, re.IGNORECASE))
+        # Solo cuenta como marca crítica si * o ! van pegados a un número
+        # (convención de laboratorio); los * de notas al pie no cuentan.
+        critico = bool(re.search(r"\d\s*[!*]|cr[ií]tico|p[áa]nico", linea, re.IGNORECASE))
 
         if lo is None and hi is None:
             flag = "por confirmar"
@@ -623,7 +636,9 @@ class DemoExplainer(LLMProvider):
         abnormal = list(sen_extra.get("abnormal", []))
         critico = bool(sen_extra.get("has_critical_flag"))
         # Re-deriva severidad con el texto completo si hay marcas críticas.
-        if re.search(r"[!*]\s*$|cr[ií]tico|p[áa]nico", texto, re.IGNORECASE | re.MULTILINE):
+        # * o ! solo cuentan pegados a un número (p. ej. "350 *"); los *
+        # de notas al pie ("VALOR DE REFERENCIA *") no son valores críticos.
+        if re.search(r"\d\s*[!*]", texto) or re.search(r"cr[ií]tico|p[áa]nico", texto, re.IGNORECASE):
             critico = True
         emergencia = any(k in texto.lower() for k in _LENGUAJE_EMERGENCIA)
         prioridad = None
@@ -636,7 +651,7 @@ class DemoExplainer(LLMProvider):
         return {
             "abnormal": abnormal,
             "has_critical_flag": critico,
-            "has_uncertain_critical": False,
+            "has_uncertain_critical": bool(sen_extra.get("has_uncertain_critical")),
             "narrative_emergency_language": emergencia,
             "explicit_priority": prioridad,
             "doc_type": exp.get("document_type"),
