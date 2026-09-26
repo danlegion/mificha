@@ -134,6 +134,16 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .hero h1 { margin: 0 0 0.6rem; font-size: 1.65rem; font-weight: 800; }
 .hero p { margin: 0 0 1rem; color: var(--ink-soft); }
 
+/* Resumen de la explicación: es una oración completa, no un título corto.
+   Va en un tamaño de declaración serena, no de cartel. */
+.level1 .summary {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  margin: 0.15rem 0 0;
+}
+
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.14em;

@@ -1,7 +1,7 @@
 /* MiFicha service worker — cache-first for the app shell only.
    NEVER cache /resultado, /ficha, /s/* (clinical data must always be fresh). */
-var CACHE = "mificha-shell-v5";
-var SHELL = ["/", "/static/app.css?v=5", "/static/app.js?v=5", "/static/manifest.json"];
+var CACHE = "mificha-shell-v6";
+var SHELL = ["/", "/static/app.css?v=6", "/static/app.js?v=6", "/static/manifest.json"];
 
 self.addEventListener("install", function (event) {
   event.waitUntil(
