@@ -131,10 +131,16 @@ def process_intake(
     extracted = pdf_extract.extract_document(pdf_bytes)
     texto = (extracted.get("full_text") or "").strip()
     if extracted.get("num_pages", 0) == 0 or not texto:
+        if extracted.get("scanned_pages"):
+            raise UnprocessableDocument(
+                "Detectamos que tu documento es una foto o un escaneo, y aún "
+                "no podemos leer ese formato: estamos trabajando en agregarlo. "
+                "Por ahora, sube el PDF original del laboratorio para obtener "
+                "tu explicación."
+            )
         raise UnprocessableDocument(
             "No pudimos leer ningún texto de tu documento. "
-            "Si es una foto o un escaneo, intenta subir el PDF original "
-            "del laboratorio o una imagen más nítida."
+            "Revisa que el archivo sea un PDF válido o intenta con otro archivo."
         )
 
     # OCR: las páginas escaneadas se marcan como inciertas, nunca se ignoran.
@@ -177,6 +183,25 @@ def process_intake(
         ) from exc
 
     exp = _aplicar_reglas_duras(exp, extracted)
+
+    # Páginas escaneadas: se informa al usuario en todos los motores.
+    # (DemoExplainer ya las agrega; aquí se cubren Gemini/Anthropic.)
+    for n in extracted.get("scanned_pages", []):
+        campo = f"pages[{n}].text"
+        ya = any(f.get("field") == campo for f in exp.get("uncertain_fields", []))
+        if not ya:
+            exp.setdefault("uncertain_fields", []).append(
+                {
+                    "field": campo,
+                    "reason": (
+                        f"La página {n} parece ser una foto o un escaneo y no "
+                        "pudimos leer su texto. Estamos trabajando en poder "
+                        "leer este tipo de documentos; por ahora su contenido "
+                        "no se incluyó en esta explicación."
+                    ),
+                }
+            )
+
     log.info(
         "Intake %s listo: tipo=%s urgencia=%s",
         intake_id, exp.get("document_type"), exp.get("urgency", {}).get("level"),

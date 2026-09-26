@@ -440,9 +440,10 @@ class DemoExplainer(LLMProvider):
                 {
                     "field": f"pages[{n}].text",
                     "reason": (
-                        f"La página {n} parece ser una imagen escaneada y no "
-                        "pudimos leer su texto. Su contenido no se incluyó en "
-                        "esta explicación."
+                        f"La página {n} parece ser una foto o un escaneo y no "
+                        "pudimos leer su texto. Estamos trabajando en poder "
+                        "leer este tipo de documentos; por ahora su contenido "
+                        "no se incluyó en esta explicación."
                     ),
                 }
             )
