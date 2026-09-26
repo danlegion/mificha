@@ -20,6 +20,18 @@
     <p id="processing-error-msg">No pudimos leer tu documento.</p>
     <a class="btn btn-primary" href="/">Intentar con otro archivo</a>
   </div>
+  <div class="error-box" id="processing-manual" hidden>
+    <h2>¿Sigues aquí? 👀</h2>
+    <p>La redirección automática no arrancó. Tu resultado debería estar listo:</p>
+    <a class="btn btn-primary" id="processing-manual-link" href="/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">Ver mi resultado</a>
+  </div>
+
+  <noscript>
+    <div class="error-box">
+      <p>Esta página necesita JavaScript para avanzar sola.
+      <a href="/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">Abre tu resultado aquí</a> en unos segundos.</p>
+    </div>
+  </noscript>
 </section>
 {% endblock %}
 
@@ -28,6 +40,23 @@
   window.MIFicha = window.MIFicha || {};
   window.MIFicha.estadoUrl = "/api/v1/estado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}";
   window.MIFicha.resultadoUrl = "/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}";
-  window.MIFicha.startPolling();
+  function arrancarPolling() {
+    if (window.MIFicha.startPolling) { window.MIFicha.startPolling(); return true; }
+    return false;
+  }
+  if (!arrancarPolling()) {
+    /* app.js no cargó (red bloqueada, caché corrupta): reintentar unos
+       segundos y, si sigue sin arrancar, mostrar el enlace manual. */
+    var intentos = 0;
+    var t = setInterval(function () {
+      if (arrancarPolling() || ++intentos >= 5) {
+        clearInterval(t);
+        if (!window.MIFicha._polling) {
+          var box = document.getElementById("processing-manual");
+          if (box) box.hidden = false;
+        }
+      }
+    }, 1000);
+  }
 </script>
 {% endblock %}
