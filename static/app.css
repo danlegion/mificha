@@ -449,6 +449,37 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   margin-top: 1.5rem;
 }
 
+.notice-box {
+  background: var(--u-green-bg);
+  color: var(--u-green-fg);
+  border: 1px solid var(--u-green-line);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.code-input {
+  font-size: 1.5rem;
+  letter-spacing: 0.35em;
+  text-align: center;
+  font-weight: 700;
+}
+
+.resend-form {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--brand);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 0.5rem;
+}
+
 /* ---------- Share ---------- */
 
 .share-options {

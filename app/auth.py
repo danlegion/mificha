@@ -1,10 +1,12 @@
 """MiFicha v0.1 — autenticación.
 
-Con Supabase configurado: interfaz lista para Supabase Auth (magic link +
-phone OTP) — el flujo real se conecta cuando haya frontend de login.
-Sin Supabase: fallback local de desarrollo con cookie de sesión firmada
-(itsdangerous, SECRET_KEY del entorno). El registro en modo desarrollo omite
-la verificación de email/teléfono y lo dice claramente en el log.
+Con Supabase configurado: registro con código de 6 dígitos por correo vía
+Supabase Auth (sign_in_with_otp + verify_otp). La sesión de la app es una
+cookie firmada por el servidor (itsdangerous, SECRET_KEY del entorno) que
+guarda el id del usuario de nuestra tabla `users`.
+Sin Supabase: fallback local de desarrollo con la misma cookie firmada.
+El registro en modo desarrollo omite la verificación de email/teléfono y
+lo dice claramente en el log.
 
 NUNCA presentar el modo desarrollo como autenticación real: las plantillas
 reciben `dev_auth: True` y muestran el banner de demostración.
@@ -43,11 +45,7 @@ def get_session_user_id(cookie_value: str | None) -> str | None:
 
 
 def get_current_user(request) -> dict | None:
-    """Usuario de la sesión actual (cookie firmada o Supabase Auth)."""
-    if config.USE_SUPABASE:
-        # Supabase Auth: el token llegaría en Authorization o cookie `sb-*`.
-        # Interfaz lista; el intercambio del token se implementa con el login.
-        return None
+    """Usuario de la sesión actual (cookie firmada por el servidor)."""
     uid = get_session_user_id(request.cookies.get(SESSION_COOKIE))
     if not uid:
         return None
@@ -64,17 +62,90 @@ def register_dev(email: str, telefono: str) -> dict:
     return dal.create_user(email=email, telefono=telefono)
 
 
-# --- Supabase Auth (interfaz lista para cuando se conecte el login) --------
+# --- Supabase Auth: código de 6 dígitos por correo ---------------------------
 
-def send_magic_link(email: str) -> None:
-    """Envía magic link por email vía Supabase Auth (requiere configuración)."""
+class AuthError(Exception):
+    """Error de autenticación con mensaje listo para mostrar al usuario."""
+
+    def __init__(self, kind: str, message: str):
+        super().__init__(message)
+        self.kind = kind  # "codigo_invalido" | "limite" | "red" | "config"
+
+
+def _supabase_client():
+    """Cliente de Supabase con la anon key (suficiente para Auth OTP)."""
     if not config.USE_SUPABASE:
-        raise RuntimeError("Supabase Auth no está configurado.")
+        raise AuthError(
+            "config",
+            "El registro con Supabase Auth aún no está conectado en esta versión.",
+        )
     from supabase import create_client  # type: ignore
 
-    create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY).auth.sign_in_with_otp(
-        {"email": email}
+    return create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+
+
+def _friendly_error(exc: Exception) -> AuthError:
+    msg = (str(exc) or "").lower()
+    if "rate limit" in msg or "too many" in msg or "429" in msg:
+        return AuthError(
+            "limite",
+            "Pediste varios códigos seguidos. Espera unos minutos y pide uno nuevo.",
+        )
+    if "expired" in msg or "invalid" in msg or "incorrect" in msg:
+        return AuthError(
+            "codigo_invalido",
+            "Ese código no es válido o ya venció. Revisa tu correo o pide uno nuevo.",
+        )
+    log.warning("Error de Supabase Auth: %s", exc)
+    return AuthError(
+        "red",
+        "No pudimos verificar tu correo en este momento. Inténtalo de nuevo.",
     )
+
+
+def send_email_otp(email: str) -> None:
+    """Envía el código de 6 dígitos al correo vía Supabase Auth.
+
+    Requiere que la plantilla "Magic Link" del proyecto incluya la variable
+    {{ .Token }} (si no, el correo trae un enlace en vez del código).
+    """
+    try:
+        _supabase_client().auth.sign_in_with_otp({"email": email})
+    except AuthError:
+        raise
+    except Exception as exc:
+        raise _friendly_error(exc)
+    log.info("Código OTP enviado a %s", email)
+
+
+def verify_email_otp(email: str, token: str) -> dict:
+    """Verifica el código; devuelve {"id", "email"} del usuario de Auth."""
+    token = "".join((token or "").split())  # tolera "123 456"
+    if not token:
+        raise AuthError(
+            "codigo_invalido",
+            "Escribe el código de 6 dígitos que te enviamos por correo.",
+        )
+    try:
+        resp = _supabase_client().auth.verify_otp(
+            {"email": email, "token": token, "type": "email"}
+        )
+    except AuthError:
+        raise
+    except Exception as exc:
+        raise _friendly_error(exc)
+    user = getattr(resp, "user", None)
+    if not user or not getattr(user, "id", None):
+        raise AuthError(
+            "codigo_invalido",
+            "Ese código no es válido o ya venció. Revisa tu correo o pide uno nuevo.",
+        )
+    return {"id": user.id, "email": getattr(user, "email", None) or email}
+
+
+def send_magic_link(email: str) -> None:
+    """Compatibilidad: antes enviaba magic link; ahora manda el código OTP."""
+    send_email_otp(email)
 
 
 def send_phone_otp(telefono: str) -> None:
