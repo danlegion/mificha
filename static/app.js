@@ -6,11 +6,13 @@
 
   /* ---------- Processing page: poll backend for readiness ---------- */
   window.MIFicha.startPolling = function () {
+    if (window.MIFicha._polling) return; /* ya hay un polling activo */
+    window.MIFicha._polling = true;
     var estadoUrl = window.MIFicha.estadoUrl;
     var resultadoUrl = window.MIFicha.resultadoUrl;
     var errorBox = document.getElementById("processing-error");
     var errorMsg = document.getElementById("processing-error-msg");
-    if (!estadoUrl || !resultadoUrl) return;
+    if (!estadoUrl || !resultadoUrl) { window.MIFicha._polling = false; return; }
 
     var fails = 0;
     var timer = setInterval(function () {
@@ -25,9 +27,11 @@
           if (stalled) stalled.hidden = true;
           if (data.status === "ready") {
             clearInterval(timer);
+            window.MIFicha._polling = false;
             window.location.href = resultadoUrl;
           } else if (data.status === "rejected" || data.status === "failed") {
             clearInterval(timer);
+            window.MIFicha._polling = false;
             if (errorBox) errorBox.hidden = false;
             if (errorMsg && data.message) errorMsg.textContent = data.message;
             var spinner = document.querySelector(".spinner");
@@ -45,6 +49,15 @@
         });
     }, 2000);
   };
+
+  /* If the page is restored from bfcache (e.g. back button after a failed
+     navigation to the result), the old timer is gone: restart polling. */
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted && window.MIFicha.estadoUrl) {
+      window.MIFicha._polling = false;
+      window.MIFicha.startPolling();
+    }
+  });
 
   /* ---------- File input: show chosen filename ---------- */
   document.addEventListener("change", function (e) {
