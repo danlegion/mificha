@@ -1,0 +1,23 @@
+# MiFicha en Render — plan gratuito.
+# Despliegue: Render Dashboard -> New -> Blueprint -> conectar repo danlegion/mificha.
+# Las variables marcadas sync:false se pegan a mano en el dashboard tras crear el servicio.
+services:
+  - type: web
+    name: mificha
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: BASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
