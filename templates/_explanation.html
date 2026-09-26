@@ -5,6 +5,40 @@
   <p class="eyebrow">{{ exp.type_label }}</p>
   <h1 class="summary">{{ exp.summary_simple }}</h1>
 
+  {% set concerns = exp.biomarkers | selectattr("flag_key", "in", ["alto", "bajo"]) | list %}
+  {% if concerns %}
+  <div class="concerns" aria-label="Valores que necesitan atención">
+    <h2>Valores que necesitan atención</h2>
+    <ul class="concern-list">
+      {% for b in concerns %}
+      <li>
+        <div class="concern-top">
+          <strong class="concern-name">{{ b.name }}</strong>
+          <span class="concern-value">{{ b.value }}{% if b.unit %} {{ b.unit }}{% endif %}{% if b.flag %} <span class="flag flag-{{ b.flag_key }}">{{ b.flag }}</span>{% endif %}</span>
+        </div>
+        {% if b.ref_range %}<span class="concern-range">Rango esperado: {{ b.ref_range }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% elif exp.biomarkers %}
+  <p class="all-clear">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#DDEEE9"/><path d="M6.5 10.2l2.4 2.4 4.6-5" stroke="#08443D" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Todos tus valores están en rango.
+  </p>
+  {% endif %}
+
+  {% if exp.narrative_findings %}
+  <div class="concerns" aria-label="Hallazgos principales">
+    <h2>Hallazgos principales</h2>
+    <ul class="concern-list concern-names">
+      {% for f in exp.narrative_findings %}
+      <li><strong>{{ f.heading }}</strong></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
   <div class="urgency urgency-{{ exp.urgency.level }}" role="status">
     <p class="urgency-level">{{ exp.urgency.label }}</p>
     <p class="urgency-action"><strong>Qué hacer:</strong> {{ exp.urgency.action }}</p>

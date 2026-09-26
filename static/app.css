@@ -396,6 +396,23 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 .doctor-q { background: var(--surface-soft); border-radius: var(--radius-sm); padding: 0.85rem 1rem; }
 
+/* ---------- Resumen: valores que necesitan atención ---------- */
+
+.concerns { margin-top: 1.15rem; }
+.concerns h2 { font-size: 1.02rem; margin: 0 0 0.25rem; }
+.concern-list { list-style: none; margin: 0; padding: 0; }
+.concern-list li { padding: 0.7rem 0; border-top: 1px solid var(--line-soft); }
+.concern-list li:first-child { border-top: none; }
+.concern-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+.concern-name { font-weight: 700; }
+.concern-value { font-family: var(--font-display); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.concern-value .flag { margin-left: 0.35rem; }
+.concern-range { display: block; color: var(--ink-soft); font-size: 0.88rem; margin-top: 0.15rem; }
+.concern-names li { padding: 0.45rem 0; }
+
+.all-clear { display: flex; align-items: center; gap: 0.6rem; margin: 1.1rem 0 0; font-weight: 600; color: var(--brand-deep); }
+.all-clear svg { width: 1.5rem; height: 1.5rem; flex-shrink: 0; }
+
 /* ---------- Uncertain fields ---------- */
 
 .uncertain-card { border: 1.5px solid #C9BFF2; }
