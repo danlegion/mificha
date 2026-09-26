@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Verificando tu cuenta{% endblock %}
+
+{% block content %}
+<section class="card register-card" id="activar-card">
+  <h1>Verificando tu cuenta…</h1>
+  <p>Un momento, estamos confirmando tu enlace seguro.</p>
+  <div id="activar-error" class="error-box" role="alert" hidden></div>
+  {% if error %}
+  <div class="error-box" role="alert">
+    <p>{{ error }}</p>
+  </div>
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  var box = document.getElementById("activar-error");
+  function fail(msg) {
+    box.hidden = false;
+    box.innerHTML = "<p>" + msg + "</p>";
+  }
+  // Supabase redirige con el token en el fragmento (#access_token=...)
+  // o, en flujo PKCE, como ?token_hash=... en el query.
+  var hash = new URLSearchParams(window.location.hash.slice(1));
+  var query = new URLSearchParams(window.location.search);
+  var payload = {};
+  if (hash.get("access_token")) {
+    payload.access_token = hash.get("access_token");
+  } else if (query.get("token_hash")) {
+    payload.token_hash = query.get("token_hash");
+  } else if (query.get("error")) {
+    return; // el servidor ya mostró el error
+  } else {
+    fail("No encontramos tu enlace de verificación. Vuelve a tu resultado y pide un enlace nuevo.");
+    return;
+  }
+  // Limpia el token de la barra de direcciones.
+  history.replaceState(null, "", window.location.pathname);
+  fetch("/cuenta/activar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store"
+  }).then(function (r) {
+    return r.json().then(function (d) { return { status: r.status, body: d }; });
+  }).then(function (res) {
+    if (res.body && res.body.ok && res.body.redirect) {
+      window.location.href = res.body.redirect;
+    } else {
+      fail((res.body && res.body.message) ||
+           "No pudimos verificar tu enlace. Pide uno nuevo desde tu resultado.");
+    }
+  }).catch(function () {
+    fail("Tuvimos un problema de conexión. Revisa tu internet e inténtalo de nuevo.");
+  });
+})();
+</script>
+{% endblock %}

@@ -58,7 +58,7 @@ def test_dev_register_reclama_y_abre_ficha(client, intake_lista):
     iid = intake_lista["id"]
     r = client.get(f"/guardar/{iid}?t={intake_lista['token']}")
     assert r.status_code == 200
-    assert "Enviarme el código" in r.text
+    assert "Enviarme el enlace" in r.text
 
     r = client.post(f"/guardar/{iid}",
                     data={"email": "dev-test@example.com",
@@ -122,12 +122,18 @@ def sb(monkeypatch):
     fake = FakeDAL(intake)
     monkeypatch.setattr("app.config.USE_SUPABASE", True)
     monkeypatch.setattr(accounts, "dal", fake)
-    monkeypatch.setattr(auth, "send_email_otp",
-                        lambda email: fake.__dict__.update(sent_to=email))
+    enviados = {}
+
+    def _fake_send(email, redirect_to=None):
+        enviados["email"] = email
+        enviados["redirect_to"] = redirect_to
+
+    monkeypatch.setattr(auth, "send_magic_link", _fake_send)
+    fake.enviados = enviados
     return fake
 
 
-def test_sb_guardar_envia_codigo_y_muestra_paso2(client, sb, monkeypatch):
+def test_sb_guardar_envia_enlace_y_muestra_paso(client, sb):
     iid = sb.intake["id"]
     r = client.post(f"/guardar/{iid}",
                     data={"email": "  Test@Example.com ",
@@ -135,82 +141,104 @@ def test_sb_guardar_envia_codigo_y_muestra_paso2(client, sb, monkeypatch):
     assert r.status_code == 200
     assert "Revisa tu correo" in r.text
     assert "test@example.com" in r.text  # normalizado a minúsculas
-    assert sb.__dict__["sent_to"] == "test@example.com"
-    assert f'action="/guardar/{iid}/verificar"' in r.text
+    assert "enlace seguro" in r.text
+    assert sb.enviados["email"] == "test@example.com"
+    assert sb.enviados["redirect_to"].endswith("/cuenta/activar")
+    assert "test@example.com" in accounts._PENDIENTE
 
 
-def test_sb_verificar_codigo_ok_crea_sesion(client, sb, monkeypatch):
-    monkeypatch.setattr(auth, "verify_email_otp",
-                        lambda email, code: {"id": "sb-auth-1",
-                                             "email": email})
-    iid = sb.intake["id"]
-    r = client.post(f"/guardar/{iid}/verificar",
-                    data={"email": "test@example.com",
-                          "telefono": "+593992223333",
-                          "codigo": "123 456", "t": "tok-sb"},
-                    follow_redirects=False)
-    assert r.status_code == 303
-    assert r.headers["location"] == "/ficha"
+def test_sb_activar_enlace_ok_crea_sesion(client, sb, monkeypatch):
+    monkeypatch.setattr(
+        auth, "complete_magic_link",
+        lambda access_token="", token_hash="": {"id": "sb-auth-1",
+                                                "email": "activa@example.com"})
+    accounts._pendiente_guardar("activa@example.com", "+593993334444",
+                                sb.intake["id"], "tok-sb")
+    r = client.post("/cuenta/activar", json={"access_token": "tok-bueno"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ok"] is True
+    assert data["redirect"] == "/ficha"
     assert auth.SESSION_COOKIE in r.cookies
-    assert sb.claimed[iid]  # intake reclamado
-    assert sb.doc["user_id"] == sb.claimed[iid]
+    assert sb.claimed[sb.intake["id"]]  # intake reclamado
+    assert "activa@example.com" not in accounts._PENDIENTE  # un solo uso
 
 
-def test_sb_verificar_codigo_malo_muestra_error(client, sb, monkeypatch):
-    def _falla(email, code):
-        raise auth.AuthError("codigo_invalido", "Ese código no es válido.")
-    monkeypatch.setattr(auth, "verify_email_otp", _falla)
-    iid = sb.intake["id"]
-    r = client.post(f"/guardar/{iid}/verificar",
-                    data={"email": "test@example.com", "telefono": "",
-                          "codigo": "000000", "t": "tok-sb"})
+def test_sb_activar_enlace_malo_muestra_error(client, sb, monkeypatch):
+    def _falla(access_token="", token_hash=""):
+        raise auth.AuthError("codigo_invalido", "Ese enlace no es válido.")
+    monkeypatch.setattr(auth, "complete_magic_link", _falla)
+    r = client.post("/cuenta/activar", json={"access_token": "tok-malo"})
     assert r.status_code == 400
-    assert "Ese código no es válido" in r.text
-    assert "Revisa tu correo" in r.text  # sigue en el paso del código
+    assert "no es válido" in r.json()["message"]
 
 
-def test_sb_reenviar_codigo(client, sb):
+def test_sb_activar_sin_pendiente_pide_otro_enlace(client, sb, monkeypatch):
+    monkeypatch.setattr(
+        auth, "complete_magic_link",
+        lambda access_token="", token_hash="": {"id": "sb-auth-2",
+                                                "email": "huerfano@example.com"})
+    r = client.post("/cuenta/activar", json={"access_token": "tok-bueno"})
+    assert r.status_code == 400
+    assert "pide un enlace nuevo" in r.json()["message"]
+
+
+def test_sb_reenviar_enlace(client, sb):
     iid = sb.intake["id"]
     r = client.post(f"/guardar/{iid}/reenviar",
-                    data={"email": "test@example.com",
+                    data={"email": "reenvio@example.com",
                           "telefono": "+593992223333", "t": "tok-sb"})
     assert r.status_code == 200
-    assert "código nuevo" in r.text
+    assert "enlace nuevo" in r.text
+    assert sb.enviados["email"] == "reenvio@example.com"
 
 
-# ------------------------------------------------- unidad: verify_email_otp
+def test_sb_activar_pagina_carga(client):
+    r = client.get("/cuenta/activar")
+    assert r.status_code == 200
+    assert "Verificando tu cuenta" in r.text
+    assert "/cuenta/activar" in r.text  # el JS apunta al POST
 
-def test_verify_otp_tolera_espacios(monkeypatch):
-    visto = {}
 
+# ------------------------------------------------- unidad: complete_magic_link
+
+def _fake_supabase_user(monkeypatch, user=None, exc=None):
     class FakeAuth:
+        def get_user(self, jwt):
+            if exc:
+                raise exc
+            return type("R", (), {"user": user})()
+
         def verify_otp(self, params):
-            visto.update(params)
-            return type("R", (), {"user": type(
-                "U", (), {"id": "x", "email": "a@b.c"})()})()
+            if exc:
+                raise exc
+            return type("R", (), {"user": user})()
 
     class FakeClient:
         auth = FakeAuth()
 
     monkeypatch.setattr(auth, "_supabase_client", lambda: FakeClient())
     monkeypatch.setattr("app.config.USE_SUPABASE", True)
-    out = auth.verify_email_otp("a@b.c", " 123 456 ")
-    assert visto["token"] == "123456"
-    assert visto["type"] == "email"
-    assert out["id"] == "x"
 
 
-def test_verify_otp_mapea_error_amable(monkeypatch):
-    class FakeAuth:
-        def verify_otp(self, params):
-            raise Exception("Token has expired or is invalid")
+def test_complete_magic_link_access_token(monkeypatch):
+    user = type("U", (), {"id": "u1", "email": "a@b.c"})()
+    _fake_supabase_user(monkeypatch, user=user)
+    out = auth.complete_magic_link(access_token="jwt-bueno")
+    assert out == {"id": "u1", "email": "a@b.c"}
 
-    class FakeClient:
-        auth = FakeAuth()
 
-    monkeypatch.setattr(auth, "_supabase_client", lambda: FakeClient())
-    monkeypatch.setattr("app.config.USE_SUPABASE", True)
+def test_complete_magic_link_token_hash(monkeypatch):
+    user = type("U", (), {"id": "u2", "email": "c@d.e"})()
+    _fake_supabase_user(monkeypatch, user=user)
+    out = auth.complete_magic_link(token_hash="hash-bueno")
+    assert out["id"] == "u2"
+
+
+def test_complete_magic_link_mapea_error_amable(monkeypatch):
+    _fake_supabase_user(monkeypatch,
+                        exc=Exception("Token has expired or is invalid"))
     with pytest.raises(auth.AuthError) as e:
-        auth.verify_email_otp("a@b.c", "000000")
+        auth.complete_magic_link(access_token="jwt-malo")
     assert e.value.kind == "codigo_invalido"
     assert "vencido" in str(e.value) or "válido" in str(e.value)

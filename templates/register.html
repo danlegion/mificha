@@ -3,10 +3,10 @@
 {% block title %}Guarda tu resultado{% endblock %}
 
 {% block content %}
-{% if step == "code" %}
+{% if step == "link" %}
 <section class="card register-card">
   <h1>Revisa tu correo</h1>
-  <p>Te enviamos un código de 6 dígitos a <strong>{{ email }}</strong>. Escríbelo aquí para verificar tu cuenta y guardar tu resultado.</p>
+  <p>Te enviamos un enlace seguro a <strong>{{ email }}</strong>. Ábrelo para verificar tu cuenta y guardar tu resultado.</p>
 
   {% if error %}
   <div class="error-box" role="alert">
@@ -19,29 +19,18 @@
   </div>
   {% endif %}
 
-  <form action="/guardar/{{ intake_id }}/verificar" method="post">
-    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
-    <input type="hidden" name="email" value="{{ email }}">
-    <input type="hidden" name="telefono" value="{{ telefono }}">
-    <label class="field">
-      <span>Código de verificación</span>
-      <input type="text" name="codigo" required inputmode="numeric"
-             autocomplete="one-time-code" maxlength="6" placeholder="123456"
-             class="code-input">
-    </label>
-    <button class="btn btn-primary btn-large" type="submit">Verificar y guardar</button>
-  </form>
+  <p class="micro-note">El enlace vence en unos minutos. Si no lo ves, revisa tu carpeta de spam.</p>
   <form action="/guardar/{{ intake_id }}/reenviar" method="post" class="resend-form">
     {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
     <input type="hidden" name="email" value="{{ email }}">
     <input type="hidden" name="telefono" value="{{ telefono }}">
-    <button class="link-btn" type="submit">No me llegó el código: enviar otro</button>
+    <button class="link-btn" type="submit">No me llegó: enviar otro enlace</button>
   </form>
 </section>
 {% else %}
 <section class="card register-card">
   <h1>Guarda tu resultado</h1>
-  <p>Crea tu cuenta con tu correo y tu teléfono. Te enviaremos un código de 6 dígitos a tu correo para verificar que eres tú.</p>
+  <p>Crea tu cuenta con tu correo y tu teléfono. Te enviaremos un enlace a tu correo para verificar que eres tú.</p>
 
   {% if error %}
   <div class="error-box" role="alert">
@@ -60,7 +49,7 @@
       <input type="tel" name="telefono" required autocomplete="tel" placeholder="+593 99 123 4567" value="{{ telefono }}">
       <small>Lo usaremos para tu cuenta. Solo te escribiremos por WhatsApp si nos das un permiso aparte.</small>
     </label>
-    <button class="btn btn-primary btn-large" type="submit">Enviarme el código</button>
+    <button class="btn btn-primary btn-large" type="submit">Enviarme el enlace</button>
     <p class="micro-note">Al continuar aceptas nuestros términos y el aviso de privacidad.</p>
   </form>
 </section>

@@ -62,7 +62,54 @@ def register_dev(email: str, telefono: str) -> dict:
     return dal.create_user(email=email, telefono=telefono)
 
 
-# --- Supabase Auth: código de 6 dígitos por correo ---------------------------
+# --- Supabase Auth: enlace mágico (funciona sin editar plantillas) -----------
+
+def send_magic_link(email: str, redirect_to: str | None = None) -> None:
+    """Envía el enlace de acceso al correo vía Supabase Auth.
+
+    Usa la plantilla "Magic Link" por defecto (sin necesidad de editarla):
+    el correo trae un enlace que Supabase redirige a `redirect_to`.
+    """
+    try:
+        _supabase_client().auth.sign_in_with_otp({
+            "email": email,
+            "options": {"email_redirect_to": redirect_to} if redirect_to else {},
+        })
+    except AuthError:
+        raise
+    except Exception as exc:
+        raise _friendly_error(exc)
+    log.info("Enlace mágico enviado a %s", email)
+
+
+def complete_magic_link(access_token: str = "", token_hash: str = "") -> dict:
+    """Valida el token que Supabase dejó en el enlace mágico.
+
+    Flujo implícito (plantilla por defecto): access_token en el fragmento.
+    Flujo PKCE: token_hash en el query. Devuelve {"id", "email"} verificado.
+    """
+    access_token = (access_token or "").strip()
+    token_hash = (token_hash or "").strip()
+    if not access_token and not token_hash:
+        raise AuthError("codigo_invalido",
+                        "Ese enlace no es válido o ya venció. Pide uno nuevo.")
+    try:
+        client = _supabase_client()
+        if token_hash:
+            resp = client.auth.verify_otp(
+                {"token_hash": token_hash, "type": "email"})
+        else:
+            resp = client.auth.get_user(access_token)
+    except Exception as exc:
+        raise _friendly_error(exc)
+    user = getattr(resp, "user", None)
+    if not user or not getattr(user, "id", None):
+        raise AuthError("codigo_invalido",
+                        "Ese enlace no es válido o ya venció. Pide uno nuevo.")
+    return {"id": user.id, "email": getattr(user, "email", None) or ""}
+
+
+# --- Supabase Auth: código de 6 dígitos (requiere plantilla/SMTP propio) ----
 
 class AuthError(Exception):
     """Error de autenticación con mensaje listo para mostrar al usuario."""
@@ -143,7 +190,7 @@ def verify_email_otp(email: str, token: str) -> dict:
     return {"id": user.id, "email": getattr(user, "email", None) or email}
 
 
-def send_magic_link(email: str) -> None:
+def send_magic_link_compat(email: str) -> None:
     """Compatibilidad: antes enviaba magic link; ahora manda el código OTP."""
     send_email_otp(email)
 
