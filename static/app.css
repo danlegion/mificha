@@ -64,7 +64,7 @@ h1, h2, h3 {
   color: var(--ink);
 }
 
-h2 { font-size: 1.3rem; margin: 0 0 0.75rem; }
+h2 { font-size: 1.3rem; font-weight: 600; margin: 0 0 0.75rem; }
 h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 /* ---------- Header / footer ---------- */
@@ -138,7 +138,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
    Va en un tamaño de declaración serena, no de cartel. */
 .level1 .summary {
   font-size: 1.4rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.35;
   letter-spacing: -0.015em;
   margin: 0.15rem 0 0;
@@ -299,7 +299,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 .urgency-level {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   font-size: 1.12rem;
   letter-spacing: -0.01em;
   margin: 0 0 0.5rem;
@@ -345,7 +345,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .detail-section summary {
   padding: 1rem 1.15rem;
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 1.02rem;
   cursor: pointer;
   min-height: 52px;
@@ -370,7 +370,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .bio-value {
   font-family: var(--font-display);
   font-size: 1.35rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0.3rem 0;
   font-variant-numeric: tabular-nums;
@@ -404,8 +404,8 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .concern-list li { padding: 0.7rem 0; border-top: 1px solid var(--line-soft); }
 .concern-list li:first-child { border-top: none; }
 .concern-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
-.concern-name { font-weight: 700; }
-.concern-value { font-family: var(--font-display); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.concern-name { font-weight: 600; }
+.concern-value { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .concern-value .flag { margin-left: 0.35rem; }
 .concern-range { display: block; color: var(--ink-soft); font-size: 0.88rem; margin-top: 0.15rem; }
 .concern-names li { padding: 0.45rem 0; }
