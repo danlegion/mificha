@@ -7,7 +7,7 @@
 
 {% if exp.uncertain_fields %}
 <section class="card correct-card" id="corregir" aria-label="Corregir datos">
-  <h2>✏️ Corrige lo que no quedó claro</h2>
+  <h2>Corrige lo que no quedó claro</h2>
   <form action="/resultado/{{ intake_id }}/corregir" method="post">
     {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
     {% for field in exp.uncertain_fields %}
@@ -24,7 +24,7 @@
 
 {% if not is_saved %}
 <section class="card save-cta" aria-label="Guardar en Mi Ficha Medica">
-  <h2>💚 Guarda tu resultado en Mi Ficha Medica</h2>
+  <h2>Guarda tu resultado en Mi Ficha Medica</h2>
   <ul class="check-list">
     <li>No se borra: tu explicación queda a salvo</li>
     <li>Consúltalo cuando quieras, desde donde estés</li>
@@ -36,7 +36,7 @@
 {% endif %}
 
 <section class="card share-card" id="compartir" aria-label="Compartir">
-  <h2>📤 Compartir un resumen</h2>
+  <h2>Compartir un resumen</h2>
   <p>Crea un enlace privado con solo el resumen y la urgencia. Se puede revocar cuando quieras.</p>
 
   {% if share %}

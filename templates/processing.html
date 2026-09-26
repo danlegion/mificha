@@ -10,18 +10,18 @@
   <p class="micro-note">Si tarda mucho, te avisaremos aquí mismo.</p>
 
   <div class="error-box" id="processing-stalled" hidden>
-    <h2>La conexión está inestable 📶</h2>
+    <h2>La conexión está inestable</h2>
     <p>Tu documento se sigue procesando, pero perdimos contacto con el servidor.</p>
     <button class="btn btn-primary" onclick="window.location.reload()">Reintentar ahora</button>
   </div>
 
   <div class="error-box" id="processing-error" hidden>
-    <h2>Ups, algo salió mal 😕</h2>
+    <h2>Ups, algo salió mal</h2>
     <p id="processing-error-msg">No pudimos leer tu documento.</p>
     <a class="btn btn-primary" href="/">Intentar con otro archivo</a>
   </div>
   <div class="error-box" id="processing-manual" hidden>
-    <h2>¿Sigues aquí? 👀</h2>
+    <h2>¿Sigues aquí?</h2>
     <p>La redirección automática no arrancó. Tu resultado debería estar listo:</p>
     <a class="btn btn-primary" id="processing-manual-link" href="/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">Ver mi resultado</a>
   </div>

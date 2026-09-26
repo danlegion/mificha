@@ -15,13 +15,13 @@
 
 {% if exp.uncertain_fields %}
 <section class="card uncertain-card" aria-label="Datos por confirmar">
-  <h2>🔍 Confirma estos datos</h2>
+  <h2>Confirma estos datos</h2>
   <p>Algunos datos no quedaron claros al leer el documento. Revisa y corrígelos si los conoces — aparecen marcados <span class="flag flag-uncertain">por confirmar</span>.</p>
 </section>
 {% endif %}
 
 <section class="card" aria-label="Entender más">
-  <h2>Entender más 💡</h2>
+  <h2>Entender más</h2>
 
   {% if exp.biomarkers %}
   <details class="detail-section">
@@ -74,7 +74,7 @@
         <p><strong>Suele usarse para…</strong> {{ t.usual_objectives }}</p>
         {% if t.preparation %}<p><strong>Preparación:</strong> {{ t.preparation }}</p>{% endif %}
         {% if t.question_for_doctor %}
-        <p class="doctor-q">❓ <strong>Pregunta para tu doctor:</strong> {{ t.question_for_doctor }}</p>
+        <p class="doctor-q"><strong>Pregunta para tu doctor:</strong> {{ t.question_for_doctor }}</p>
         {% endif %}
       </article>
       {% endfor %}

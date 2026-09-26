@@ -238,7 +238,8 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 .file-drop input[type="file"] { display: none; }
 
-.file-icon { font-size: 2rem; display: block; }
+.file-icon { display: block; color: var(--brand); }
+.file-icon svg { width: 2.5rem; height: 2.5rem; }
 .file-text {
   display: block;
   font-family: var(--font-display);
@@ -251,9 +252,16 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .file-drop.file-chosen .file-text { color: var(--brand-deep); }
 
 .check-list { list-style: none; padding: 0; margin: 0.75rem 0; }
-.check-list li { padding: 0.4rem 0 0.4rem 1.75rem; position: relative; }
-.check-list li::before { content: "✅"; position: absolute; left: 0; }
-.accepts-card .check-list li::before { content: ""; }
+.check-list li { padding: 0.4rem 0 0.4rem 2rem; position: relative; }
+.check-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  width: 1.2em;
+  height: 1.2em;
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='9' fill='%23DDEEE9'/%3E%3Cpath d='M6.5 10.2l2.4 2.4 4.6-5' stroke='%2308443D' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 
 .number-list { padding-left: 1.5rem; }
 .number-list li { margin: 0.5rem 0; }

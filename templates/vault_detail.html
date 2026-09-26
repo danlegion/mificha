@@ -6,7 +6,7 @@
 {% include "_explanation.html" %}
 
 <section class="card original-card" aria-label="Documento original">
-  <h2>📄 Documento original</h2>
+  <h2>Documento original</h2>
   <p>Si tu doctor quiere ver el documento tal como lo subiste:</p>
   <div class="btn-row">
     <a class="btn btn-primary" href="{{ doc.original_url }}" target="_blank" rel="noopener">Ver documento original</a>
@@ -14,13 +14,13 @@
 </section>
 
 <section class="card doctor-share" aria-label="Compartir con tu doctor">
-  <h2>👩‍⚕️ Compartir con mi doctor</h2>
+  <h2>Compartir con mi doctor</h2>
   <p>Muéstrale esta explicación en tu celular, o comparte el enlace del resumen desde la <a href="#compartir">sección de compartir</a>. Para el documento completo, usa el botón de arriba.</p>
 </section>
 
 {% if history %}
 <section class="card history-card" aria-label="Historial de valores">
-  <h2>📈 Cómo han cambiado tus valores</h2>
+  <h2>Cómo han cambiado tus valores</h2>
   {% for h in history %}
   <details class="detail-section">
     <summary>{{ h.biomarker_name }}</summary>
