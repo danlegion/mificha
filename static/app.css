@@ -539,3 +539,30 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   .btn-large { width: auto; min-width: 300px; }
   .doc-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* Tarjeta de creación de cuenta: fondo pino profundo para que se distinga
+   de las tarjetas de resultados y no haya confusión. */
+.save-cta {
+  background: linear-gradient(155deg, var(--brand-deep) 0%, var(--brand) 100%);
+  border: 1px solid var(--brand-deep);
+  color: #fff;
+}
+.save-cta-eyebrow {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #BFE0D4;
+}
+.save-cta h2 {
+  color: #fff;
+  margin-top: 0;
+}
+.save-cta .check-list li { color: #F2FAF7; }
+.save-cta .check-list li::before {
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='9' fill='%23FFFFFF'/%3E%3Cpath d='M6.5 10.2l2.4 2.4 4.6-5' stroke='%230C5B52' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.btn-light { background: #fff; color: var(--brand-deep); }
+.btn-light:hover { background: var(--brand-ghost); color: var(--brand-deep); }
