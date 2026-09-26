@@ -12,13 +12,17 @@
     var errorMsg = document.getElementById("processing-error-msg");
     if (!estadoUrl || !resultadoUrl) return;
 
+    var fails = 0;
     var timer = setInterval(function () {
-      fetch(estadoUrl, { credentials: "same-origin" })
+      fetch(estadoUrl, { credentials: "same-origin", cache: "no-store" })
         .then(function (resp) {
           if (!resp.ok) throw new Error("status " + resp.status);
           return resp.json();
         })
         .then(function (data) {
+          fails = 0;
+          var stalled = document.getElementById("processing-stalled");
+          if (stalled) stalled.hidden = true;
           if (data.status === "ready") {
             clearInterval(timer);
             window.location.href = resultadoUrl;
@@ -33,6 +37,11 @@
         })
         .catch(function (err) {
           /* Transient network hiccup: keep polling, don't alarm the user. */
+          fails++;
+          if (fails === 15) {
+            var stalled = document.getElementById("processing-stalled");
+            if (stalled) stalled.hidden = false;
+          }
         });
     }, 2000);
   };
