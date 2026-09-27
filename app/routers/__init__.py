@@ -26,6 +26,7 @@ import secrets
 from fastapi.templating import Jinja2Templates
 
 from app import config
+from app.services import llm as _llm
 
 TEMPLATES_DIR = os.path.join(config.BASE_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -47,6 +48,26 @@ _FLAG_MAP = {
     "por confirmar": "uncertain", "uncertain": "uncertain",
     "incierto": "uncertain", "incierta": "uncertain",
 }
+
+# Prioridad en "Valores que necesitan atención": los más urgentes primero.
+_SEVERITY_RANK = {"critica": 0, "grave": 1, "moderada": 2, "leve": 3}
+_MAX_CONCERNS = 5
+
+
+def _severity_for(b: dict) -> str:
+    """Severidad de un biomarcador para ordenar 'Valores que necesitan atención'.
+
+    Usa la que trae el dict (ruta demo) o la deriva de valor + rango cuando
+    falta (ruta Gemini: el LLM no la devuelve)."""
+    sev = str(b.get("severity") or "").strip().lower()
+    if sev in _SEVERITY_RANK:
+        return sev
+    valor_txt = str(b.get("value") or "")
+    if re.search(r"\d\s*[!*]", valor_txt):
+        return "critica"
+    valor = _llm._num(re.sub(r"[!*†#]+$", "", valor_txt.strip()))
+    lo, hi = _llm._parse_rango(str(b.get("ref_range") or ""))
+    return _llm._severidad_por_desviacion(valor, lo, hi)
 
 
 def normalize_flag_key(flag) -> str:
@@ -87,6 +108,22 @@ def render_explanation(exp: dict) -> dict:
     for b in e.get("biomarkers", []):
         b["flag_key"] = normalize_flag_key(b.get("flag"))
         b["flag_uncertain"] = b["flag_key"] == "uncertain"
+
+    # "Valores que necesitan atención": los más urgentes primero y como
+    # máximo _MAX_CONCERNS en la lista; si hay más, la plantilla avisa
+    # cuántos otros también requieren atención.
+    concerns = [b for b in e.get("biomarkers", [])
+                if b.get("flag_key") in ("alto", "bajo")]
+    concerns.sort(key=lambda b: _SEVERITY_RANK[_severity_for(b)])
+    e["concerns_top"] = concerns[:_MAX_CONCERNS]
+    extra = max(0, len(concerns) - _MAX_CONCERNS)
+    e["concerns_extra"] = extra
+    e["concerns_extra_note"] = (
+        f"Además hay {extra} valor{'es' if extra > 1 else ''} más fuera de "
+        f"rango que también requiere{'n' if extra > 1 else ''} tu atención: "
+        f"está{'n' if extra > 1 else ''} en «Valores de tu examen», más abajo."
+        if extra else None
+    )
 
     for f in e.get("narrative_findings", []):
         f.setdefault("heading", f.get("finding", ""))

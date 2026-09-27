@@ -610,6 +610,7 @@ class DemoExplainer(LLMProvider):
                 "unit": unidad,
                 "ref_range": rango_crudo,
                 "flag": flag,
+                "severity": severidad,
                 "plain_explanation": plain,
                 "possible_health_effect": efecto,
             },

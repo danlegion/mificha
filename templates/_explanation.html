@@ -5,12 +5,11 @@
   <p class="eyebrow">{{ exp.type_label }}</p>
   <h1 class="summary">{{ exp.summary_simple }}</h1>
 
-  {% set concerns = exp.biomarkers | selectattr("flag_key", "in", ["alto", "bajo"]) | list %}
-  {% if concerns %}
+  {% if exp.concerns_top %}
   <div class="concerns" aria-label="Valores que necesitan atención">
     <h2>Valores que necesitan atención</h2>
     <ul class="concern-list">
-      {% for b in concerns %}
+      {% for b in exp.concerns_top %}
       <li>
         <div class="concern-top">
           <strong class="concern-name">{{ b.name }}</strong>
@@ -20,6 +19,9 @@
       </li>
       {% endfor %}
     </ul>
+    {% if exp.concerns_extra_note %}
+    <p class="micro-note">{{ exp.concerns_extra_note }}</p>
+    {% endif %}
   </div>
   {% elif exp.biomarkers %}
   <p class="all-clear">
