@@ -152,7 +152,7 @@ def _historial(user_id: str, doc_actual_id: str) -> list:
     por_nombre: dict[str, list] = {}
     for d in docs:
         exp = d.get("explanation") or {}
-        fecha_iso, _ = _fecha_efectiva(exp, d.get("created_at") or "")
+        fecha_iso, fecha_dt = _fecha_efectiva(exp, d.get("created_at") or "")
         fecha = _fecha_corta(fecha_iso)
         for b in exp.get("biomarkers", []):
             nombre = b.get("name") or "Valor"
@@ -163,12 +163,21 @@ def _historial(user_id: str, doc_actual_id: str) -> list:
                     "unit": b.get("unit") or "",
                     "flag_label": _flag_label(b.get("flag")),
                     "is_current": d["id"] == doc_actual_id,
+                    "_dt": fecha_dt,
                 }
             )
-    return [
-        {"biomarker_name": nombre, "entries": entradas}
-        for nombre, entradas in por_nombre.items()
-    ]
+    # Orden de cada historial: por fecha del examen, más reciente primero.
+    resultado = []
+    for nombre, entradas in por_nombre.items():
+        entradas.sort(
+            key=lambda e: e["_dt"]
+            or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        for e in entradas:
+            e.pop("_dt", None)
+        resultado.append({"biomarker_name": nombre, "entries": entradas})
+    return resultado
 
 
 @router.get("/ficha/{doc_id}/original")

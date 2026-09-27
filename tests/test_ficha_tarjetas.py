@@ -140,3 +140,41 @@ def test_tarjeta_sin_fecha_usa_subida(client):
         assert f"{hoy.day} de {meses[hoy.month - 1]} de {hoy.year}" in r.text
     finally:
         _clean([uid, iid])
+
+
+def _exp_bio(fecha_doc, valor):
+    exp = _exp(fecha_doc=fecha_doc, tipo="Lab")
+    exp["biomarkers"] = [{"name": "Hemoglobina", "value": valor,
+                          "unit": "g/dL", "flag": "normal",
+                          "plain_explanation": "x"}]
+    return exp
+
+
+def test_historial_usa_fecha_del_examen_y_ordena(client):
+    email = f"f-{uuid.uuid4().hex[:8]}@x.test"
+    uid = dal.create_user(email)["id"]
+    viejo = "f-" + uuid.uuid4().hex[:12]
+    nuevo = "f-" + uuid.uuid4().hex[:12]
+    # Subidos al revés: el de examen más reciente se subió primero.
+    dal.save_document({"id": viejo, "user_id": uid, "intake_id": viejo,
+                       "explanation": _exp_bio("2026-03-10", "13.1")})
+    dal.save_document({"id": nuevo, "user_id": uid, "intake_id": nuevo,
+                       "explanation": _exp_bio("2026-09-25", "14.2")})
+    con = sqlite3.connect(_db_path())
+    ahora = datetime.now(timezone.utc)
+    con.execute("UPDATE documents SET created_at=? WHERE id=?",
+                ((ahora - timedelta(days=1)).isoformat(), nuevo))
+    con.execute("UPDATE documents SET created_at=? WHERE id=?",
+                (ahora.isoformat(), viejo))
+    con.commit()
+    con.close()
+    try:
+        r = client.get(f"/ficha/{nuevo}", cookies=_cookies(uid))
+        assert r.status_code == 200
+        pos_sep = r.text.index("25 de septiembre de 2026")
+        pos_mar = r.text.index("10 de marzo de 2026")
+        # Etiquetas con fecha del examen y orden: examen reciente primero.
+        assert pos_sep < pos_mar
+        assert "14.2" in r.text and "13.1" in r.text
+    finally:
+        _clean([uid, viejo, nuevo])
