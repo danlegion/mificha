@@ -123,6 +123,10 @@ def _aplicar_reglas_duras(exp: dict, extracted: dict) -> dict:
         motivo = str(b.get("motivo_prioridad") or "").strip()
         b["motivo_prioridad"] = motivo[:180] or None
 
+    # Laboratorio: tal como aparece en el documento, o null.
+    lab = str(exp.get("laboratorio") or "").strip()
+    exp["laboratorio"] = lab[:120] or None
+
     # Urgencia: la regla conservadora nunca baja lo que el LLM marcó.
     regla = decide_urgency(_derivar_senales(exp, extracted))
     nivel_llm = (exp.get("urgency") or {}).get("level", "no_urgente")

@@ -18,7 +18,9 @@
         <a href="/ficha/{{ doc.id }}">
           <strong>{{ doc.type_label }}</strong> · {{ doc.fecha }}
           {% if doc.urgency_label %}<span class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</span>{% endif %}
-          {% if doc.fuera_de_rango %}<p class="micro-note">{{ doc.fuera_de_rango }} valor{{ "es" if doc.fuera_de_rango > 1 else "" }} fuera de rango</p>{% endif %}
+          {% if doc.por_confirmar %}<span class="flag flag-uncertain">por confirmar</span>{% endif %}
+          <p class="micro-note">{% if doc.laboratorio %}{{ doc.laboratorio }} · {% endif %}{{ doc.fuera_de_rango }} valor{{ "es" if doc.fuera_de_rango != 1 else "" }} fuera de rango{% if doc.compartido %} · Compartido con tu doctor{% endif %}</p>
+          {% if doc.cambio_resumen %}<p class="micro-note">{{ doc.cambio_resumen }}</p>{% endif %}
         </a>
       </li>
       {% endfor %}

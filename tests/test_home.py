@@ -114,3 +114,96 @@ def test_home_anonimo_igual_que_antes(client):
     assert "Entiende tu examen en minutos" in r.text
     assert "Explica tu primer examen" in r.text
     assert "Hola de nuevo" not in r.text
+
+
+# ------------------------------------------------- campos nuevos de la lista
+
+
+def _exp_campos(**kw):
+    base = {
+        "type_label": "Resultado de laboratorio",
+        "summary_simple": "resumen",
+        "biomarkers": [
+            {"name": "Colesterol", "value": "210", "unit": "mg/dL",
+             "ref_range": "0 - 200", "flag": "alto", "plain_explanation": "x"},
+            {"name": "Glucosa", "value": "90", "unit": "mg/dL",
+             "ref_range": "70 - 99", "flag": "normal", "plain_explanation": "x"},
+        ],
+        "urgency": {"level": "no_urgente", "label": "Sin urgencia",
+                    "action": "a", "timeframe": "t", "reason": "r"},
+    }
+    base.update(kw)
+    return base
+
+
+@pytest.fixture()
+def usuario_campos():
+    from datetime import datetime, timezone
+    email = f"c-{uuid.uuid4().hex[:8]}@x.test"
+    uid = dal.create_user(email)["id"]
+    # Previo (hace 60 días): colesterol peor, glucosa fuera de rango.
+    previo = "c-" + uuid.uuid4().hex[:12]
+    exp_prev = _exp_campos()
+    exp_prev["biomarkers"][0].update({"value": "260"})
+    exp_prev["biomarkers"][1].update({"value": "120", "flag": "alto"})
+    dal.save_intake({"id": previo, "status": "ready", "explanation": exp_prev,
+                     "owner_user_id": uid})
+    dal.save_document({"id": previo, "user_id": uid, "intake_id": previo,
+                       "explanation": exp_prev})
+    con = sqlite3.connect(_db_path())
+    con.execute(
+        "UPDATE documents SET created_at=? WHERE id=?",
+        ((datetime.now(timezone.utc) - timedelta(days=60)).isoformat(), previo))
+    con.execute(
+        "UPDATE intakes SET created_at=? WHERE id=?",
+        ((datetime.now(timezone.utc) - timedelta(days=60)).isoformat(), previo))
+    con.commit()
+    con.close()
+    # Actual: con laboratorio, por confirmar y enlace compartido.
+    actual = "c-" + uuid.uuid4().hex[:12]
+    exp_act = _exp_campos(laboratorio="Lab Clínico Norte",
+                          uncertain_fields=[{"field": "x", "reason": "y"}])
+    dal.save_intake({"id": actual, "status": "ready", "explanation": exp_act,
+                     "owner_user_id": uid})
+    dal.save_document({"id": actual, "user_id": uid, "intake_id": actual,
+                       "explanation": exp_act})
+    dal.create_share({
+        "intake_id": actual, "token": "tok-" + uuid.uuid4().hex[:8],
+        "snapshot": {},
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=30),
+    })
+    yield {"uid": uid, "actual": actual, "previo": previo}
+    _clean([uid, actual, previo])
+
+
+def test_home_muestra_laboratorio_por_confirmar_y_compartido(
+        client, usuario_campos):
+    r = client.get("/", cookies=_cookies(usuario_campos["uid"]))
+    assert r.status_code == 200
+    html = r.text
+    assert "Lab Clínico Norte" in html
+    assert "por confirmar" in html
+    assert "Compartido con tu doctor" in html
+
+
+def test_home_compara_con_examen_anterior(client, usuario_campos):
+    r = client.get("/", cookies=_cookies(usuario_campos["uid"]))
+    html = r.text
+    # Colesterol: 260 -> 210 (sigue alto pero más cerca del rango) = mejoró.
+    # Glucosa: 120 alto -> 90 en rango = mejoró.
+    assert "2 mejoraron" in html
+    assert "Desde tu examen de" in html
+
+
+def test_comparar_empeora_y_sin_datos():
+    import app.main as m
+    bios_prev = [{"name": "X", "value": "90", "ref_range": "70 - 99"}]
+    bios_act = [{"name": "X", "value": "150", "ref_range": "70 - 99"}]
+    mej, emp, _ = m._comparar_con_anterior(
+        bios_act, [{"explanation": {"biomarkers": bios_prev},
+                    "created_at": "2026-01-01T00:00:00+00:00"}])
+    assert (mej, emp) == (0, 1)
+    # Sin biomarcadores comparables: no hay resumen.
+    mej, emp, fecha = m._comparar_con_anterior(
+        [{"name": "Y", "value": "no numérico", "ref_range": "1 - 5"}], [])
+    assert (mej, emp, fecha) == (0, 0, "")

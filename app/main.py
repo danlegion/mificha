@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -14,6 +15,7 @@ from app.db import dal
 from app.routers import normalize_flag_key, templates, urgency_css_key
 from app.routers import accounts, ingest, results, share, vault
 from app.routers.vault import _fecha_corta
+from app.services.llm import _parse_rango
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +38,83 @@ async def log_requests(request: Request, call_next):
     return resp
 
 
+def _num_valor(s) -> float | None:
+    """Primer número parseable del texto de un valor, o None."""
+    if s is None:
+        return None
+    m = re.search(r"-?\d+(?:[.,]\d+)?", str(s))
+    if not m:
+        return None
+    try:
+        return float(m.group(0).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _distancia_fuera(valor: float | None, ref_range) -> float | None:
+    """Qué tan lejos está el valor de su rango (0.0 = en rango)."""
+    lo, hi = _parse_rango(ref_range)
+    if valor is None or (lo is None and hi is None):
+        return None
+    if lo is not None and valor < lo:
+        return lo - valor
+    if hi is not None and valor > hi:
+        return valor - hi
+    return 0.0
+
+
+def _comparar_con_anterior(
+    bios_actual: list, docs_previos: list
+) -> tuple[int, int, str]:
+    """Compara valores con el examen anterior comparable.
+
+    Devuelve (mejoraron, empeoraron, fecha_label_del_previo).
+    """
+    actual = {}
+    for b in bios_actual:
+        nombre = str(b.get("name") or "").strip().lower()
+        d = _distancia_fuera(_num_valor(b.get("value")), b.get("ref_range"))
+        if nombre and d is not None:
+            actual[nombre] = d
+    if not actual:
+        return 0, 0, ""
+    for previo in docs_previos:
+        pexp = previo.get("explanation") or {}
+        prev = {}
+        for b in pexp.get("biomarkers", []):
+            nombre = str(b.get("name") or "").strip().lower()
+            d = _distancia_fuera(_num_valor(b.get("value")), b.get("ref_range"))
+            if nombre and d is not None and nombre in actual:
+                prev[nombre] = d
+        if not prev:
+            continue
+        mejoraron = empeoraron = 0
+        for nombre, d_prev in prev.items():
+            d_curr = actual[nombre]
+            if d_prev > 0 and d_curr == 0:
+                mejoraron += 1
+            elif d_prev == 0 and d_curr > 0:
+                empeoraron += 1
+            elif d_prev > 0 and d_curr > 0:
+                if d_curr < d_prev * 0.9:
+                    mejoraron += 1
+                elif d_curr > d_prev * 1.1:
+                    empeoraron += 1
+        return mejoraron, empeoraron, _fecha_corta(previo.get("created_at"))
+    return 0, 0, ""
+
+
+def _resumen_cambio(mejoraron: int, empeoraron: int, fecha_prev: str) -> str:
+    partes = []
+    if mejoraron:
+        partes.append("1 mejoró" if mejoraron == 1 else f"{mejoraron} mejoraron")
+    if empeoraron:
+        partes.append("1 empeoró" if empeoraron == 1 else f"{empeoraron} empeoraron")
+    if not partes:
+        return ""
+    return f"Desde tu examen de {fecha_prev}: " + " · ".join(partes)
+
+
 @app.get("/")
 def index(request: Request):
     user = auth.get_current_user(request)
@@ -45,7 +124,7 @@ def index(request: Request):
         limite = datetime.now(timezone.utc) - timedelta(days=180)
         all_docs = dal.list_documents(user["id"])
         total_docs = len(all_docs)
-        for d in all_docs:
+        for i, d in enumerate(all_docs):
             exp = d.get("explanation") or {}
             creado_raw = d.get("created_at") or ""
             try:
@@ -58,18 +137,30 @@ def index(request: Request):
                 if creado < limite:
                     continue
             urg = exp.get("urgency") or {}
+            bios = exp.get("biomarkers", [])
             fuera = sum(
-                1 for b in exp.get("biomarkers", [])
+                1 for b in bios
                 if normalize_flag_key(b.get("flag")) in ("alto", "bajo")
             )
+            por_confirmar = bool(exp.get("uncertain_fields")) or any(
+                normalize_flag_key(b.get("flag")) == "uncertain" for b in bios
+            )
+            compartido = bool(
+                dal.get_active_share_for_intake(d.get("intake_id") or "")
+            )
+            mej, emp, fecha_prev = _comparar_con_anterior(bios, all_docs[i + 1:])
             recent_docs.append(
                 {
                     "id": d["id"],
                     "type_label": exp.get("type_label", "Documento"),
+                    "laboratorio": exp.get("laboratorio"),
                     "fecha": _fecha_corta(creado_raw),
                     "urgency_label": urg.get("label", ""),
                     "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
                     "fuera_de_rango": fuera,
+                    "por_confirmar": por_confirmar,
+                    "compartido": compartido,
+                    "cambio_resumen": _resumen_cambio(mej, emp, fecha_prev),
                 }
             )
             if len(recent_docs) >= 10:
