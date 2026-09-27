@@ -1,0 +1,21 @@
+{# Partial: tarjeta para subir y explicar un examen. Espera `titulo`. #}
+<section id="explicar" class="card upload-card" aria-label="Explicar examen">
+  <h2>{{ titulo }}</h2>
+  <form action="/subir" method="post" enctype="multipart/form-data">
+    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
+    <label class="file-drop" for="archivo">
+      <span class="file-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7l-5-5z"/>
+          <path d="M14 2v5h5"/>
+          <path d="M9 13h6M9 17h6"/>
+        </svg>
+      </span>
+      <span class="file-text">Elige el PDF de tu examen</span>
+      <span class="file-hint">Solo PDF · de tu celular o computadora</span>
+      <input type="file" id="archivo" name="archivo" accept=".pdf" required>
+    </label>
+    <button class="btn btn-primary btn-large" type="submit">Explicar mi examen</button>
+    {% if not user %}<p class="micro-note">Sin crear cuenta: ves tu explicación primero.</p>{% endif %}
+  </form>
+</section>

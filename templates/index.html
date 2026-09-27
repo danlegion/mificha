@@ -3,35 +3,30 @@
 {% block title %}Tus exámenes, en lenguaje simple{% endblock %}
 
 {% block content %}
-{% if recent_docs %}
-  {% set latest = recent_docs[0] %}
-  <section class="hero card">
-    <h1>Hola de nuevo</h1>
-    <p>Tu último examen sigue aquí.</p>
-  </section>
+{% if user %}
+  {# Usuario registrado: la acción más importante (explicar otro examen) va primero. #}
+  {% set titulo = "Explica otro examen" if total_docs else "Explica tu primer examen" %}
+  {% include "_upload_card.html" %}
 
-  <section class="card reminder-card" aria-label="Último examen">
-    <p class="eyebrow">Tu último examen</p>
-    <h2>{{ latest.type_label }} · {{ latest.fecha }}</h2>
-    <p class="lead">{{ latest.idea_principal }}</p>
-    <div class="btn-row">
-      <a class="btn btn-primary" href="/resultado/{{ latest.id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">Ver explicación</a>
-      <a class="btn btn-ghost" href="#explicar">Explica otro examen</a>
-    </div>
-  </section>
-
-  {% if recent_docs|length > 1 %}
-  <section aria-label="Exámenes anteriores">
-    <h2>Anteriores</h2>
+  {% if recent_docs %}
+  <section aria-label="Tus exámenes recientes">
+    <h2>Tus exámenes</h2>
+    <p class="micro-note">Últimos 6 meses</p>
     <ul class="doc-list">
-      {% for doc in recent_docs[1:] %}
+      {% for doc in recent_docs %}
       <li class="card doc-item">
-        <a href="/resultado/{{ doc.id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">
+        <a href="/ficha/{{ doc.id }}">
           <strong>{{ doc.type_label }}</strong> · {{ doc.fecha }}
+          {% if doc.urgency_label %}<span class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</span>{% endif %}
+          {% if doc.fuera_de_rango %}<p class="micro-note">{{ doc.fuera_de_rango }} valor{{ "es" if doc.fuera_de_rango > 1 else "" }} fuera de rango</p>{% endif %}
         </a>
       </li>
       {% endfor %}
     </ul>
+  </section>
+  {% elif total_docs %}
+  <section class="card" aria-label="Exámenes anteriores">
+    <p>Tus exámenes tienen más de 6 meses. Están todos en <a href="/ficha">Mi ficha</a>.</p>
   </section>
   {% endif %}
 {% else %}
@@ -49,26 +44,8 @@
       <li>Notas del doctor</li>
     </ul>
   </section>
-{% endif %}
 
-<section id="explicar" class="card upload-card" aria-label="Explicar examen">
-  <h2>{{ "Explica otro examen" if recent_docs else "Explica tu primer examen" }}</h2>
-  <form action="/subir" method="post" enctype="multipart/form-data">
-    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
-    <label class="file-drop" for="archivo">
-      <span class="file-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7l-5-5z"/>
-          <path d="M14 2v5h5"/>
-          <path d="M9 13h6M9 17h6"/>
-        </svg>
-      </span>
-      <span class="file-text">Elige el PDF de tu examen</span>
-      <span class="file-hint">Solo PDF · de tu celular o computadora</span>
-      <input type="file" id="archivo" name="archivo" accept=".pdf" required>
-    </label>
-    <button class="btn btn-primary btn-large" type="submit">Explicar mi examen</button>
-    <p class="micro-note">Sin crear cuenta: ves tu explicación primero.</p>
-  </form>
-</section>
+  {% set titulo = "Explica tu primer examen" %}
+  {% include "_upload_card.html" %}
+{% endif %}
 {% endblock %}

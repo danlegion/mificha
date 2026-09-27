@@ -3,6 +3,7 @@
 import logging
 import os
 import time
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
@@ -10,8 +11,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app import auth, config
 from app.db import dal
-from app.routers import templates
+from app.routers import normalize_flag_key, templates, urgency_css_key
 from app.routers import accounts, ingest, results, share, vault
+from app.routers.vault import _fecha_corta
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,18 +40,40 @@ async def log_requests(request: Request, call_next):
 def index(request: Request):
     user = auth.get_current_user(request)
     recent_docs = []
+    total_docs = 0
     if user:
-        for d in dal.list_documents(user["id"])[:5]:
+        limite = datetime.now(timezone.utc) - timedelta(days=180)
+        all_docs = dal.list_documents(user["id"])
+        total_docs = len(all_docs)
+        for d in all_docs:
             exp = d.get("explanation") or {}
-            creado = (d.get("created_at") or "")[:10]
+            creado_raw = d.get("created_at") or ""
+            try:
+                creado = datetime.fromisoformat(creado_raw)
+            except ValueError:
+                creado = None
+            if creado is not None:
+                if creado.tzinfo is None:
+                    creado = creado.replace(tzinfo=timezone.utc)
+                if creado < limite:
+                    continue
+            urg = exp.get("urgency") or {}
+            fuera = sum(
+                1 for b in exp.get("biomarkers", [])
+                if normalize_flag_key(b.get("flag")) in ("alto", "bajo")
+            )
             recent_docs.append(
                 {
                     "id": d["id"],
                     "type_label": exp.get("type_label", "Documento"),
-                    "fecha": creado,
-                    "idea_principal": (exp.get("summary_simple") or "")[:160],
+                    "fecha": _fecha_corta(creado_raw),
+                    "urgency_label": urg.get("label", ""),
+                    "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
+                    "fuera_de_rango": fuera,
                 }
             )
+            if len(recent_docs) >= 10:
+                break
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -57,6 +81,7 @@ def index(request: Request):
             "request": request,
             "user": user,
             "recent_docs": recent_docs,
+            "total_docs": total_docs,
             "guest_token": None,
             "demo_mode": not bool(config.ANTHROPIC_API_KEY),
             "dev_auth": auth.DEV_AUTH,
