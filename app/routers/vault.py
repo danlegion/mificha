@@ -7,7 +7,8 @@ from fastapi.responses import FileResponse, RedirectResponse
 
 from app import auth, config
 from app.db import dal
-from app.routers import normalize_flag_key, render_explanation, templates, urgency_css_key
+from app.routers import (normalize_flag_key, render_explanation, share_ctx,
+                         templates, urgency_css_key)
 from app.storage import delete_original, get_original_path
 
 router = APIRouter()
@@ -87,6 +88,8 @@ def ficha_detalle(doc_id: str, request: Request):
     if not doc or doc.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="No encontrado")
     exp = render_explanation(doc.get("explanation") or {})
+    intake_id = doc.get("intake_id") or doc["id"]
+    share_row = dal.get_active_share_for_intake(intake_id)
     return templates.TemplateResponse(
         request,
         "vault_detail.html",
@@ -99,6 +102,8 @@ def ficha_detalle(doc_id: str, request: Request):
                 "download_url": f"/ficha/{doc['id']}/original?descargar=1",
             },
             "history": _historial(user["id"], doc_id),
+            "intake_id": intake_id,
+            "share": share_ctx(share_row),
         },
     )
 

@@ -14,9 +14,47 @@
   </div>
 </section>
 
-<section class="card doctor-share" aria-label="Compartir con tu doctor">
+<section class="card share-card" id="compartir" aria-label="Compartir con tu doctor">
   <h2>Compartir con mi doctor</h2>
-  <p>Muéstrale esta explicación en tu celular, o comparte el enlace del resumen desde la <a href="#compartir">sección de compartir</a>. Para el documento completo, usa el botón de arriba.</p>
+  <p>Crea un enlace privado con solo el resumen y la urgencia. Se puede revocar cuando quieras.</p>
+
+  {% if share %}
+  <div class="share-active">
+    <p class="eyebrow">Enlace activo</p>
+    <div class="share-preview">
+      <h3>Esto es exactamente lo que verá quien abra el enlace:</h3>
+      <p class="summary">{{ share.summary_simple }}</p>
+      {% if share.include_urgency %}
+      <p class="urgency urgency-{{ share.urgency_level }}">
+        <span class="urgency-level">{{ share.urgency_label }}</span> — {{ share.action }}
+      </p>
+      {% endif %}
+      <p class="micro-note">Expira: {{ share.expires_label }} · Sin PDF, sin otros datos, sin tu identidad.</p>
+    </div>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="https://wa.me/?text={{ share.text_encoded }}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
+      <button class="btn btn-ghost copy-btn" type="button" data-copy="{{ share.url }}">Copiar enlace</button>
+    </div>
+    <form action="/compartir/{{ intake_id }}/revocar" method="post">
+      <button class="btn btn-danger" type="submit">Revocar enlace</button>
+    </form>
+  </div>
+  {% else %}
+  <form action="/compartir/{{ intake_id }}" method="post">
+    <fieldset class="share-options">
+      <legend>Incluir en el enlace</legend>
+      <label class="checkbox-row">
+        <input type="checkbox" name="incluir_resumen" value="1" checked>
+        <span>Resumen en lenguaje simple</span>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" name="incluir_urgencia" value="1" checked>
+        <span>Nivel de urgencia y qué hacer</span>
+      </label>
+    </fieldset>
+    <button class="btn btn-primary" type="submit">Crear enlace para compartir</button>
+  </form>
+  {% endif %}
 </section>
 
 {% if history %}

@@ -5,6 +5,15 @@
 {% block content %}
 {% include "_explanation.html" %}
 
+<section class="card original-card" aria-label="Documento original">
+  <h2>Documento original</h2>
+  <p>Si tu doctor quiere ver el documento tal como lo subiste:</p>
+  <div class="btn-row">
+    <a class="btn btn-primary" href="/resultado/{{ intake_id }}/original{% if guest_token %}?t={{ guest_token }}{% endif %}" target="_blank" rel="noopener">Ver documento original</a>
+    <a class="btn btn-secondary" href="/resultado/{{ intake_id }}/original?descargar=1{% if guest_token %}&t={{ guest_token }}{% endif %}">Descargar</a>
+  </div>
+</section>
+
 {% if exp.uncertain_fields %}
 <section class="card correct-card" id="corregir" aria-label="Corregir datos">
   <h2>Corrige lo que no quedó claro</h2>
@@ -79,5 +88,14 @@
     <button class="btn btn-primary" type="submit">Crear enlace para compartir</button>
   </form>
   {% endif %}
+</section>
+
+<section class="card" aria-label="Eliminar examen">
+  <h2>Eliminar este examen</h2>
+  <p>Se borrarán la explicación y el documento que subiste. Esta acción no se puede deshacer.</p>
+  <form method="post" action="/resultado/{{ intake_id }}/eliminar{% if guest_token %}?t={{ guest_token }}{% endif %}"
+        onsubmit="return confirm('¿Eliminar este examen? Se borrarán la explicación y el documento que subiste.');">
+    <button class="btn btn-danger" type="submit">Eliminar examen</button>
+  </form>
 </section>
 {% endblock %}

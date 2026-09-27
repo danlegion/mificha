@@ -22,11 +22,13 @@ import hmac
 import os
 import re
 import secrets
+from datetime import datetime
 
 from fastapi.templating import Jinja2Templates
 
 from app import config
 from app.services import llm as _llm
+from app.services import share as share_svc
 
 TEMPLATES_DIR = os.path.join(config.BASE_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -184,3 +186,25 @@ def can_view_intake(intake: dict | None, token: str | None, user: dict | None) -
     if user and intake.get("owner_user_id") == user["id"]:
         return True
     return False
+
+
+def share_ctx(share_row: dict | None) -> dict | None:
+    """Contexto `share` para las plantillas (las 4 claves + extras)."""
+    if not share_row:
+        return None
+    snap = share_row.get("snapshot") or {}
+    token = share_row.get("token", "")
+    incluir_urgencia = bool(snap.get("incluir_urgencia"))
+    return {
+        "url": share_svc.share_url(token),
+        "text_encoded": share_svc.whatsapp_text(token, incluir_urgencia),
+        "include_urgency": incluir_urgencia,
+        "urgency_level": urgency_css_key(snap.get("urgency_level", "no_urgente"))
+        if incluir_urgencia else "",
+        "summary_simple": snap.get("summary_simple", ""),
+        "urgency_label": snap.get("urgency_label", ""),
+        "action": snap.get("urgency_action", ""),
+        "expires_label": share_svc.format_expires_label(
+            datetime.fromisoformat(share_row["expires_at"])
+        ),
+    }
