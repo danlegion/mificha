@@ -156,6 +156,15 @@ def _sqlite_dal():
                 obj = s.get(Intake, intake_id)
                 return _intake_d(obj) if obj else None
 
+        def delete_intake(self, intake_id: str) -> bool:
+            with Session() as s:
+                obj = s.get(Intake, intake_id)
+                if obj is None:
+                    return False
+                s.delete(obj)
+                s.commit()
+                return True
+
         def set_intake_ready(self, intake_id, explanation=None, status="ready", detail=None):
             with Session() as s:
                 obj = s.get(Intake, intake_id)
@@ -254,6 +263,15 @@ def _sqlite_dal():
                     .all()
                 )
                 return [_doc_d(o) for o in objs]
+
+        def delete_document(self, doc_id: str) -> bool:
+            with Session() as s:
+                obj = s.get(Document, doc_id)
+                if obj is None:
+                    return False
+                s.delete(obj)
+                s.commit()
+                return True
 
         # -- shares ------------------------------------------------------
         def create_share(self, share: dict) -> dict:
@@ -401,6 +419,10 @@ def _supabase_dal():
             _one(client.table("intakes").update(row).eq("id", intake_id).execute())
             return self.get_intake(intake_id)
 
+        def delete_intake(self, intake_id: str) -> bool:
+            client.table("intakes").delete().eq("id", intake_id).execute()
+            return True
+
         # -- users ------------------------------------------------------
         def create_user(self, email, telefono=None):
             email = (email or "").strip().lower()
@@ -439,6 +461,10 @@ def _supabase_dal():
             resp = (client.table("documents").select("*").eq("user_id", user_id)
                     .order("created_at", desc=True).execute())
             return [_n_doc(r) for r in (resp.data or [])]
+
+        def delete_document(self, doc_id: str) -> bool:
+            client.table("documents").delete().eq("id", doc_id).execute()
+            return True
 
         # -- shares ------------------------------------------------------
         def create_share(self, share: dict) -> dict:

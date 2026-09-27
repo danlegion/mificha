@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from app import auth, config
 from app.db import dal
 from app.routers import normalize_flag_key, render_explanation, templates, urgency_css_key
-from app.storage import get_original_path
+from app.storage import delete_original, get_original_path
 
 router = APIRouter()
 
@@ -96,6 +96,7 @@ def ficha_detalle(doc_id: str, request: Request):
             "doc": {
                 "id": doc["id"],
                 "original_url": f"/ficha/{doc['id']}/original",
+                "download_url": f"/ficha/{doc['id']}/original?descargar=1",
             },
             "history": _historial(user["id"], doc_id),
         },
@@ -131,7 +132,7 @@ def _historial(user_id: str, doc_actual_id: str) -> list:
 
 
 @router.get("/ficha/{doc_id}/original")
-def ficha_original(doc_id: str, request: Request):
+def ficha_original(doc_id: str, request: Request, descargar: bool = False):
     try:
         user = _require_user(request)
     except HTTPException:
@@ -142,8 +143,26 @@ def ficha_original(doc_id: str, request: Request):
     path = get_original_path(doc.get("original_key") or "")
     if not path:
         raise HTTPException(status_code=404, detail="Original no disponible")
+    modo = "attachment" if descargar else "inline"
     return FileResponse(
         path,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="documento.pdf"'},
+        headers={"Content-Disposition": f'{modo}; filename="documento.pdf"'},
     )
+
+
+@router.post("/ficha/{doc_id}/eliminar")
+def ficha_eliminar(doc_id: str, request: Request):
+    try:
+        user = _require_user(request)
+    except HTTPException:
+        return RedirectResponse("/", status_code=303)
+    doc = dal.get_document(doc_id)
+    if not doc or doc.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    intake_id = doc.get("intake_id") or doc_id
+    delete_original(doc.get("original_key") or "")
+    dal.revoke_shares_for_intake(intake_id)
+    dal.delete_document(doc_id)
+    dal.delete_intake(intake_id)
+    return RedirectResponse("/ficha", status_code=303)

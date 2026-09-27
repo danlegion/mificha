@@ -69,3 +69,22 @@ def get_original_path(key: str) -> str | None:
             log.warning("No se pudo descargar %s de Supabase: %s", key, exc)
     path = os.path.join(_local_dir(), key)
     return path if os.path.exists(path) else None
+
+
+def delete_original(key: str) -> None:
+    """Borra el PDF original (Supabase Storage y/o disco local)."""
+    if not key:
+        return
+    if config.USE_SUPABASE:
+        try:
+            from supabase import create_client  # type: ignore
+
+            sb = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+            sb.storage.from_(BUCKET).remove([key])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("No se pudo borrar %s de Supabase: %s", key, exc)
+    path = os.path.join(_local_dir(), key)
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass

@@ -10,6 +10,7 @@
   <p>Si tu doctor quiere ver el documento tal como lo subiste:</p>
   <div class="btn-row">
     <a class="btn btn-primary" href="{{ doc.original_url }}" target="_blank" rel="noopener">Ver documento original</a>
+    <a class="btn btn-secondary" href="{{ doc.download_url }}">Descargar</a>
   </div>
 </section>
 
@@ -44,4 +45,13 @@
   {% endfor %}
 </section>
 {% endif %}
+
+<section class="card" aria-label="Eliminar examen">
+  <h2>Eliminar este examen</h2>
+  <p>Se borrarán la explicación y el documento original. Esta acción no se puede deshacer.</p>
+  <form method="post" action="/ficha/{{ doc.id }}/eliminar"
+        onsubmit="return confirm('¿Eliminar este examen? Se borrarán la explicación y el documento original.');">
+    <button class="btn btn-danger" type="submit">Eliminar examen</button>
+  </form>
+</section>
 {% endblock %}
