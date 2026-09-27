@@ -3,7 +3,22 @@
 
 <section class="card level1" aria-label="Resumen">
   <p class="eyebrow">{{ exp.type_label }}</p>
+  {% if exp.resumen_que_es or exp.resumen_rapido or exp.resumen_hallazgos %}
+  {% if exp.resumen_que_es %}
+  <h2 class="summary-sub">Qué es este examen</h2>
+  <p class="summary-text">{{ exp.resumen_que_es }}</p>
+  {% endif %}
+  {% if exp.resumen_rapido %}
+  <h2 class="summary-sub">Resumen rápido</h2>
+  <p class="summary-text">{{ exp.resumen_rapido }}</p>
+  {% endif %}
+  {% if exp.resumen_hallazgos %}
+  <h2 class="summary-sub">Hallazgos principales</h2>
+  <p class="summary-text">{{ exp.resumen_hallazgos }}</p>
+  {% endif %}
+  {% else %}
   <h1 class="summary">{{ exp.summary_simple }}</h1>
+  {% endif %}
 
   {% if exp.concerns_top %}
   <div class="concerns" aria-label="Valores que necesitan atención">
@@ -31,12 +46,12 @@
   </p>
   {% endif %}
 
-  {% if exp.narrative_findings %}
+  {% if exp.narrative_findings and not exp.resumen_hallazgos %}
   <div class="concerns" aria-label="Hallazgos principales">
     <h2>Hallazgos principales</h2>
     <ul class="concern-list concern-names">
       {% for f in exp.narrative_findings %}
-      <li><strong>{{ f.heading }}</strong></li>
+      <li><strong>{{ f.finding }}</strong></li>
       {% endfor %}
     </ul>
   </div>
@@ -92,8 +107,8 @@
     <div class="detail-body">
       {% for f in exp.narrative_findings %}
       <article class="narrative-item">
-        <h3>{{ f.heading }}</h3>
-        <p>{{ f.simple_explanation }}</p>
+        <h3>{{ f.finding }}</h3>
+        <p>{{ f.plain_explanation }}</p>
       </article>
       {% endfor %}
     </div>

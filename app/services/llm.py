@@ -49,6 +49,7 @@ REGLAS DURAS (inquebrantables):
 6. PRIORIDAD CLÍNICA: para cada biomarcador fuera de rango, indica qué tan importante es prestarle atención pronto (alta/media/baja) considerando el valor real, qué tan lejos está del rango y el peso clínico del examen (p. ej. electrolitos como potasio/sodio y marcadores cardíacos pesan más que lípidos a igual desviación). Es solo para ordenar la lista, NO es un diagnóstico ni una evaluación médica.
 7. LABORATORIO: si el documento indica el laboratorio o clínica que lo emitió, devuélvelo en "laboratorio" tal como aparece; si no aparece, null. Nunca lo inventes.
 8. FECHA DEL DOCUMENTO: es la fecha en que el doctor o laboratorio completó/emitió el documento (fecha del informe, de la toma de muestra o de emisión, en el encabezado o pie), NO la fecha de hoy. Formato AAAA-MM-DD. Si no aparece en el documento, null: nunca la inventes ni uses la fecha actual.
+9. RESUMEN POR SECCIONES: además de "summary_simple", devuelve el resumen dividido en tres partes cortas, cada una en lenguaje simple y sin tecnicismos: "resumen_que_es" (qué es este examen/documento y para qué se usa), "resumen_rapido" (lo más importante del resultado en 1-2 frases) y "resumen_hallazgos" (qué salió fuera de lo esperado y qué significa, en frases cortas; no repitas la lista de valores uno por uno porque ya van en otra sección).
 
 Devuelve SOLO un JSON válido (sin bloques de código, sin texto extra) con esta estructura exacta:
 {
@@ -57,6 +58,9 @@ Devuelve SOLO un JSON válido (sin bloques de código, sin texto extra) con esta
   "laboratorio": "nombre del laboratorio o clínica como aparece en el documento, o null si no aparece",
   "fecha_documento": "fecha en que el doctor o laboratorio completó/emitió el documento (formato AAAA-MM-DD), o null si no aparece",
   "summary_simple": "resumen de 2-4 frases en lenguaje simple",
+  "resumen_que_es": "1-2 frases: qué es este examen o documento y para qué se usa",
+  "resumen_rapido": "1-2 frases: lo más importante del resultado, en lenguaje simple",
+  "resumen_hallazgos": "hallazgos principales: qué salió fuera de lo esperado y qué significa, en frases cortas",
   "biomarkers": [
     {"name": "nombre", "value": "valor como texto", "unit": "unidad o null",
      "ref_range": "rango EXACTO del documento o null",
@@ -483,7 +487,57 @@ class DemoExplainer(LLMProvider):
         }
         # Urgencia calculada con las mismas reglas conservadoras del sistema.
         exp["urgency"] = decide_urgency(self._senales(exp, texto, sen_extra))
+        que_es, rapido, hallazgos = self._resumen_secciones(tipo, exp)
+        exp["resumen_que_es"] = que_es
+        exp["resumen_rapido"] = rapido
+        exp["resumen_hallazgos"] = hallazgos
         return exp
+
+    @staticmethod
+    def _resumen_secciones(tipo: str, exp: dict) -> tuple:
+        """Resumen dividido en tres partes cortas (modo demo)."""
+        que_es = {
+            "lab_result": (
+                "Un examen de laboratorio analiza una muestra de tu sangre, "
+                "orina u otro fluido para medir distintas sustancias del cuerpo."
+            ),
+            "narrative_report": (
+                "Un informe narrativo es el texto donde el doctor describe "
+                "lo que encontró en un estudio o examen."
+            ),
+            "exam_order": (
+                "Un pedido de examen es la lista de estudios que tu doctor "
+                "te mandó a hacerte."
+            ),
+            "doctor_note": (
+                "Una nota del doctor con información sobre tu consulta, "
+                "diagnóstico o tratamiento."
+            ),
+        }.get(tipo, "Un documento médico.")
+        rapido = exp.get("summary_simple") or ""
+        if tipo == "lab_result":
+            anormales = [
+                b["name"] for b in exp.get("biomarkers", [])
+                if b.get("flag") in ("alto", "bajo")
+            ]
+            hallazgos = (
+                f"Fuera de su rango de referencia: {', '.join(anormales)}."
+                if anormales else
+                "Todos los valores están dentro de su rango de referencia."
+            )
+        elif exp.get("narrative_findings"):
+            hallazgos = " ".join(
+                f.get("finding", "") for f in exp["narrative_findings"][:4]
+            ).strip()[:600] or None
+        elif exp.get("ordered_tests"):
+            hallazgos = (
+                "El doctor pidió: "
+                + ", ".join(t.get("name", "") for t in exp["ordered_tests"][:5])
+                + "."
+            )
+        else:
+            hallazgos = rapido
+        return que_es, rapido or None, hallazgos
 
     # -- laboratorio ----------------------------------------------------
     def _explicar_laboratorio(self, texto: str, uncertain: list) -> tuple:

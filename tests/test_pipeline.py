@@ -64,3 +64,34 @@ def test_paginas_escaneadas_parciales_avisan_en_desarrollo(monkeypatch):
     exp = process_intake("abc", b"%PDF-falso", None)
     razones = [f.get("reason", "") for f in exp.get("uncertain_fields", [])]
     assert any("página 2" in r and "trabajando" in r.lower() for r in razones), razones
+
+
+def test_resumen_secciones_se_normaliza(monkeypatch):
+    """Los tres campos del resumen por secciones: strip, None si vacío."""
+    from app.services.pipeline import _aplicar_reglas_duras
+    exp = {
+        "document_type": "lab_result",
+        "type_label": "t",
+        "summary_simple": "resumen",
+        "biomarkers": [],
+        "urgency": {"level": "no_urgente"},
+        "resumen_que_es": "  Qué es. ",
+        "resumen_rapido": "",
+        "resumen_hallazgos": "x" * 900,
+    }
+    out = _aplicar_reglas_duras(exp, {"full_text": ""})
+    assert out["resumen_que_es"] == "Qué es."
+    assert out["resumen_rapido"] is None
+    assert len(out["resumen_hallazgos"]) == 600
+
+
+def test_demo_devuelve_resumen_por_secciones():
+    from app.services.llm import DemoExplainer
+    exp = DemoExplainer().explain({
+        "full_text": "Colesterol  210  mg/dL  0 - 200",
+        "doc_type_hint": "resultado",
+        "scanned_pages": [],
+    })
+    assert exp["resumen_que_es"]
+    assert exp["resumen_rapido"]
+    assert exp["resumen_hallazgos"]

@@ -81,6 +81,10 @@ class Explanation(BaseModel):
     laboratorio: Optional[str] = None  # nombre del laboratorio/clínica según el documento
     fecha_documento: Optional[str] = None  # AAAA-MM-DD en que el doctor/lab completó el documento
     summary_simple: str
+    # Resumen por secciones (lo nuevo); summary_simple queda como respaldo.
+    resumen_que_es: Optional[str] = None
+    resumen_rapido: Optional[str] = None
+    resumen_hallazgos: Optional[str] = None
     biomarkers: List[Biomarker] = Field(default_factory=list)
     narrative_findings: List[NarrativeFinding] = Field(default_factory=list)
     ordered_tests: List[OrderedTest] = Field(default_factory=list)

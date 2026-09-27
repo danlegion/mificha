@@ -136,6 +136,11 @@ def _aplicar_reglas_duras(exp: dict, extracted: dict) -> dict:
     except ValueError:
         exp["fecha_documento"] = None
 
+    # Resumen por secciones: textos cortos, sin inventar.
+    for campo in ("resumen_que_es", "resumen_rapido", "resumen_hallazgos"):
+        s = str(exp.get(campo) or "").strip()
+        exp[campo] = s[:600] or None
+
     # Urgencia: la regla conservadora nunca baja lo que el LLM marcó.
     regla = decide_urgency(_derivar_senales(exp, extracted))
     nivel_llm = (exp.get("urgency") or {}).get("level", "no_urgente")
