@@ -115,6 +115,14 @@ def _aplicar_reglas_duras(exp: dict, extracted: dict) -> dict:
         biomarcadores_ok.append(b)
     exp["biomarkers"] = biomarcadores_ok
 
+    # Prioridad clínica del LLM: normaliza a alta/media/baja ("media" si el
+    # LLM no la devolvió) y recorta el motivo a una frase corta.
+    for b in exp["biomarkers"]:
+        pc = str(b.get("prioridad_clinica") or "").strip().lower()
+        b["prioridad_clinica"] = pc if pc in ("alta", "media", "baja") else "media"
+        motivo = str(b.get("motivo_prioridad") or "").strip()
+        b["motivo_prioridad"] = motivo[:180] or None
+
     # Urgencia: la regla conservadora nunca baja lo que el LLM marcó.
     regla = decide_urgency(_derivar_senales(exp, extracted))
     nivel_llm = (exp.get("urgency") or {}).get("level", "no_urgente")

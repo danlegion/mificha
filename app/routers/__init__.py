@@ -49,8 +49,11 @@ _FLAG_MAP = {
     "incierto": "uncertain", "incierta": "uncertain",
 }
 
-# Prioridad en "Valores que necesitan atención": los más urgentes primero.
+# Prioridad en "Valores que necesitan atención":
+# 1) marcas críticas del laboratorio, 2) prioridad clínica del LLM,
+# 3) desviación del rango como desempate.
 _SEVERITY_RANK = {"critica": 0, "grave": 1, "moderada": 2, "leve": 3}
+_CLIN_RANK = {"alta": 0, "media": 1, "baja": 2}
 _MAX_CONCERNS = 5
 
 
@@ -114,7 +117,17 @@ def render_explanation(exp: dict) -> dict:
     # cuántos otros también requieren atención.
     concerns = [b for b in e.get("biomarkers", [])
                 if b.get("flag_key") in ("alto", "bajo")]
-    concerns.sort(key=lambda b: _SEVERITY_RANK[_severity_for(b)])
+
+    def _orden(b):
+        sev = _severity_for(b)
+        clin = str(b.get("prioridad_clinica") or "media").strip().lower()
+        return (
+            0 if sev == "critica" else 1,          # marcas del laboratorio
+            _CLIN_RANK.get(clin, 1),                # prioridad clínica (LLM)
+            _SEVERITY_RANK.get(sev, 3),             # desviación del rango
+        )
+
+    concerns.sort(key=_orden)
     e["concerns_top"] = concerns[:_MAX_CONCERNS]
     extra = max(0, len(concerns) - _MAX_CONCERNS)
     e["concerns_extra"] = extra

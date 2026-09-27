@@ -38,6 +38,8 @@ class Biomarker(BaseModel):
     unit: Optional[str] = None
     ref_range: Optional[str] = None
     flag: Optional[str] = None  # p. ej. "alto", "bajo", "normal", "por confirmar"
+    prioridad_clinica: Optional[str] = None  # "alta" | "media" | "baja" (la pone el LLM)
+    motivo_prioridad: Optional[str] = None  # frase corta en lenguaje simple
     plain_explanation: str
     possible_health_effect: Optional[str] = None
 

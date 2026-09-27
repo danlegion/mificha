@@ -16,6 +16,7 @@
           <span class="concern-value">{{ b.value }}{% if b.unit %} {{ b.unit }}{% endif %}{% if b.flag %} <span class="flag flag-{{ b.flag_key }}">{{ b.flag }}</span>{% endif %}</span>
         </div>
         {% if b.ref_range %}<span class="concern-range">Rango esperado: {{ b.ref_range }}</span>{% endif %}
+        {% if b.motivo_prioridad %}<span class="micro-note">Por qué importa: {{ b.motivo_prioridad }}</span>{% endif %}
       </li>
       {% endfor %}
     </ul>
