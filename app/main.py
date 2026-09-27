@@ -38,6 +38,16 @@ async def log_requests(request: Request, call_next):
     return resp
 
 
+# El HTML es personal y cambia con cada acción (borrar, subir, guardar):
+# nunca debe servirse desde la caché del navegador.
+@app.middleware("http")
+async def no_cache_html(request: Request, call_next):
+    resp = await call_next(request)
+    if "text/html" in resp.headers.get("content-type", ""):
+        resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    return resp
+
+
 def _num_valor(s) -> float | None:
     """Primer número parseable del texto de un valor, o None."""
     if s is None:
