@@ -14,7 +14,7 @@ from app import auth, config
 from app.db import dal
 from app.routers import normalize_flag_key, templates, urgency_css_key
 from app.routers import accounts, ingest, results, share, vault
-from app.routers.vault import _fecha_corta
+from app.routers.vault import _fecha_corta, _fecha_efectiva
 from app.services.llm import _parse_rango
 
 logging.basicConfig(
@@ -124,28 +124,6 @@ def _resumen_cambio(mejoraron: int, empeoraron: int, fecha_prev: str) -> str:
     if not partes:
         return ""
     return f"Desde tu examen de {fecha_prev}: " + " · ".join(partes)
-
-
-def _fecha_efectiva(exp: dict, creado_raw: str) -> tuple[str, datetime | None]:
-    """Fecha que representa al documento: la del doctor/laboratorio si existe,
-    si no la de subida. Devuelve (iso_para_mostrar, datetime_para_ordenar)."""
-    fd = str(exp.get("fecha_documento") or "").strip()
-    dt = None
-    iso = creado_raw
-    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", fd):
-        try:
-            dt = datetime.strptime(fd, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            iso = fd
-        except ValueError:
-            dt = None
-    if dt is None:
-        try:
-            dt = datetime.fromisoformat(creado_raw)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-        except ValueError:
-            dt = None
-    return iso, dt
 
 
 @app.get("/")

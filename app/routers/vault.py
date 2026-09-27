@@ -1,6 +1,7 @@
 """MiFicha v0.1 — ficha (vault): lista, detalle, historial y PDF original."""
 
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
@@ -29,6 +30,28 @@ def _fecha_corta(iso: str | None) -> str:
     except ValueError:
         return iso
     return f"{dt.day} de {_MESES[dt.month - 1]} de {dt.year}"
+
+
+def _fecha_efectiva(exp: dict, creado_raw: str) -> tuple[str, datetime | None]:
+    """Fecha que representa al documento: la del doctor/laboratorio si existe,
+    si no la de subida. Devuelve (iso_para_mostrar, datetime_para_ordenar)."""
+    fd = str((exp or {}).get("fecha_documento") or "").strip()
+    dt = None
+    iso = creado_raw
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", fd):
+        try:
+            dt = datetime.strptime(fd, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            iso = fd
+        except ValueError:
+            dt = None
+    if dt is None:
+        try:
+            dt = datetime.fromisoformat(creado_raw)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            dt = None
+    return iso, dt
 
 
 def _flag_label(flag) -> str:
@@ -60,15 +83,26 @@ def ficha(request: Request):
     except HTTPException:
         return RedirectResponse("/", status_code=303)
     docs = []
-    for d in dal.list_documents(user["id"]):
+    crudos = dal.list_documents(user["id"])
+    # Orden: por fecha del examen (doctor/laboratorio), no de subida.
+    crudos = sorted(
+        crudos,
+        key=lambda d: _fecha_efectiva(
+            d.get("explanation") or {}, d.get("created_at") or ""
+        )[1] or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+    for d in crudos:
         exp = d.get("explanation") or {}
         urg = exp.get("urgency") or {}
+        fecha_iso, _fecha_dt = _fecha_efectiva(exp, d.get("created_at") or "")
+        resumen = exp.get("resumen_rapido") or exp.get("summary_simple") or ""
         docs.append(
             {
                 "id": d["id"],
-                "date_label": _fecha_corta(d.get("created_at")),
+                "date_label": _fecha_corta(fecha_iso),
                 "type_label": exp.get("type_label", "Documento"),
-                "summary_short": (exp.get("summary_simple") or "")[:140],
+                "summary_short": resumen[:140],
                 "urgency_label": urg.get("label", ""),
                 "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
             }
@@ -118,7 +152,8 @@ def _historial(user_id: str, doc_actual_id: str) -> list:
     por_nombre: dict[str, list] = {}
     for d in docs:
         exp = d.get("explanation") or {}
-        fecha = _fecha_corta(d.get("created_at"))
+        fecha_iso, _ = _fecha_efectiva(exp, d.get("created_at") or "")
+        fecha = _fecha_corta(fecha_iso)
         for b in exp.get("biomarkers", []):
             nombre = b.get("name") or "Valor"
             por_nombre.setdefault(nombre, []).append(
