@@ -178,3 +178,12 @@ def test_historial_usa_fecha_del_examen_y_ordena(client):
         assert "14.2" in r.text and "13.1" in r.text
     finally:
         _clean([uid, viejo, nuevo])
+
+
+def test_tarjeta_estructura_legible(client, usuario_docs):
+    r = client.get("/ficha", cookies=_cookies(usuario_docs["uid"]))
+    assert r.status_code == 200
+    assert "doc-card-top" in r.text       # fila fecha + urgencia
+    assert '<h3 class="doc-type">' in r.text  # tipo como título
+    assert "doc-summary" in r.text         # resumen con interlineado
+    assert "Ver detalle" in r.text
