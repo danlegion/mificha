@@ -48,12 +48,14 @@ REGLAS DURAS (inquebrantables):
 5. Sé conservador con la urgencia: ante la duda, "agendar_cita" con razón "por precaución". Solo usa "buscar_ayuda_ya" si hay una bandera crítica explícita o lenguaje de emergencia en el documento.
 6. PRIORIDAD CLÍNICA: para cada biomarcador fuera de rango, indica qué tan importante es prestarle atención pronto (alta/media/baja) considerando el valor real, qué tan lejos está del rango y el peso clínico del examen (p. ej. electrolitos como potasio/sodio y marcadores cardíacos pesan más que lípidos a igual desviación). Es solo para ordenar la lista, NO es un diagnóstico ni una evaluación médica.
 7. LABORATORIO: si el documento indica el laboratorio o clínica que lo emitió, devuélvelo en "laboratorio" tal como aparece; si no aparece, null. Nunca lo inventes.
+8. FECHA DEL DOCUMENTO: es la fecha en que el doctor o laboratorio completó/emitió el documento (fecha del informe, de la toma de muestra o de emisión, en el encabezado o pie), NO la fecha de hoy. Formato AAAA-MM-DD. Si no aparece en el documento, null: nunca la inventes ni uses la fecha actual.
 
 Devuelve SOLO un JSON válido (sin bloques de código, sin texto extra) con esta estructura exacta:
 {
   "document_type": "lab_result" | "narrative_report" | "exam_order" | "doctor_note",
   "type_label": "etiqueta en español, p. ej. 'Resultado de laboratorio'",
   "laboratorio": "nombre del laboratorio o clínica como aparece en el documento, o null si no aparece",
+  "fecha_documento": "fecha en que el doctor o laboratorio completó/emitió el documento (formato AAAA-MM-DD), o null si no aparece",
   "summary_simple": "resumen de 2-4 frases en lenguaje simple",
   "biomarkers": [
     {"name": "nombre", "value": "valor como texto", "unit": "unidad o null",
@@ -470,6 +472,7 @@ class DemoExplainer(LLMProvider):
             "document_type": tipo,
             "type_label": _TIPOS_LABEL.get(tipo, "Documento médico"),
             "laboratorio": None,
+            "fecha_documento": None,
             **cuerpo,
             "uncertain_fields": uncertain,
             "disclaimer": (

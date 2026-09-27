@@ -9,22 +9,37 @@
   {% include "_upload_card.html" %}
 
   {% if recent_docs %}
-  <section aria-label="Tus exámenes recientes">
-    <h2>Tus exámenes</h2>
-    <p class="micro-note">Últimos 6 meses</p>
-    <ul class="doc-list">
-      {% for doc in recent_docs %}
-      <li class="card doc-item">
-        <a href="/ficha/{{ doc.id }}">
-          <strong>{{ doc.type_label }}</strong> · {{ doc.fecha }}
-          {% if doc.urgency_label %}<span class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</span>{% endif %}
-          {% if doc.por_confirmar %}<span class="flag flag-uncertain">por confirmar</span>{% endif %}
-          <p class="micro-note">{% if doc.laboratorio %}{{ doc.laboratorio }} · {% endif %}{{ doc.fuera_de_rango }} valor{{ "es" if doc.fuera_de_rango != 1 else "" }} fuera de rango{% if doc.compartido %} · Compartido con tu doctor{% endif %}</p>
-          {% if doc.cambio_resumen %}<p class="micro-note">{{ doc.cambio_resumen }}</p>{% endif %}
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
+  <section class="card" aria-label="Tus exámenes recientes">
+    <div class="section-head">
+      <div>
+        <h2>Tus exámenes</h2>
+        <p class="micro-note">Últimos 6 meses · fecha del documento</p>
+      </div>
+      <a href="/ficha">Ver todos</a>
+    </div>
+    <div class="table-wrap">
+      <table class="docs-table">
+        <thead>
+          <tr><th>Fecha</th><th>Examen</th><th>Urgencia</th><th>Fuera de rango</th></tr>
+        </thead>
+        <tbody>
+          {% for doc in recent_docs %}
+          <tr>
+            <td class="nowrap">{{ doc.fecha }}</td>
+            <td>
+              <a href="/ficha/{{ doc.id }}"><strong>{{ doc.type_label }}</strong></a>
+              {% if doc.laboratorio %}<span class="micro-note">{{ doc.laboratorio }}</span>{% endif %}
+              {% if doc.cambio_resumen %}<span class="micro-note">{{ doc.cambio_resumen }}</span>{% endif %}
+              {% if doc.por_confirmar %}<span class="flag flag-uncertain">por confirmar</span>{% endif %}
+              {% if doc.compartido %}<span class="micro-note">Compartido con tu doctor</span>{% endif %}
+            </td>
+            <td>{% if doc.urgency_label %}<span class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</span>{% endif %}</td>
+            <td class="num">{{ doc.fuera_de_rango }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
   {% elif total_docs %}
   <section class="card" aria-label="Exámenes anteriores">

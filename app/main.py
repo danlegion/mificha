@@ -100,7 +100,8 @@ def _comparar_con_anterior(
                     mejoraron += 1
                 elif d_curr > d_prev * 1.1:
                     empeoraron += 1
-        return mejoraron, empeoraron, _fecha_corta(previo.get("created_at"))
+        iso_prev, _dt_prev = _fecha_efectiva(pexp, previo.get("created_at") or "")
+        return mejoraron, empeoraron, _fecha_corta(iso_prev)
     return 0, 0, ""
 
 
@@ -115,6 +116,28 @@ def _resumen_cambio(mejoraron: int, empeoraron: int, fecha_prev: str) -> str:
     return f"Desde tu examen de {fecha_prev}: " + " · ".join(partes)
 
 
+def _fecha_efectiva(exp: dict, creado_raw: str) -> tuple[str, datetime | None]:
+    """Fecha que representa al documento: la del doctor/laboratorio si existe,
+    si no la de subida. Devuelve (iso_para_mostrar, datetime_para_ordenar)."""
+    fd = str(exp.get("fecha_documento") or "").strip()
+    dt = None
+    iso = creado_raw
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", fd):
+        try:
+            dt = datetime.strptime(fd, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            iso = fd
+        except ValueError:
+            dt = None
+    if dt is None:
+        try:
+            dt = datetime.fromisoformat(creado_raw)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            dt = None
+    return iso, dt
+
+
 @app.get("/")
 def index(request: Request):
     user = auth.get_current_user(request)
@@ -124,18 +147,20 @@ def index(request: Request):
         limite = datetime.now(timezone.utc) - timedelta(days=180)
         all_docs = dal.list_documents(user["id"])
         total_docs = len(all_docs)
+        # Orden: por fecha del documento (doctor/laboratorio), no de subida.
+        all_docs = sorted(
+            all_docs,
+            key=lambda d: _fecha_efectiva(
+                d.get("explanation") or {}, d.get("created_at") or ""
+            )[1] or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
         for i, d in enumerate(all_docs):
             exp = d.get("explanation") or {}
             creado_raw = d.get("created_at") or ""
-            try:
-                creado = datetime.fromisoformat(creado_raw)
-            except ValueError:
-                creado = None
-            if creado is not None:
-                if creado.tzinfo is None:
-                    creado = creado.replace(tzinfo=timezone.utc)
-                if creado < limite:
-                    continue
+            fecha_iso, fecha_dt = _fecha_efectiva(exp, creado_raw)
+            if fecha_dt is not None and fecha_dt < limite:
+                continue
             urg = exp.get("urgency") or {}
             bios = exp.get("biomarkers", [])
             fuera = sum(
@@ -154,7 +179,7 @@ def index(request: Request):
                     "id": d["id"],
                     "type_label": exp.get("type_label", "Documento"),
                     "laboratorio": exp.get("laboratorio"),
-                    "fecha": _fecha_corta(creado_raw),
+                    "fecha": _fecha_corta(fecha_iso),
                     "urgency_label": urg.get("label", ""),
                     "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
                     "fuera_de_rango": fuera,

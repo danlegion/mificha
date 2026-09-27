@@ -79,6 +79,7 @@ class Explanation(BaseModel):
     document_type: str  # str libre; DocumentType cubre los conocidos
     type_label: str
     laboratorio: Optional[str] = None  # nombre del laboratorio/clínica según el documento
+    fecha_documento: Optional[str] = None  # AAAA-MM-DD en que el doctor/lab completó el documento
     summary_simple: str
     biomarkers: List[Biomarker] = Field(default_factory=list)
     narrative_findings: List[NarrativeFinding] = Field(default_factory=list)

@@ -10,6 +10,7 @@ UnprocessableDocument con un mensaje en español para el usuario.
 
 import logging
 import re
+from datetime import datetime
 
 from app import schemas
 from app.services import pdf_extract
@@ -126,6 +127,14 @@ def _aplicar_reglas_duras(exp: dict, extracted: dict) -> dict:
     # Laboratorio: tal como aparece en el documento, o null.
     lab = str(exp.get("laboratorio") or "").strip()
     exp["laboratorio"] = lab[:120] or None
+
+    # Fecha del documento: solo AAAA-MM-DD válido; nunca inventada.
+    fd = str(exp.get("fecha_documento") or "").strip()
+    try:
+        datetime.strptime(fd, "%Y-%m-%d")
+        exp["fecha_documento"] = fd
+    except ValueError:
+        exp["fecha_documento"] = None
 
     # Urgencia: la regla conservadora nunca baja lo que el LLM marcó.
     regla = decide_urgency(_derivar_senales(exp, extracted))

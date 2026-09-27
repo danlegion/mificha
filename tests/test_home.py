@@ -88,10 +88,11 @@ def test_home_usuario_subir_primero_y_lista_6_meses(client, usuario_con_docs):
     assert "Tu último examen" not in html
     # La acción más importante va primera.
     assert html.index("Explica otro examen") < html.index("<h2>Tus exámenes</h2>")
-    # La lista trae fecha, tipo, urgencia y fuera de rango.
+    # La tabla trae tipo, urgencia, fuera de rango y link a ver todos.
     assert "Resultado de laboratorio" in html
     assert "Agenda una cita" in html
-    assert "2 valores fuera de rango" in html
+    assert '<td class="num">2</td>' in html
+    assert "Ver todos" in html
     assert f"/ficha/{usuario_con_docs['reciente']}" in html
     # El documento viejo (>6 meses) no aparece en el home.
     assert f"/ficha/{usuario_con_docs['viejo']}" not in html
@@ -207,3 +208,58 @@ def test_comparar_empeora_y_sin_datos():
     mej, emp, fecha = m._comparar_con_anterior(
         [{"name": "Y", "value": "no numérico", "ref_range": "1 - 5"}], [])
     assert (mej, emp, fecha) == (0, 0, "")
+
+
+# ------------------------------------------------- fecha del documento
+
+
+@pytest.fixture()
+def usuario_fechas():
+    from datetime import datetime, timezone
+    email = f"f-{uuid.uuid4().hex[:8]}@x.test"
+    uid = dal.create_user(email)["id"]
+    ids = []
+
+    def _doc(fecha_doc):
+        did = "f-" + uuid.uuid4().hex[:12]
+        exp = _exp_campos(fecha_documento=fecha_doc)
+        dal.save_intake({"id": did, "status": "ready", "explanation": exp,
+                         "owner_user_id": uid})
+        dal.save_document({"id": did, "user_id": uid, "intake_id": did,
+                           "explanation": exp})
+        ids.append(did)
+        return did
+
+    # Subido hoy pero completado por el laboratorio hace 3 meses.
+    con_fecha = _doc("2026-06-27")
+    # Subido hoy, sin fecha de documento: usa la de subida.
+    sin_fecha = _doc(None)
+    yield {"uid": uid, "con_fecha": con_fecha, "sin_fecha": sin_fecha}
+    _clean([uid] + ids)
+
+
+def test_home_muestra_fecha_del_documento_no_de_subida(
+        client, usuario_fechas):
+    r = client.get("/", cookies=_cookies(usuario_fechas["uid"]))
+    html = r.text
+    assert "27 de junio de 2026" in html
+
+
+def test_home_filtra_por_fecha_del_documento(client):
+    from datetime import datetime, timezone
+    email = f"f2-{uuid.uuid4().hex[:8]}@x.test"
+    uid = dal.create_user(email)["id"]
+    try:
+        # Subido hoy pero con fecha de documento de hace 8 meses: no va
+        # en "últimos 6 meses".
+        did = "f2-" + uuid.uuid4().hex[:12]
+        exp = _exp_campos(fecha_documento="2025-12-01")
+        dal.save_intake({"id": did, "status": "ready", "explanation": exp,
+                         "owner_user_id": uid})
+        dal.save_document({"id": did, "user_id": uid, "intake_id": did,
+                           "explanation": exp})
+        r = client.get("/", cookies=_cookies(uid))
+        assert f"/ficha/{did}" not in r.text
+        assert "más de 6 meses" in r.text
+    finally:
+        _clean([uid, did])
