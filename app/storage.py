@@ -46,7 +46,11 @@ def store_original(intake_id: str, pdf_bytes: bytes) -> str:
             log.info("Original %s subido a Supabase bucket %s", key, BUCKET)
             return key
         except Exception as exc:  # noqa: BLE001 - degradar a disco local
-            log.warning("Supabase Storage falló (%s): usando disco local.", exc)
+            log.error(
+                "Supabase Storage falló (%s): PDF guardado solo en disco "
+                "EFÍMERO de Render (se pierde en cada despliegue).",
+                exc,
+            )
     path = os.path.join(_local_dir(), key)
     with open(path, "wb") as f:
         f.write(pdf_bytes)

@@ -52,3 +52,27 @@ alter table intakes   disable row level security;
 alter table users      disable row level security;
 alter table documents  disable row level security;
 alter table shares     disable row level security;
+
+-- ---------------------------------------------------------------------------
+-- Storage: bucket "originales" para los PDFs originales.
+-- La app usa la ANON KEY desde el servidor (Render); los archivos se nombran
+-- con el intake_id (UUID imposible de adivinar). Idempotente.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('originales', 'originales', false)
+on conflict (id) do nothing;
+
+drop policy if exists "anon insert originales" on storage.objects;
+create policy "anon insert originales"
+on storage.objects for insert to anon
+with check (bucket_id = 'originales');
+
+drop policy if exists "anon select originales" on storage.objects;
+create policy "anon select originales"
+on storage.objects for select to anon
+using (bucket_id = 'originales');
+
+drop policy if exists "anon delete originales" on storage.objects;
+create policy "anon delete originales"
+on storage.objects for delete to anon
+using (bucket_id = 'originales');
