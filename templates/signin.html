@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Entrar a tu cuenta{% endblock %}
+
+{% block content %}
+{% if step == "link" %}
+<section class="card register-card">
+  <h1>Revisa tu correo</h1>
+  <p>Te enviamos un enlace seguro a <strong>{{ email }}</strong>. Ábrelo para entrar a tu cuenta.</p>
+
+  {% if error %}
+  <div class="error-box" role="alert">
+    <p>{{ error }}</p>
+  </div>
+  {% endif %}
+
+  <p class="micro-note">El enlace vence en unos minutos. Si no lo ves, revisa tu carpeta de spam.</p>
+  <form action="/entrar" method="post" class="resend-form">
+    <input type="hidden" name="email" value="{{ email }}">
+    <button class="link-btn" type="submit">No me llegó: enviar otro enlace</button>
+  </form>
+</section>
+{% else %}
+<section class="card register-card">
+  <h1>Entra a tu cuenta</h1>
+  <p>Escribe el correo con el que creaste tu cuenta. Te enviaremos un enlace para entrar, sin contraseña.</p>
+
+  {% if error %}
+  <div class="error-box" role="alert">
+    <p>{{ error }}</p>
+  </div>
+  {% endif %}
+
+  <form action="/entrar" method="post">
+    <label class="field">
+      <span>Correo electrónico</span>
+      <input type="email" name="email" required autocomplete="email" placeholder="tu@correo.com" value="{{ email }}">
+    </label>
+    <button class="btn btn-primary btn-large" type="submit">Enviarme el enlace</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

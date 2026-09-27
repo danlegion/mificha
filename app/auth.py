@@ -1,7 +1,8 @@
 """MiFicha v0.1 — autenticación.
 
-Con Supabase configurado: registro con código de 6 dígitos por correo vía
-Supabase Auth (sign_in_with_otp + verify_otp). La sesión de la app es una
+Con Supabase configurado: registro e inicio de sesión con enlace mágico
+por correo vía Supabase Auth (sign_in_with_otp). El enlace redirige a
+/cuenta/activar, que valida el token y crea la sesión de la app: una
 cookie firmada por el servidor (itsdangerous, SECRET_KEY del entorno) que
 guarda el id del usuario de nuestra tabla `users`.
 Sin Supabase: fallback local de desarrollo con la misma cookie firmada.

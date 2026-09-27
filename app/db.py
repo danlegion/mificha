@@ -219,6 +219,12 @@ def _sqlite_dal():
                 obj = s.get(User, user_id)
                 return _user_d(obj) if obj else None
 
+        def get_user_by_email(self, email):
+            email = (email or "").strip().lower()
+            with Session() as s:
+                obj = s.query(User).filter_by(email=email).first()
+                return _user_d(obj) if obj else None
+
         # -- documents --------------------------------------------------
         def save_document(self, doc: dict) -> dict:
             with Session() as s:
@@ -410,6 +416,10 @@ def _supabase_dal():
 
         def get_user_by_id(self, user_id):
             return _n_user(_one(client.table("users").select("*").eq("id", user_id).execute()))
+
+        def get_user_by_email(self, email):
+            email = (email or "").strip().lower()
+            return _n_user(_one(client.table("users").select("*").eq("email", email).execute()))
 
         # -- documents --------------------------------------------------
         def save_document(self, doc: dict) -> dict:

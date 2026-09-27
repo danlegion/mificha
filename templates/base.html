@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Mi Ficha Medica explica tus exámenes médicos en lenguaje simple.">
   <title>{% block title %}Mi Ficha Medica{% endblock %} · Mi Ficha Medica</title>
-  <link rel="stylesheet" href="/static/app.css?v=13">
+  <link rel="stylesheet" href="/static/app.css?v=14">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -20,6 +20,14 @@
 
   <header class="site-header">
     <div class="container">
+      <nav class="site-nav" aria-label="Cuenta">
+        {% if user %}
+        <a href="/ficha">Mi ficha</a>
+        <a href="/salir">Salir</a>
+        {% else %}
+        <a href="/entrar">Entrar</a>
+        {% endif %}
+      </nav>
       <a class="wordmark" href="/"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 2.5h7.2L20.5 10.2V27c0 1.4-1.1 2.5-2.5 2.5H7c-1.4 0-2.5-1.1-2.5-2.5V5c0-1.4 1.1-2.5 2.5-2.5z" fill="#0C5B52"/><path d="M14.2 2.5v7.7h6.3z" fill="#07332E"/><rect x="8.6" y="14.2" width="7.8" height="2.3" rx="1.15" fill="#fff" opacity=".92"/><rect x="8.6" y="18.2" width="5.2" height="2.3" rx="1.15" fill="#fff" opacity=".55"/><circle cx="21.8" cy="22.2" r="7.2" fill="#0C5B52" stroke="#fff" stroke-width="2"/><path d="M18.5 22.2l2.3 2.3 4.3-4.9" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Mi Ficha Medica</a>
       <p class="tagline">Entiende tus exámenes. Cuida a tu familia.</p>
     </div>
@@ -35,7 +43,7 @@
     </div>
   </footer>
 
-  <script src="/static/app.js?v=13" defer></script>
+  <script src="/static/app.js?v=14" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

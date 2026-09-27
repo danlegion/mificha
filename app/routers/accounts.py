@@ -206,24 +206,96 @@ async def activar(request: Request):
         return JSONResponse({"ok": False, "message": str(e)}, status_code=400)
     email = (sb_user.get("email") or "").strip().lower()
     pendiente = _pendiente_tomar(email) if email else None
-    if not pendiente:
+    if pendiente:
+        # Viene de "Crear mi cuenta": reclama el intake y guarda el documento.
+        intake = dal.get_intake(pendiente["intake_id"])
+        if not intake:
+            return JSONResponse(
+                {"ok": False,
+                 "message": "Tu resultado ya no está disponible. Sube tu examen "
+                            "de nuevo."},
+                status_code=400)
+        nuevo_usuario = _reclamar(pendiente["intake_id"], email,
+                                  pendiente.get("telefono"))
+        return _con_sesion(
+            JSONResponse({"ok": True, "redirect": "/ficha"}),
+            nuevo_usuario["id"])
+    # Sin pendiente: es un inicio de sesión de una cuenta existente.
+    usuario = dal.get_user_by_email(email) if email else None
+    if not usuario:
         return JSONResponse(
             {"ok": False,
-             "message": "Este enlace ya se usó o venció. Vuelve a tu resultado "
-                        "y pide un enlace nuevo."},
-            status_code=400)
-    intake = dal.get_intake(pendiente["intake_id"])
-    if not intake:
-        return JSONResponse(
-            {"ok": False,
-             "message": "Tu resultado ya no está disponible. Sube tu examen "
-                        "de nuevo."},
-            status_code=400)
-    nuevo_usuario = _reclamar(pendiente["intake_id"], email,
-                              pendiente.get("telefono"))
+             "message": "No encontramos una cuenta con ese correo. Si aún no "
+                        "tienes cuenta, crea una desde tu resultado."},
+            status_code=404)
     return _con_sesion(
         JSONResponse({"ok": True, "redirect": "/ficha"}),
-        nuevo_usuario["id"])
+        usuario["id"])
+
+
+# --- Iniciar sesión -----------------------------------------------------
+
+def _ctx_entrar(request: Request, error=None, step="form", email="",
+                notice=None) -> dict:
+    return {
+        "request": request,
+        "error": error,
+        "step": step,
+        "email": email,
+        "notice": notice,
+        "demo_mode": DEMO_MODE,
+        "dev_auth": auth.DEV_AUTH,
+        "user": auth.get_current_user(request),
+    }
+
+
+@router.get("/entrar")
+def entrar_form(request: Request):
+    if auth.get_current_user(request):
+        return RedirectResponse("/ficha", status_code=303)
+    return templates.TemplateResponse(request, "signin.html",
+                                      _ctx_entrar(request))
+
+
+@router.post("/entrar")
+def entrar(request: Request, email: str = Form(...)):
+    email = (email or "").strip().lower()
+    if not _RE_EMAIL.match(email):
+        return templates.TemplateResponse(
+            request, "signin.html",
+            _ctx_entrar(request, "Revisa tu correo electrónico, no parece válido.",
+                        email=email),
+            status_code=400)
+    if not config.USE_SUPABASE:
+        # Modo desarrollo: sin Supabase, sesión directa si la cuenta existe.
+        usuario = dal.get_user_by_email(email)
+        if not usuario:
+            return templates.TemplateResponse(
+                request, "signin.html",
+                _ctx_entrar(request, "No encontramos una cuenta con ese correo.",
+                            email=email),
+                status_code=404)
+        log.warning("MODO DESARROLLO: inicio de sesión sin verificación (%s)",
+                    email)
+        return _con_sesion(RedirectResponse("/ficha", status_code=303),
+                           usuario["id"])
+    try:
+        auth.send_magic_link(
+            email, redirect_to=config.BASE_URL + "/cuenta/activar")
+    except auth.AuthError as e:
+        return templates.TemplateResponse(
+            request, "signin.html",
+            _ctx_entrar(request, str(e), email=email),
+            status_code=400 if e.kind != "red" else 502)
+    return templates.TemplateResponse(
+        request, "signin.html", _ctx_entrar(request, step="link", email=email))
+
+
+@router.get("/salir")
+def salir(request: Request):
+    resp = RedirectResponse("/", status_code=303)
+    resp.delete_cookie(auth.SESSION_COOKIE, samesite="lax")
+    return resp
 
 
 @router.post("/guardar/{intake_id}/reenviar")
