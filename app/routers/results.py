@@ -84,6 +84,23 @@ def resultado(intake_id: str, request: Request):
             status_code=422,
         )
     share_row = dal.get_active_share_for_intake(intake_id)
+    # Red de seguridad: con sesión iniciada, si el intake está listo pero aún
+    # no tiene dueño (p. ej. se subió antes de entrar) y se abre con el token
+    # de invitado, se reclama y se guarda en la ficha.
+    if user and not intake.get("owner_user_id") and raw:
+        dal.claim_intake(intake_id, user["id"])
+        dal.save_document(
+            {
+                "id": intake_id,
+                "user_id": user["id"],
+                "intake_id": intake_id,
+                "original_key": intake.get("original_key"),
+                "explanation": intake.get("explanation"),
+            }
+        )
+        log.info("Intake %s reclamado al verlo por usuario %s",
+                 intake_id, user["id"])
+        intake = dal.get_intake(intake_id) or intake
     return templates.TemplateResponse(
         request,
         "result.html",

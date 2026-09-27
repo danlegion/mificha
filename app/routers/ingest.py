@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, BackgroundTasks, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 
-from app import config
+from app import auth, config
 from app.db import dal
 from app.routers import hash_token, new_guest_token, templates
 from app.services.pipeline import UnprocessableDocument, process_intake
@@ -73,6 +73,21 @@ def _run_pipeline(intake_id: str):
         )
         return
     dal.set_intake_ready(intake_id, explanation=exp, status="ready")
+    # Si el intake tiene dueño (subida con sesión iniciada), el documento
+    # queda guardado en su ficha automáticamente.
+    owner_id = intake.get("owner_user_id")
+    if owner_id:
+        dal.save_document(
+            {
+                "id": intake_id,
+                "user_id": owner_id,
+                "intake_id": intake_id,
+                "original_key": intake.get("original_key"),
+                "explanation": exp,
+            }
+        )
+        log.info("Intake %s guardado en la ficha del usuario %s",
+                 intake_id, owner_id)
     try:
         os.remove(qpath)
     except OSError:
@@ -103,15 +118,19 @@ async def subir(
         f.write(contenido)
     original_key = store_original(intake_id, contenido)
 
-    dal.save_intake(
-        {
-            "id": intake_id,
-            "guest_token_hash": hash_token(guest_token),
-            "status": "processing",
-            "doc_type_hint": (tipo_doc or "").strip() or None,
-            "original_key": original_key,
-        }
-    )
+    # Si hay sesión iniciada, el intake nace con dueño: al terminar el
+    # procesamiento el documento se guarda solo en su ficha.
+    user = auth.get_current_user(request)
+    nuevo_intake = {
+        "id": intake_id,
+        "guest_token_hash": hash_token(guest_token),
+        "status": "processing",
+        "doc_type_hint": (tipo_doc or "").strip() or None,
+        "original_key": original_key,
+    }
+    if user:
+        nuevo_intake["owner_user_id"] = user["id"]
+    dal.save_intake(nuevo_intake)
     # Log sin contenido clínico: solo tamaños y estado.
     log.info("Nuevo intake %s (%d bytes, hint=%s)",
              intake_id, len(contenido), tipo_doc or "-")
