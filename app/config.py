@@ -21,7 +21,30 @@ OCR_PROVIDER = os.getenv("OCR_PROVIDER", "null")  # "null" = sin proveedor
 # --- Supabase (opcional) ---------------------------------------------------
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+# Clave service_role: SOLO en el servidor (Render). Salta RLS y se usa para
+# el acceso a datos (tablas y Storage). La anon key queda reservada para
+# Supabase Auth (magic links), que la exige.
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_ANON_KEY)
+
+
+def supabase_data_key() -> str:
+    """Clave para el acceso a datos desde el servidor.
+
+    Con RLS activado en las tablas, la anon key ya no puede leerlas; por eso
+    el backend usa service_role (que salta RLS). Si falta, se degrada a la
+    anon key con un error en el log (la app fallará de forma visible, no
+    silenciosa).
+    """
+    if SUPABASE_SERVICE_KEY:
+        return SUPABASE_SERVICE_KEY
+    import logging
+
+    logging.getLogger("mificha.config").error(
+        "SUPABASE_SERVICE_KEY no configurada: el acceso a datos usará "
+        "la anon key y fallará con RLS activado."
+    )
+    return SUPABASE_ANON_KEY
 
 # --- Límites de ingesta ----------------------------------------------------
 MAX_PDF_MB = int(os.getenv("MAX_PDF_MB", "15"))

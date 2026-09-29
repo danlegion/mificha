@@ -36,8 +36,8 @@ La app queda en http://localhost:8000 (o el `PORT` de tu `.env`).
 | `ANTHROPIC_API_KEY` | No | modo demo | Clave de Anthropic (alternativa). Vacías ambas = explicación local determinista, sin llamadas de red. |
 | `LLM_MODEL` | No | default del backend | Modelo LLM para Anthropic. |
 | `SUPABASE_URL` | No | SQLite local | URL del proyecto Supabase (producción). |
-| `SUPABASE_ANON_KEY` | No | — | Clave anónima de Supabase. |
-| `SUPABASE_SERVICE_KEY` | No | — | Clave de servicio de Supabase (solo servidor). |
+| `SUPABASE_ANON_KEY` | No | — | Clave anónima: solo para Supabase Auth (magic links). Con RLS activado ya no accede a las tablas. |
+| `SUPABASE_SERVICE_KEY` | Sí, con RLS activado | — | Clave service_role (solo servidor, nunca al navegador): acceso a datos y Storage. Obligatoria desde que RLS está activado. |
 | `OCR_PROVIDER` | No | `null` | `null` \| `azure` \| `google`. `null` = las páginas escaneadas solo se marcan, sin OCR. |
 | `AZURE_DI_ENDPOINT` | Si `OCR_PROVIDER=azure` | — | Endpoint de Azure Document Intelligence. |
 | `AZURE_DI_KEY` | Si `OCR_PROVIDER=azure` | — | Clave de Azure Document Intelligence. |

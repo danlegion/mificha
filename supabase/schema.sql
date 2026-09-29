@@ -45,34 +45,26 @@ create table if not exists shares (
   created_at    timestamptz default now()
 );
 
--- Prototipo: RLS desactivado. La ANON KEY vive solo en el servidor (variables
--- de entorno de Render), nunca llega al navegador. Para producción, activar
--- RLS con políticas por usuario.
-alter table intakes   disable row level security;
-alter table users      disable row level security;
-alter table documents  disable row level security;
-alter table shares     disable row level security;
+-- Seguridad: RLS ACTIVADO en todas las tablas, sin políticas para anon ni
+-- authenticated (denegar por defecto). El backend accede con la
+-- SUPABASE_SERVICE_ROLE_KEY (salta RLS) solo desde el servidor; la anon key
+-- queda reservada a Supabase Auth (magic links) y ya no puede leer ni
+-- escribir estas tablas aunque se filtrara.
+alter table intakes   enable row level security;
+alter table users      enable row level security;
+alter table documents  enable row level security;
+alter table shares     enable row level security;
 
 -- ---------------------------------------------------------------------------
 -- Storage: bucket "originales" para los PDFs originales.
--- La app usa la ANON KEY desde el servidor (Render); los archivos se nombran
--- con el intake_id (UUID imposible de adivinar). Idempotente.
+-- El backend usa SUPABASE_SERVICE_ROLE_KEY (salta RLS), así que el bucket no
+-- necesita políticas para anon: sin políticas, el acceso anónimo queda
+-- denegado por defecto. Idempotente.
 -- ---------------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('originales', 'originales', false)
 on conflict (id) do nothing;
 
 drop policy if exists "anon insert originales" on storage.objects;
-create policy "anon insert originales"
-on storage.objects for insert to anon
-with check (bucket_id = 'originales');
-
 drop policy if exists "anon select originales" on storage.objects;
-create policy "anon select originales"
-on storage.objects for select to anon
-using (bucket_id = 'originales');
-
 drop policy if exists "anon delete originales" on storage.objects;
-create policy "anon delete originales"
-on storage.objects for delete to anon
-using (bucket_id = 'originales');

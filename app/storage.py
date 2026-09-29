@@ -39,7 +39,7 @@ def store_original(intake_id: str, pdf_bytes: bytes) -> str:
         try:
             from supabase import create_client  # type: ignore
 
-            sb = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+            sb = create_client(config.SUPABASE_URL, config.supabase_data_key())
             sb.storage.from_(BUCKET).upload(
                 key, pdf_bytes, {"content-type": "application/pdf", "upsert": "true"}
             )
@@ -63,7 +63,7 @@ def get_original_path(key: str) -> str | None:
         try:
             from supabase import create_client  # type: ignore
 
-            sb = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+            sb = create_client(config.SUPABASE_URL, config.supabase_data_key())
             data = sb.storage.from_(BUCKET).download(key)
             path = os.path.join(_local_dir(), key)
             with open(path, "wb") as f:
@@ -83,7 +83,7 @@ def delete_original(key: str) -> None:
         try:
             from supabase import create_client  # type: ignore
 
-            sb = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+            sb = create_client(config.SUPABASE_URL, config.supabase_data_key())
             sb.storage.from_(BUCKET).remove([key])
         except Exception as exc:  # noqa: BLE001
             log.warning("No se pudo borrar %s de Supabase: %s", key, exc)

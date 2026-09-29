@@ -328,7 +328,7 @@ def _sqlite_dal():
 def _supabase_dal():
     from supabase import create_client  # type: ignore
 
-    client = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+    client = create_client(config.SUPABASE_URL, config.supabase_data_key())
     log.info("DAL: usando Supabase")
 
     def _one(resp):
