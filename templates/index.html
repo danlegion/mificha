@@ -27,7 +27,7 @@
           <tr>
             <td class="nowrap">{{ doc.fecha }}</td>
             <td>
-              <a href="/ficha/{{ doc.id }}"><strong>{{ doc.type_label }}</strong></a>
+              <a href="/ficha/{{ doc.id }}"><strong>{{ doc.exam_about }}</strong></a>
               {% if doc.laboratorio %}<span class="micro-note">{{ doc.laboratorio }}</span>{% endif %}
               {% if doc.cambio_resumen %}<span class="micro-note">{{ doc.cambio_resumen }}</span>{% endif %}
               {% if doc.por_confirmar %}<span class="flag flag-uncertain">por confirmar</span>{% endif %}

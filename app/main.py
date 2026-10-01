@@ -165,7 +165,11 @@ def index(request: Request):
             recent_docs.append(
                 {
                     "id": d["id"],
-                    "type_label": exp.get("type_label", "Documento"),
+                    "exam_about": (
+                        exp.get("resumen_que_es")
+                        or exp.get("type_label")
+                        or "Documento"
+                    ),
                     "laboratorio": exp.get("laboratorio"),
                     "fecha": _fecha_corta(fecha_iso),
                     "urgency_label": urg.get("label", ""),
