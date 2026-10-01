@@ -248,3 +248,14 @@ def test_tarjeta_estructura_legible(client, usuario_docs):
     assert '<h3 class="doc-about">' in r.text  # qué es el examen, como título
     assert "doc-summary" not in r.text     # sin resumen del resultado
     assert "Ver detalle" in r.text
+
+
+def test_tarjeta_css_uniforme_y_sin_desborde():
+    """Reglas CSS que mantienen las tarjetas parejas y sin desbordes."""
+    import pathlib
+    css = pathlib.Path("static/app.css").read_text()
+    bloque = css.split(".doc-about {", 1)[1].split("}", 1)[0]
+    assert "-webkit-line-clamp: 2" in bloque   # título a 2 líneas
+    assert "min-height:" in bloque             # reserva el espacio
+    chip = css.split(".doc-card-top .urgency-chip {", 1)[1].split("}", 1)[0]
+    assert "text-overflow: ellipsis" in chip   # el chip nunca se sale
