@@ -177,6 +177,16 @@ def _sqlite_dal():
                 s.commit()
                 return _intake_d(obj)
 
+        def set_intake_original_key(self, intake_id, key):
+            """Guarda la key del PDF original sin tocar los demás campos."""
+            with Session() as s:
+                obj = s.get(Intake, intake_id)
+                if not obj:
+                    return None
+                obj.original_key = key
+                s.commit()
+                return _intake_d(obj)
+
         def update_intake_corrections(self, intake_id, corrections):
             with Session() as s:
                 obj = s.get(Intake, intake_id)
@@ -404,6 +414,11 @@ def _supabase_dal():
             row = {"status": status, "detail": detail, "updated_at": _now().isoformat()}
             if explanation is not None:
                 row["explanation_json"] = json.dumps(explanation, ensure_ascii=False)
+            _one(client.table("intakes").update(row).eq("id", intake_id).execute())
+            return self.get_intake(intake_id)
+
+        def set_intake_original_key(self, intake_id, key):
+            row = {"original_key": key, "updated_at": _now().isoformat()}
             _one(client.table("intakes").update(row).eq("id", intake_id).execute())
             return self.get_intake(intake_id)
 

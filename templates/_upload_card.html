@@ -15,7 +15,63 @@
       <span class="file-hint">Solo PDF · de tu celular o computadora</span>
       <input type="file" id="archivo" name="archivo" accept=".pdf" required>
     </label>
-    <button class="btn btn-primary btn-large" type="submit">Explicar mi examen</button>
+    <button class="btn btn-primary btn-large" type="submit" data-upload-btn>Explicar mi examen</button>
     {% if not user %}<p class="micro-note">Sin crear cuenta: ves tu explicación primero.</p>{% endif %}
   </form>
+  <div class="upload-progress" hidden>
+    <div class="upload-progress-track"><div class="upload-progress-bar"></div></div>
+    <p class="upload-progress-text">Subiendo tu examen…</p>
+  </div>
+  <script>
+  /* Subida con progreso: al aplastar el botón se muestra de inmediato
+     el porcentaje real de subida y al terminar se sigue al redirect. */
+  (function () {
+    var root = document.currentScript.parentElement;
+    var form = root.querySelector("form");
+    var btn = form.querySelector("[data-upload-btn]");
+    var prog = root.querySelector(".upload-progress");
+    var bar = prog.querySelector(".upload-progress-bar");
+    var txt = prog.querySelector(".upload-progress-text");
+    var btnHtml = btn.innerHTML;
+    var fileInput = form.querySelector('input[type="file"]');
+    var fileText = form.querySelector(".file-text");
+    var fileTextDefault = fileText.textContent;
+    fileInput.addEventListener("change", function () {
+      fileText.textContent = fileInput.files.length
+        ? fileInput.files[0].name : fileTextDefault;
+    });
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      btn.disabled = true;
+      btn.innerHTML = "Subiendo tu examen…";
+      prog.hidden = false;
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", form.action);
+      xhr.upload.addEventListener("progress", function (e) {
+        if (e.lengthComputable) {
+          var pct = Math.round((e.loaded / e.total) * 100);
+          bar.style.width = pct + "%";
+          txt.textContent = "Subiendo tu examen… " + pct + "%";
+        }
+      });
+      xhr.addEventListener("load", function () {
+        if (xhr.status >= 200 && xhr.status < 400 && xhr.responseURL) {
+          window.location.href = xhr.responseURL;  /* /procesando/... */
+        } else if (xhr.status >= 400 && xhr.responseText) {
+          document.open();
+          document.write(xhr.responseText);
+          document.close();
+        } else {
+          form.submit();  /* sin JS moderno: envío normal */
+        }
+      });
+      xhr.addEventListener("error", function () {
+        btn.disabled = false;
+        btn.innerHTML = btnHtml;
+        txt.textContent = "Se cortó la subida. Revisa tu conexión e intenta de nuevo.";
+      });
+      xhr.send(new FormData(form));
+    });
+  })();
+  </script>
 </section>

@@ -59,6 +59,14 @@ def _run_pipeline(intake_id: str):
         dal.set_intake_ready(intake_id, status="failed",
                              detail="No se pudo leer el archivo subido.")
         return
+    # El original se sube a Storage aquí, en segundo plano: ya no retrasa
+    # la redirección a la página de "procesando".
+    try:
+        dal.set_intake_original_key(
+            intake_id, store_original(intake_id, pdf_bytes))
+    except Exception:  # noqa: BLE001 - el original es opcional
+        log.exception("No se pudo guardar el original de %s; sigue sin él.",
+                      intake_id)
     try:
         exp = process_intake(intake_id, pdf_bytes, intake.get("doc_type_hint"))
     except UnprocessableDocument as exc:
@@ -74,7 +82,9 @@ def _run_pipeline(intake_id: str):
         return
     dal.set_intake_ready(intake_id, explanation=exp, status="ready")
     # Si el intake tiene dueño (subida con sesión iniciada), el documento
-    # queda guardado en su ficha automáticamente.
+    # queda guardado en su ficha automáticamente. Se relee el intake porque
+    # el original_key se guardó en segundo plano después de crearlo.
+    intake = dal.get_intake(intake_id) or {}
     owner_id = intake.get("owner_user_id")
     if owner_id:
         dal.save_document(
@@ -116,17 +126,17 @@ async def subir(
     guest_token = new_guest_token()
     with open(quarantine_path(intake_id), "wb") as f:
         f.write(contenido)
-    original_key = store_original(intake_id, contenido)
 
     # Si hay sesión iniciada, el intake nace con dueño: al terminar el
     # procesamiento el documento se guarda solo en su ficha.
+    # (El PDF original se sube a Storage en segundo plano, sin bloquear
+    # la redirección a la página de "procesando".)
     user = auth.get_current_user(request)
     nuevo_intake = {
         "id": intake_id,
         "guest_token_hash": hash_token(guest_token),
         "status": "processing",
         "doc_type_hint": (tipo_doc or "").strip() or None,
-        "original_key": original_key,
     }
     if user:
         nuevo_intake["owner_user_id"] = user["id"]
