@@ -154,6 +154,23 @@ def test_tarjeta_trunca_que_es_largo(client):
         _clean([uid, iid])
 
 
+def test_tarjeta_que_es_sin_prefijo_este_es(client):
+    email = f"f-{uuid.uuid4().hex[:8]}@x.test"
+    uid = dal.create_user(email)["id"]
+    iid = "f-" + uuid.uuid4().hex[:12]
+    dal.save_document({"id": iid, "user_id": uid, "intake_id": iid,
+                       "explanation": _exp(
+                           que_es="Este es un examen de sangre que mide tus defensas",
+                           tipo="Resultado de laboratorio")})
+    try:
+        r = client.get("/ficha", cookies=_cookies(uid))
+        assert r.status_code == 200
+        assert "Examen de sangre que mide tus defensas" in r.text
+        assert "Este es un examen" not in r.text
+    finally:
+        _clean([uid, iid])
+
+
 def test_tarjeta_sin_que_es_cae_a_tipo(client):
     email = f"f-{uuid.uuid4().hex[:8]}@x.test"
     uid = dal.create_user(email)["id"]

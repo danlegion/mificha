@@ -87,7 +87,8 @@ def nombre_examen_corto(exp: dict) -> str:
     """Título corto para tarjetas: qué examen es, en pocas palabras.
 
     1. `nombre_examen` del LLM (documentos nuevos).
-    2. `resumen_que_es` truncado a ~60 caracteres (documentos sin el campo).
+    2. `resumen_que_es` truncado a ~60 caracteres, sin el "Este es un…"
+       inicial (documentos sin el campo nuevo).
     3. `type_label` genérico (documentos viejos).
     """
     nombre = str((exp or {}).get("nombre_examen") or "").strip()
@@ -95,6 +96,18 @@ def nombre_examen_corto(exp: dict) -> str:
         return nombre
     que_es = " ".join(str((exp or {}).get("resumen_que_es") or "").split())
     if que_es:
+        bajo = que_es.lower()
+        for pref in (
+            "este es un ", "este es una ", "esta es un ", "esta es una ",
+            "este documento es un ", "este documento es una ",
+            "es un ", "es una ",
+            "se trata de un ", "se trata de una ",
+        ):
+            if bajo.startswith(pref):
+                que_es = que_es[len(pref):].lstrip()
+                break
+        if que_es:
+            que_es = que_es[0].upper() + que_es[1:]
         if len(que_es) <= 60:
             return que_es
         corte = que_es[:60].rsplit(" ", 1)[0] or que_es[:60]
