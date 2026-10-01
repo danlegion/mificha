@@ -22,14 +22,21 @@ _MESES = [
 ]
 
 
+_MESES_CORTO = [
+    "ene", "feb", "mar", "abr", "may", "jun",
+    "jul", "ago", "sep", "oct", "nov", "dic",
+]
+
+
 def _fecha_corta(iso: str | None) -> str:
+    """Fecha compacta para tarjetas: '25 sep 2026'."""
     if not iso:
         return ""
     try:
         dt = datetime.fromisoformat(iso)
     except ValueError:
         return iso
-    return f"{dt.day} de {_MESES[dt.month - 1]} de {dt.year}"
+    return f"{dt.day} {_MESES_CORTO[dt.month - 1]} {dt.year}"
 
 
 def _fecha_efectiva(exp: dict, creado_raw: str) -> tuple[str, datetime | None]:
@@ -96,13 +103,16 @@ def ficha(request: Request):
         exp = d.get("explanation") or {}
         urg = exp.get("urgency") or {}
         fecha_iso, _fecha_dt = _fecha_efectiva(exp, d.get("created_at") or "")
-        resumen = exp.get("resumen_rapido") or exp.get("summary_simple") or ""
+        # Identidad del examen: qué es (no el resultado). Sin resumen_que_es
+        # (documentos viejos), se cae a la etiqueta genérica de tipo.
+        identidad = (
+            exp.get("resumen_que_es") or exp.get("type_label") or "Documento"
+        )
         docs.append(
             {
                 "id": d["id"],
                 "date_label": _fecha_corta(fecha_iso),
-                "type_label": exp.get("type_label", "Documento"),
-                "summary_short": resumen[:140],
+                "exam_about": identidad,
                 "urgency_label": urg.get("label", ""),
                 "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
             }

@@ -1,9 +1,11 @@
-"""Tarjetas de /ficha: fecha del examen, tipo, resumen corto y urgencia.
+"""Tarjetas de /ficha: fecha compacta, identidad del examen y urgencia.
 
 - La fecha de cada tarjeta es la del examen (fecha_documento del LLM),
   no la de subida; con fallback a la de subida si no hay fecha.
+  Formato compacto: "25 sep 2026".
 - Las tarjetas se ordenan por fecha del examen, más reciente primero.
-- El resumen corto prefiere resumen_rapido y cae a summary_simple.
+- La tarjeta muestra QUÉ es el examen (resumen_que_es), no el resumen
+  del resultado; sin resumen_que_es cae a la etiqueta de tipo.
 """
 
 import sqlite3
@@ -42,7 +44,8 @@ def _clean(ids):
 
 
 def _exp(fecha_doc=None, resumen_rapido=None, summary_simple="resumen viejo",
-         tipo="Resultado de laboratorio", urgencia="Agenda una cita"):
+         tipo="Resultado de laboratorio", urgencia="Agenda una cita",
+         que_es=None):
     exp = {
         "type_label": tipo,
         "summary_simple": summary_simple,
@@ -54,6 +57,8 @@ def _exp(fecha_doc=None, resumen_rapido=None, summary_simple="resumen viejo",
         exp["fecha_documento"] = fecha_doc
     if resumen_rapido:
         exp["resumen_rapido"] = resumen_rapido
+    if que_es:
+        exp["resumen_que_es"] = que_es
     return exp
 
 
@@ -90,9 +95,9 @@ def usuario_docs():
 def test_tarjetas_muestran_fecha_del_examen(client, usuario_docs):
     r = client.get("/ficha", cookies=_cookies(usuario_docs["uid"]))
     assert r.status_code == 200
-    # Fecha del documento, no de subida.
-    assert "25 de septiembre de 2026" in r.text
-    assert "10 de marzo de 2026" in r.text
+    # Fecha del documento, no de subida (formato compacto).
+    assert "25 sep 2026" in r.text
+    assert "10 mar 2026" in r.text
 
 
 def test_tarjetas_ordenadas_por_fecha_del_examen(client, usuario_docs):
@@ -102,23 +107,40 @@ def test_tarjetas_ordenadas_por_fecha_del_examen(client, usuario_docs):
     assert pos_nuevo < pos_viejo
 
 
-def test_tarjeta_muestra_tipo_resumen_y_urgencia(client, usuario_docs):
+def test_tarjeta_muestra_que_es_no_resumen(client, usuario_docs):
     r = client.get("/ficha", cookies=_cookies(usuario_docs["uid"]))
-    assert "Examen nuevo" in r.text            # tipo
-    assert "Todo salió bien" in r.text         # resumen_rapido preferido
+    assert "Examen nuevo" in r.text            # tipo como respaldo
     assert "Agenda una cita" in r.text          # urgencia
+    assert "Todo salió bien" not in r.text     # resumen_rapido ya no se muestra
+    assert "resumen viejo" not in r.text       # summary_simple tampoco
 
 
-def test_resumen_corto_cae_a_summary_simple(client):
+def test_tarjeta_prefiere_resumen_que_es(client):
     email = f"f-{uuid.uuid4().hex[:8]}@x.test"
     uid = dal.create_user(email)["id"]
     iid = "f-" + uuid.uuid4().hex[:12]
     dal.save_document({"id": iid, "user_id": uid, "intake_id": iid,
-                       "explanation": _exp(summary_simple="resumen clásico")})
+                       "explanation": _exp(
+                           que_es="Hemograma: examen de sangre que revisa tus glóbulos",
+                           tipo="Resultado de laboratorio")})
     try:
         r = client.get("/ficha", cookies=_cookies(uid))
         assert r.status_code == 200
-        assert "resumen clásico" in r.text
+        assert "Hemograma: examen de sangre que revisa tus glóbulos" in r.text
+    finally:
+        _clean([uid, iid])
+
+
+def test_tarjeta_sin_que_es_cae_a_tipo(client):
+    email = f"f-{uuid.uuid4().hex[:8]}@x.test"
+    uid = dal.create_user(email)["id"]
+    iid = "f-" + uuid.uuid4().hex[:12]
+    dal.save_document({"id": iid, "user_id": uid, "intake_id": iid,
+                       "explanation": _exp(tipo="Resultado de laboratorio")})
+    try:
+        r = client.get("/ficha", cookies=_cookies(uid))
+        assert r.status_code == 200
+        assert "Resultado de laboratorio" in r.text
     finally:
         _clean([uid, iid])
 
@@ -132,12 +154,11 @@ def test_tarjeta_sin_fecha_usa_subida(client):
     try:
         r = client.get("/ficha", cookies=_cookies(uid))
         assert r.status_code == 200
-        # Sin fecha_documento: muestra la fecha de subida (hoy).
+        # Sin fecha_documento: muestra la fecha de subida (hoy), compacta.
         hoy = datetime.now(timezone.utc)
-        meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
-                 "julio", "agosto", "septiembre", "octubre", "noviembre",
-                 "diciembre"]
-        assert f"{hoy.day} de {meses[hoy.month - 1]} de {hoy.year}" in r.text
+        meses = ["ene", "feb", "mar", "abr", "may", "jun",
+                 "jul", "ago", "sep", "oct", "nov", "dic"]
+        assert f"{hoy.day} {meses[hoy.month - 1]} {hoy.year}" in r.text
     finally:
         _clean([uid, iid])
 
@@ -171,8 +192,8 @@ def test_historial_usa_fecha_del_examen_y_ordena(client):
     try:
         r = client.get(f"/ficha/{nuevo}", cookies=_cookies(uid))
         assert r.status_code == 200
-        pos_sep = r.text.index("25 de septiembre de 2026")
-        pos_mar = r.text.index("10 de marzo de 2026")
+        pos_sep = r.text.index("25 sep 2026")
+        pos_mar = r.text.index("10 mar 2026")
         # Etiquetas con fecha del examen y orden: examen reciente primero.
         assert pos_sep < pos_mar
         assert "14.2" in r.text and "13.1" in r.text
@@ -184,6 +205,6 @@ def test_tarjeta_estructura_legible(client, usuario_docs):
     r = client.get("/ficha", cookies=_cookies(usuario_docs["uid"]))
     assert r.status_code == 200
     assert "doc-card-top" in r.text       # fila fecha + urgencia
-    assert '<h3 class="doc-type">' in r.text  # tipo como título
-    assert "doc-summary" in r.text         # resumen con interlineado
+    assert '<h3 class="doc-about">' in r.text  # qué es el examen, como título
+    assert "doc-summary" not in r.text     # sin resumen del resultado
     assert "Ver detalle" in r.text

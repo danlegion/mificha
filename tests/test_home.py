@@ -242,7 +242,7 @@ def test_home_muestra_fecha_del_documento_no_de_subida(
         client, usuario_fechas):
     r = client.get("/", cookies=_cookies(usuario_fechas["uid"]))
     html = r.text
-    assert "27 de junio de 2026" in html
+    assert "27 jun 2026" in html
 
 
 def test_home_filtra_por_fecha_del_documento(client):
