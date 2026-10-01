@@ -8,8 +8,9 @@ from fastapi.responses import FileResponse, RedirectResponse
 
 from app import auth, config
 from app.db import dal
-from app.routers import (normalize_flag_key, render_explanation, share_ctx,
-                         templates, urgency_css_key)
+from app.routers import (nombre_examen_corto, normalize_flag_key,
+                         render_explanation, share_ctx, templates,
+                         urgency_css_key)
 from app.storage import delete_original, get_original_path, original_exists
 
 router = APIRouter()
@@ -103,16 +104,12 @@ def ficha(request: Request):
         exp = d.get("explanation") or {}
         urg = exp.get("urgency") or {}
         fecha_iso, _fecha_dt = _fecha_efectiva(exp, d.get("created_at") or "")
-        # Identidad del examen: qué es (no el resultado). Sin resumen_que_es
-        # (documentos viejos), se cae a la etiqueta genérica de tipo.
-        identidad = (
-            exp.get("resumen_que_es") or exp.get("type_label") or "Documento"
-        )
+        # Título corto: qué examen es (no el resultado ni el tipo genérico).
         docs.append(
             {
                 "id": d["id"],
                 "date_label": _fecha_corta(fecha_iso),
-                "exam_about": identidad,
+                "exam_about": nombre_examen_corto(exp),
                 "urgency_label": urg.get("label", ""),
                 "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
             }

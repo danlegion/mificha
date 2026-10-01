@@ -50,11 +50,13 @@ REGLAS DURAS (inquebrantables):
 7. LABORATORIO: si el documento indica el laboratorio o clínica que lo emitió, devuélvelo en "laboratorio" tal como aparece; si no aparece, null. Nunca lo inventes.
 8. FECHA DEL DOCUMENTO: es la fecha en que el doctor o laboratorio completó/emitió el documento (fecha del informe, de la toma de muestra o de emisión, en el encabezado o pie), NO la fecha de hoy. Formato AAAA-MM-DD. Si no aparece en el documento, null: nunca la inventes ni uses la fecha actual.
 9. RESUMEN POR SECCIONES: además de "summary_simple", devuelve el resumen dividido en tres partes cortas, cada una en lenguaje simple y sin tecnicismos: "resumen_que_es" (qué es este examen/documento y para qué se usa), "resumen_rapido" (lo más importante del resultado en 1-2 frases) y "resumen_hallazgos" (qué salió fuera de lo esperado y qué significa, en frases cortas; no repitas la lista de valores uno por uno porque ya van en otra sección).
+10. NOMBRE DEL EXAMEN ("nombre_examen"): 2 a 5 palabras, lo más específico que permita el documento (p. ej. "Hemograma completo", "Perfil tiroideo", "Radiografía de tórax"; NO solo "Examen de sangre"). Si el documento no permite identificarlo, usa la etiqueta de tipo.
 
 Devuelve SOLO un JSON válido (sin bloques de código, sin texto extra) con esta estructura exacta:
 {
   "document_type": "lab_result" | "narrative_report" | "exam_order" | "doctor_note",
   "type_label": "etiqueta en español, p. ej. 'Resultado de laboratorio'",
+  "nombre_examen": "nombre corto y específico del examen o documento, p. ej. 'Hemograma completo', 'Perfil tiroideo'",
   "laboratorio": "nombre del laboratorio o clínica como aparece en el documento, o null si no aparece",
   "fecha_documento": "fecha en que el doctor o laboratorio completó/emitió el documento (formato AAAA-MM-DD), o null si no aparece",
   "summary_simple": "resumen de 2-4 frases en lenguaje simple",
@@ -475,6 +477,7 @@ class DemoExplainer(LLMProvider):
         exp = {
             "document_type": tipo,
             "type_label": _TIPOS_LABEL.get(tipo, "Documento médico"),
+            "nombre_examen": None,
             "laboratorio": None,
             "fecha_documento": None,
             **cuerpo,

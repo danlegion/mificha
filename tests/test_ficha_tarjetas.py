@@ -1,11 +1,12 @@
-"""Tarjetas de /ficha: fecha compacta, identidad del examen y urgencia.
+"""Tarjetas de /ficha: fecha compacta, título corto del examen y urgencia.
 
 - La fecha de cada tarjeta es la del examen (fecha_documento del LLM),
   no la de subida; con fallback a la de subida si no hay fecha.
   Formato compacto: "25 sep 2026".
 - Las tarjetas se ordenan por fecha del examen, más reciente primero.
-- La tarjeta muestra QUÉ es el examen (resumen_que_es), no el resumen
-  del resultado; sin resumen_que_es cae a la etiqueta de tipo.
+- El título es corto: prefiere nombre_examen del LLM; sin ese campo,
+  trunca resumen_que_es a ~60 caracteres; sin ambos, cae a type_label.
+  La tarjeta no muestra el resumen del resultado.
 """
 
 import sqlite3
@@ -45,7 +46,7 @@ def _clean(ids):
 
 def _exp(fecha_doc=None, resumen_rapido=None, summary_simple="resumen viejo",
          tipo="Resultado de laboratorio", urgencia="Agenda una cita",
-         que_es=None):
+         que_es=None, nombre_examen=None):
     exp = {
         "type_label": tipo,
         "summary_simple": summary_simple,
@@ -59,6 +60,8 @@ def _exp(fecha_doc=None, resumen_rapido=None, summary_simple="resumen viejo",
         exp["resumen_rapido"] = resumen_rapido
     if que_es:
         exp["resumen_que_es"] = que_es
+    if nombre_examen:
+        exp["nombre_examen"] = nombre_examen
     return exp
 
 
@@ -115,18 +118,38 @@ def test_tarjeta_muestra_que_es_no_resumen(client, usuario_docs):
     assert "resumen viejo" not in r.text       # summary_simple tampoco
 
 
-def test_tarjeta_prefiere_resumen_que_es(client):
+def test_tarjeta_prefiere_nombre_examen(client):
     email = f"f-{uuid.uuid4().hex[:8]}@x.test"
     uid = dal.create_user(email)["id"]
     iid = "f-" + uuid.uuid4().hex[:12]
     dal.save_document({"id": iid, "user_id": uid, "intake_id": iid,
                        "explanation": _exp(
-                           que_es="Hemograma: examen de sangre que revisa tus glóbulos",
+                           nombre_examen="Hemograma completo",
+                           que_es="Hemograma: examen de sangre que revisa tus glóbulos rojos, blancos y plaquetas para ver cómo está tu sangre en general",
                            tipo="Resultado de laboratorio")})
     try:
         r = client.get("/ficha", cookies=_cookies(uid))
         assert r.status_code == 200
-        assert "Hemograma: examen de sangre que revisa tus glóbulos" in r.text
+        assert "Hemograma completo" in r.text
+        assert "revisa tus glóbulos rojos" not in r.text
+    finally:
+        _clean([uid, iid])
+
+
+def test_tarjeta_trunca_que_es_largo(client):
+    email = f"f-{uuid.uuid4().hex[:8]}@x.test"
+    uid = dal.create_user(email)["id"]
+    iid = "f-" + uuid.uuid4().hex[:12]
+    largo = ("Hemograma: examen de sangre que revisa tus glóbulos rojos, "
+             "blancos y plaquetas para ver cómo está tu sangre en general")
+    dal.save_document({"id": iid, "user_id": uid, "intake_id": iid,
+                       "explanation": _exp(que_es=largo,
+                                           tipo="Resultado de laboratorio")})
+    try:
+        r = client.get("/ficha", cookies=_cookies(uid))
+        assert r.status_code == 200
+        assert largo not in r.text  # no va entero
+        assert "Hemograma: examen de sangre que revisa" in r.text
     finally:
         _clean([uid, iid])
 

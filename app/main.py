@@ -12,7 +12,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app import auth, config
 from app.db import dal
-from app.routers import normalize_flag_key, templates, urgency_css_key
+from app.routers import (nombre_examen_corto, normalize_flag_key, templates,
+                         urgency_css_key)
 from app.routers import accounts, ingest, results, share, vault
 from app.routers.vault import _fecha_corta, _fecha_efectiva
 from app.services.llm import _parse_rango
@@ -165,11 +166,7 @@ def index(request: Request):
             recent_docs.append(
                 {
                     "id": d["id"],
-                    "exam_about": (
-                        exp.get("resumen_que_es")
-                        or exp.get("type_label")
-                        or "Documento"
-                    ),
+                    "exam_about": nombre_examen_corto(exp),
                     "laboratorio": exp.get("laboratorio"),
                     "fecha": _fecha_corta(fecha_iso),
                     "urgency_label": urg.get("label", ""),

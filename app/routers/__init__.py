@@ -83,6 +83,25 @@ def urgency_css_key(semantic_level: str) -> str:
     return URGENCY_CSS.get(semantic_level, "amarilla")
 
 
+def nombre_examen_corto(exp: dict) -> str:
+    """Título corto para tarjetas: qué examen es, en pocas palabras.
+
+    1. `nombre_examen` del LLM (documentos nuevos).
+    2. `resumen_que_es` truncado a ~60 caracteres (documentos sin el campo).
+    3. `type_label` genérico (documentos viejos).
+    """
+    nombre = str((exp or {}).get("nombre_examen") or "").strip()
+    if nombre:
+        return nombre
+    que_es = " ".join(str((exp or {}).get("resumen_que_es") or "").split())
+    if que_es:
+        if len(que_es) <= 60:
+            return que_es
+        corte = que_es[:60].rsplit(" ", 1)[0] or que_es[:60]
+        return corte + "…"
+    return str((exp or {}).get("type_label") or "Documento").strip() or "Documento"
+
+
 def _humanize_field(field: str) -> str:
     f = field or ""
     m = re.match(r"pages\[(\d+)\]\.text", f)

@@ -78,6 +78,7 @@ class UncertainField(BaseModel):
 class Explanation(BaseModel):
     document_type: str  # str libre; DocumentType cubre los conocidos
     type_label: str
+    nombre_examen: Optional[str] = None  # nombre corto y específico ("Hemograma completo")
     laboratorio: Optional[str] = None  # nombre del laboratorio/clínica según el documento
     fecha_documento: Optional[str] = None  # AAAA-MM-DD en que el doctor/lab completó el documento
     summary_simple: str
