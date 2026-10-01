@@ -3,11 +3,13 @@
 El defecto (2026-10-01): en un resultado real, «Creatinina» salía dos veces,
 una como «CREATININA» y otra como «Creatinina» — el LLM repitió el análisis
 con distinto uso de mayúsculas y nada lo deduplicaba. Ahora se deduplica al
-procesar (documentos nuevos) y al mostrar (documentos ya guardados).
+procesar (documentos nuevos) y al mostrar (documentos ya guardados), y el
+historial de la ficha agrupa las variantes bajo un solo análisis.
 """
 
 from app import schemas
 from app.routers import render_explanation
+from app.routers.vault import _agrupar_por_analisis, _mejor_nombre_display
 from app.services.pipeline import _aplicar_reglas_duras
 
 
@@ -89,3 +91,22 @@ def test_render_deduplica_documentos_ya_guardados():
     # "Valores que necesitan atención" tampoco repite el análisis.
     atencion = [b["name"].lower() for b in vista["concerns_top"]]
     assert atencion.count("creatinina") == 1
+
+
+def test_historial_agrupa_variantes_en_una_fila():
+    grupos = _agrupar_por_analisis([
+        ("CREATININA", {"value": "1.1"}),
+        ("Hemoglobina", {"value": "15"}),
+        ("Creatinina", {"value": "1.2"}),
+    ])
+    assert len(grupos) == 2
+    nombre, entradas = grupos[0]
+    assert nombre == "Creatinina"  # no el todo-mayúsculas
+    assert [e["value"] for e in entradas] == ["1.1", "1.2"]
+    assert grupos[1][0] == "Hemoglobina"
+
+
+def test_mejor_nombre_display_no_mueve_en_empate():
+    assert _mejor_nombre_display("CREATININA", "Creatinina") == "Creatinina"
+    assert _mejor_nombre_display("Creatinina", "CREATININA") == "Creatinina"
+    assert _mejor_nombre_display("Glucosa", "GLUCOSA") == "Glucosa"

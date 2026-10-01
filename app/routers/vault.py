@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 
-from app import auth, config
+from app import auth, config, schemas
 from app.db import dal
 from app.routers import (nombre_examen_corto, normalize_flag_key,
                          render_explanation, share_ctx, templates,
@@ -150,6 +150,35 @@ def ficha_detalle(doc_id: str, request: Request):
     )
 
 
+def _mejor_nombre_display(actual: str, nuevo: str) -> str:
+    """Nombre a mostrar para un análisis: prefiere el que no sea todo
+    mayúsculas ni todo minúsculas («Creatinina» sobre «CREATININA»); en
+    empate, se mantiene el primero para no mover la fila de sitio."""
+    def _plano(n: str) -> bool:
+        return n.isupper() or n.islower()
+
+    if _plano(actual) and not _plano(nuevo):
+        return nuevo
+    return actual
+
+
+def _agrupar_por_analisis(items):
+    """Agrupa [(nombre, entrada)] por análisis, ignorando mayúsculas, acentos
+    y espacios («CREATININA» y «Creatinina» van en la misma fila del
+    historial). Devuelve [(nombre_display, [entradas])] en orden de
+    aparición."""
+    grupos = {}
+    for nombre, entrada in items:
+        clave = schemas.clave_biomarcador(nombre) or nombre
+        if clave not in grupos:
+            grupos[clave] = {"nombre": nombre, "entradas": []}
+        else:
+            g = grupos[clave]
+            g["nombre"] = _mejor_nombre_display(g["nombre"], nombre)
+        grupos[clave]["entradas"].append(entrada)
+    return [(g["nombre"], g["entradas"]) for g in grupos.values()]
+
+
 def _historial(user_id: str, doc_actual_id: str) -> list:
     """[{biomarker_name, entries:[{date_label,value,unit,flag_label,is_current}]}]
 
@@ -157,26 +186,25 @@ def _historial(user_id: str, doc_actual_id: str) -> list:
     `{% for h in history %}` y usa `h.entries`.
     """
     docs = dal.list_documents(user_id)
-    por_nombre: dict[str, list] = {}
+    items = []
     for d in docs:
         exp = d.get("explanation") or {}
         fecha_iso, fecha_dt = _fecha_efectiva(exp, d.get("created_at") or "")
         fecha = _fecha_corta(fecha_iso)
         for b in exp.get("biomarkers", []):
-            nombre = b.get("name") or "Valor"
-            por_nombre.setdefault(nombre, []).append(
-                {
+            items.append(
+                (b.get("name") or "Valor", {
                     "date_label": fecha,
                     "value": b.get("value", ""),
                     "unit": b.get("unit") or "",
                     "flag_label": _flag_label(b.get("flag")),
                     "is_current": d["id"] == doc_actual_id,
                     "_dt": fecha_dt,
-                }
+                })
             )
     # Orden de cada historial: por fecha del examen, más reciente primero.
     resultado = []
-    for nombre, entradas in por_nombre.items():
+    for nombre, entradas in _agrupar_por_analisis(items):
         entradas.sort(
             key=lambda e: e["_dt"]
             or datetime.min.replace(tzinfo=timezone.utc),

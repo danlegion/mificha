@@ -106,9 +106,10 @@ def validate_explanation(data: dict) -> dict:
     return Explanation.model_validate(data).model_dump()
 
 
-def _clave_biomarcador(name) -> str:
-    """Clave de comparación: sin mayúsculas, acentos ni signos («CREATININA»,
-    «Creatinina» y «creatinina » dan la misma clave)."""
+def clave_biomarcador(name) -> str:
+    """Clave de comparación (pública para el historial de la ficha): sin
+    mayúsculas, acentos ni signos («CREATININA», «Creatinina» y «creatinina »
+    dan la misma clave)."""
     s = unicodedata.normalize("NFKD", str(name or ""))
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = re.sub(r"[^a-z0-9%]+", " ", s.lower())
@@ -123,7 +124,7 @@ def dedupe_biomarkers(biomarkers) -> list:
     pares = []   # [clave, dict] en orden de aparición
     indice = {}  # clave -> posición en pares
     for b in biomarkers or []:
-        clave = _clave_biomarcador(b.get("name"))
+        clave = clave_biomarcador(b.get("name"))
         if not clave:
             pares.append([None, b])  # sin nombre usable: no se toca
             continue
