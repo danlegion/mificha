@@ -7,11 +7,15 @@
 
 <section class="card original-card" aria-label="Documento original">
   <h2>Documento original</h2>
+  {% if doc.original_available %}
   <p>Si tu doctor quiere ver el documento tal como lo subiste:</p>
   <div class="btn-row">
     <a class="btn btn-primary" href="{{ doc.original_url }}" target="_blank" rel="noopener">Ver documento original</a>
     <a class="btn btn-secondary" href="{{ doc.download_url }}">Descargar</a>
   </div>
+  {% else %}
+  <p>El documento original de este examen ya no está disponible (se guardó antes de la mejora del almacenamiento). Tu explicación sigue intacta arriba.</p>
+  {% endif %}
 </section>
 
 <section class="card share-card" id="compartir" aria-label="Compartir con tu doctor">

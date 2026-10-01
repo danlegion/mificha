@@ -59,6 +59,8 @@ def store_original(intake_id: str, pdf_bytes: bytes) -> str:
 
 def get_original_path(key: str) -> str | None:
     """Ruta local del original (descargándolo de Supabase si hace falta)."""
+    if not key:
+        return None
     if config.USE_SUPABASE:
         try:
             from supabase import create_client  # type: ignore
@@ -73,6 +75,28 @@ def get_original_path(key: str) -> str | None:
             log.warning("No se pudo descargar %s de Supabase: %s", key, exc)
     path = os.path.join(_local_dir(), key)
     return path if os.path.exists(path) else None
+
+
+def original_exists(key: str) -> bool:
+    """¿Sigue disponible el PDF original? (sin descargarlo).
+
+    Los documentos guardados antes de la mejora de almacenamiento (sep 2026)
+    perdieron su original; para ellos la tarjeta muestra un aviso en vez de
+    botones muertos.
+    """
+    if not key:
+        return False
+    if config.USE_SUPABASE:
+        try:
+            from supabase import create_client  # type: ignore
+
+            sb = create_client(config.SUPABASE_URL, config.supabase_data_key())
+            files = sb.storage.from_(BUCKET).list(options={"search": key})
+            if any((f or {}).get("name") == key for f in (files or [])):
+                return True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("No se pudo verificar %s en Supabase: %s", key, exc)
+    return os.path.exists(os.path.join(_local_dir(), key))
 
 
 def delete_original(key: str) -> None:

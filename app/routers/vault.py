@@ -10,7 +10,7 @@ from app import auth, config
 from app.db import dal
 from app.routers import (normalize_flag_key, render_explanation, share_ctx,
                          templates, urgency_css_key)
-from app.storage import delete_original, get_original_path
+from app.storage import delete_original, get_original_path, original_exists
 
 router = APIRouter()
 
@@ -134,6 +134,7 @@ def ficha_detalle(doc_id: str, request: Request):
                 "id": doc["id"],
                 "original_url": f"/ficha/{doc['id']}/original",
                 "download_url": f"/ficha/{doc['id']}/original?descargar=1",
+                "original_available": original_exists(doc.get("original_key") or ""),
             },
             "history": _historial(user["id"], doc_id),
             "intake_id": intake_id,
