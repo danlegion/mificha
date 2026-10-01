@@ -114,7 +114,8 @@ def _aplicar_reglas_duras(exp: dict, extracted: dict) -> dict:
             )
             continue
         biomarcadores_ok.append(b)
-    exp["biomarkers"] = biomarcadores_ok
+    # Sin duplicados del mismo análisis («CREATININA» vs «Creatinina»).
+    exp["biomarkers"] = schemas.dedupe_biomarkers(biomarcadores_ok)
 
     # Prioridad clínica del LLM: normaliza a alta/media/baja ("media" si el
     # LLM no la devolvió) y recorta el motivo a una frase corta.

@@ -26,7 +26,7 @@ from datetime import datetime
 
 from fastapi.templating import Jinja2Templates
 
-from app import config
+from app import config, schemas
 from app.services import llm as _llm
 from app.services import share as share_svc
 
@@ -135,6 +135,11 @@ def _humanize_field(field: str) -> str:
 def render_explanation(exp: dict) -> dict:
     """Copia del Explanation dict adaptada a las plantillas Jinja2."""
     e = copy.deepcopy(exp or {})
+
+    # Documentos ya guardados pueden traer el mismo análisis repetido con
+    # otro uso de mayúsculas («CREATININA» vs «Creatinina»): se muestra una
+    # sola vez, con los datos más completos.
+    e["biomarkers"] = schemas.dedupe_biomarkers(e.get("biomarkers"))
 
     urg = e.get("urgency") or {}
     nivel = urg.get("level", "no_urgente")

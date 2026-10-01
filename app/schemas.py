@@ -4,6 +4,8 @@ El dict de explicación es el contrato entre el pipeline de IA y las rutas web.
 Todo lo que devuelva `LLMProvider.explain()` se valida aquí antes de guardarse.
 """
 
+import re
+import unicodedata
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -102,3 +104,51 @@ class Explanation(BaseModel):
 def validate_explanation(data: dict) -> dict:
     """Valida un dict contra el esquema Explanation y devuelve el dict limpio."""
     return Explanation.model_validate(data).model_dump()
+
+
+def _clave_biomarcador(name) -> str:
+    """Clave de comparación: sin mayúsculas, acentos ni signos («CREATININA»,
+    «Creatinina» y «creatinina » dan la misma clave)."""
+    s = unicodedata.normalize("NFKD", str(name or ""))
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r"[^a-z0-9%]+", " ", s.lower())
+    return " ".join(s.split())
+
+
+def dedupe_biomarkers(biomarkers) -> list:
+    """Quita duplicados del mismo análisis (el LLM a veces lo repite con otro
+    uso de mayúsculas, p. ej. una vez desde un encabezado y otra desde la
+    tabla). Conserva el registro más completo y rellena sus huecos con el
+    otro; el orden de aparición se mantiene."""
+    pares = []   # [clave, dict] en orden de aparición
+    indice = {}  # clave -> posición en pares
+    for b in biomarkers or []:
+        clave = _clave_biomarcador(b.get("name"))
+        if not clave:
+            pares.append([None, b])  # sin nombre usable: no se toca
+            continue
+        if clave not in indice:
+            indice[clave] = len(pares)
+            pares.append([clave, b])
+            continue
+
+        def _puntaje(x):
+            return (
+                bool(x.get("ref_range")),
+                str(x.get("flag") or "").strip().lower()
+                not in ("", "por confirmar"),
+                len(str(x.get("plain_explanation") or "")),
+            )
+
+        actual = pares[indice[clave]][1]
+        ganador, perdedor = (
+            (actual, b) if _puntaje(actual) >= _puntaje(b) else (b, actual)
+        )
+        for campo in (
+            "value", "unit", "ref_range", "flag", "plain_explanation",
+            "possible_health_effect", "prioridad_clinica", "motivo_prioridad",
+        ):
+            if not ganador.get(campo) and perdedor.get(campo):
+                ganador[campo] = perdedor[campo]
+        pares[indice[clave]][1] = ganador
+    return [b for _, b in pares]
