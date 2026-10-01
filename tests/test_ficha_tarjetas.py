@@ -124,13 +124,13 @@ def test_tarjeta_prefiere_nombre_examen(client):
     iid = "f-" + uuid.uuid4().hex[:12]
     dal.save_document({"id": iid, "user_id": uid, "intake_id": iid,
                        "explanation": _exp(
-                           nombre_examen="Hemograma completo",
+                           nombre_examen="Examen de sangre completo",
                            que_es="Hemograma: examen de sangre que revisa tus glóbulos rojos, blancos y plaquetas para ver cómo está tu sangre en general",
                            tipo="Resultado de laboratorio")})
     try:
         r = client.get("/ficha", cookies=_cookies(uid))
         assert r.status_code == 200
-        assert "Hemograma completo" in r.text
+        assert "Examen de sangre completo" in r.text
         assert "revisa tus glóbulos rojos" not in r.text
     finally:
         _clean([uid, iid])
