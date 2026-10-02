@@ -176,7 +176,11 @@ def _agrupar_por_analisis(items):
             g = grupos[clave]
             g["nombre"] = _mejor_nombre_display(g["nombre"], nombre)
         grupos[clave]["entradas"].append(entrada)
-    return [(g["nombre"], g["entradas"]) for g in grupos.values()]
+    # Formato uniforme también aquí («CREATININA» -> «Creatinina»).
+    return [
+        (schemas.nombre_display(g["nombre"]), g["entradas"])
+        for g in grupos.values()
+    ]
 
 
 def _historial(user_id: str, doc_actual_id: str) -> list:

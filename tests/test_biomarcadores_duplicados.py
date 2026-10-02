@@ -110,3 +110,32 @@ def test_mejor_nombre_display_no_mueve_en_empate():
     assert _mejor_nombre_display("CREATININA", "Creatinina") == "Creatinina"
     assert _mejor_nombre_display("Creatinina", "CREATININA") == "Creatinina"
     assert _mejor_nombre_display("Glucosa", "GLUCOSA") == "Glucosa"
+
+
+def test_nombre_display_formato_uniforme():
+    assert schemas.nombre_display("CREATININA") == "Creatinina"
+    assert schemas.nombre_display("creatinina") == "Creatinina"
+    assert schemas.nombre_display("COLESTEROL TOTAL") == "Colesterol total"
+    assert schemas.nombre_display("HEMOGLOBINA GLICOSILADA") == \
+        "Hemoglobina glicosilada"
+    assert schemas.nombre_display("ÁCIDO ÚRICO") == "Ácido úrico"
+    # Las siglas se conservan.
+    assert schemas.nombre_display("LDH") == "LDH"
+    assert schemas.nombre_display("ldh") == "LDH"
+    assert schemas.nombre_display("PCR ULTRASENSIBLE") == "PCR ultrasensible"
+    assert schemas.nombre_display("VITAMINA B12") == "Vitamina B12"
+    # Lo que ya viene mixto se respeta.
+    assert schemas.nombre_display("HbA1c") == "HbA1c"
+    assert schemas.nombre_display("Creatinina") == "Creatinina"
+
+
+def test_render_normaliza_nombres_al_mostrar():
+    exp = {"urgency": {"level": "agendar_cita"},
+           "biomarkers": [_b("CREATININA", ref_range="0.5 - 1.2")]}
+    vista = render_explanation(exp)
+    assert vista["biomarkers"][0]["name"] == "Creatinina"
+
+
+def test_historial_muestra_formato_uniforme():
+    grupos = _agrupar_por_analisis([("CREATININA", {"value": "1.1"})])
+    assert grupos[0][0] == "Creatinina"

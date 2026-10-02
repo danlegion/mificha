@@ -148,6 +148,8 @@ def render_explanation(exp: dict) -> dict:
     e["urgency"] = urg
 
     for b in e.get("biomarkers", []):
+        # Formato uniforme: nunca todo en mayúsculas y siempre igual.
+        b["name"] = schemas.nombre_display(b.get("name"))
         b["flag_key"] = normalize_flag_key(b.get("flag"))
         b["flag_uncertain"] = b["flag_key"] == "uncertain"
 

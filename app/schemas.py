@@ -116,6 +116,41 @@ def clave_biomarcador(name) -> str:
     return " ".join(s.split())
 
 
+_VOCALES = "aeiouáéíóúAEIOUÁÉÍÓÚ"
+
+
+def _es_sigla(palabra: str) -> bool:
+    """True si la palabra parece una sigla: sin vocales (LDH, TSH, PCR) o
+    con dígitos (T3, B12)."""
+    nucleo = re.sub(r"[^A-Za-zÁÉÍÓÚáéíóúÑñ0-9]", "", palabra)
+    return bool(nucleo) and (
+        not any(c in _VOCALES for c in nucleo)
+        or any(c.isdigit() for c in nucleo)
+    )
+
+
+def nombre_display(name) -> str:
+    """Nombre del análisis para mostrar: siempre en el mismo formato.
+
+    Si el nombre viene todo en mayúsculas o todo en minúsculas, pasa a
+    formato frase («CREATININA» -> «Creatinina», «COLESTEROL TOTAL» ->
+    «Colesterol total»), conservando las siglas («LDH», «PCR ultrasensible»
+    sigue empezando por «PCR»). Si ya viene mixto, se respeta tal cual.
+    """
+    s = " ".join(str(name or "").split())
+    if not s or not (s.isupper() or s.islower()):
+        return s
+    salida = []
+    for i, palabra in enumerate(s.split(" ")):
+        if _es_sigla(palabra):
+            salida.append(palabra.upper())
+        elif i == 0 or not salida:
+            salida.append(palabra.capitalize())
+        else:
+            salida.append(palabra.lower())
+    return " ".join(salida)
+
+
 def dedupe_biomarkers(biomarkers) -> list:
     """Quita duplicados del mismo análisis (el LLM a veces lo repite con otro
     uso de mayúsculas, p. ej. una vez desde un encabezado y otra desde la
