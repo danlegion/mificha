@@ -26,8 +26,11 @@ def client():
 def test_acepta_es_con_variantes():
     assert get_lang_from_header("es-EC,es;q=0.9,en;q=0.8") == "es"
     assert get_lang_from_header("ES") == "es"
-    assert get_lang_from_header(None) == "es"
-    assert get_lang_from_header("") == "es"
+
+
+def test_sin_cabecera_es_ingles_por_defecto():
+    assert get_lang_from_header(None) == "en"
+    assert get_lang_from_header("") == "en"
 
 
 def test_no_es_es_ingles():
@@ -52,7 +55,7 @@ def test_cambio_idioma_guarda_cookie_y_redirige(client):
     assert r.status_code == 303
     assert "mificha_lang=en" in r.headers["set-cookie"]
     r = client.get("/idioma/xx", follow_redirects=False)
-    assert "mificha_lang=es" in r.headers["set-cookie"]
+    assert "mificha_lang=en" in r.headers["set-cookie"]
 
 
 # --- render en ambos idiomas ------------------------------------------------
@@ -66,8 +69,16 @@ def test_home_en_con_navegador_ingles(client):
     assert "Entiende tu examen" not in r.text
 
 
-def test_home_es_por_defecto(client):
+def test_home_en_por_defecto(client):
     r = client.get("/")
+    assert r.status_code == 200
+    assert 'lang="en"' in r.text
+    assert "Understand your exam in minutes" in r.text
+
+
+def test_home_es_con_navegador_espanol(client):
+    client.cookies.clear()
+    r = client.get("/", headers={"Accept-Language": "es-EC,es;q=0.9"})
     assert r.status_code == 200
     assert 'lang="es"' in r.text
     assert "Entiende tu examen en minutos" in r.text
@@ -87,7 +98,7 @@ def test_catalogo_completo_en_ambos_idiomas():
         set(es) ^ set(en))[:200]
 
 
-def test_fallback_a_es_si_falta_clave_en():
+def test_fallback_a_en_si_falta_clave():
     assert t("clave_inexistente_xyz") == "clave_inexistente_xyz"
     # una clave real con formato
     assert t("upload.uploading_pct", lang="es", pct=50) == \
@@ -124,9 +135,13 @@ def test_urgencia_en():
 
 
 def test_urgencia_es_se_mantiene():
-    u = decide_urgency({"abnormal": [], "has_critical_flag": False,
-                        "has_uncertain_critical": False})
-    assert u["label"] == "Sin urgencia"
+    i18n.set_current_lang("es")
+    try:
+        u = decide_urgency({"abnormal": [], "has_critical_flag": False,
+                            "has_uncertain_critical": False})
+        assert u["label"] == "Sin urgencia"
+    finally:
+        i18n.set_current_lang("en")
 
 
 def test_prompt_ingles_existe():

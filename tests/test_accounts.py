@@ -19,7 +19,7 @@ from app.routers import accounts, hash_token
 @pytest.fixture(scope="module")
 def client():
     from app.main import app
-    with TestClient(app) as c:
+    with TestClient(app, headers={"Accept-Language": "es"}) as c:
         yield c
 
 
@@ -313,7 +313,7 @@ def test_result_oculta_tarjeta_con_sesion():
     })
     user = dal.create_user(email="ficha-test@example.com", telefono=None)
     try:
-        with TestClient(app) as c:
+        with TestClient(app, headers={"Accept-Language": "es"}) as c:
             anon = c.get(f"/resultado/{iid}?t={raw_token}")
             assert anon.status_code == 200
             assert "Crear mi cuenta gratis" in anon.text

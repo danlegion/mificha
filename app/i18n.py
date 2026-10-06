@@ -4,7 +4,7 @@ Cómo se decide el idioma (en este orden):
 1. Cookie `mificha_lang` (la pone el cambio manual ES/EN).
 2. Cabecera Accept-Language del navegador: si el idioma principal empieza
    por "es" -> español; cualquier otro -> inglés.
-3. Sin información -> español (producto de origen).
+3. Sin información -> inglés (default mundial).
 
 El middleware en app/main.py deja el idioma en `request.state.lang` y en la
 ContextVar `current_lang`; las plantillas lo usan vía el global `_t(clave)`.
@@ -17,13 +17,13 @@ from contextvars import ContextVar
 SUPPORTED = ("es", "en")
 LANG_COOKIE = "mificha_lang"
 
-current_lang: ContextVar[str] = ContextVar("mificha_lang", default="es")
+current_lang: ContextVar[str] = ContextVar("mificha_lang", default="en")
 
 
 def get_lang_from_header(accept_language: str | None) -> str:
     """'es-EC,es;q=0.9' -> 'es'; 'en-US,en;q=0.8' -> 'en'."""
     if not accept_language:
-        return "es"
+        return "en"
     primero = accept_language.split(",")[0].strip().split(";")[0].strip()
     return "es" if primero.lower().startswith("es") else "en"
 
@@ -38,12 +38,12 @@ def get_lang(request) -> str:
 
 def set_current_lang(lang: str):
     """Fija el idioma actual y devuelve el token para restaurarlo."""
-    return current_lang.set(lang if lang in SUPPORTED else "es")
+    return current_lang.set(lang if lang in SUPPORTED else "en")
 
 
 def get_current_lang() -> str:
     lang = current_lang.get()
-    return lang if lang in SUPPORTED else "es"
+    return lang if lang in SUPPORTED else "en"
 
 
 def t(key: str, lang: str | None = None, **kwargs) -> str:
@@ -51,7 +51,7 @@ def t(key: str, lang: str | None = None, **kwargs) -> str:
     idioma = lang if lang in SUPPORTED else get_current_lang()
     texto = STRINGS.get(idioma, {}).get(key)
     if texto is None:
-        texto = STRINGS["es"].get(key, key)
+        texto = STRINGS["en"].get(key, key)
     if kwargs:
         try:
             texto = texto.format(**kwargs)

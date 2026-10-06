@@ -153,7 +153,7 @@ def _process_intake(
 ) -> dict:
     log.info("Procesando intake %s (hint=%s, lang=%s)", intake_id, doc_type_hint, lang)
     if lang not in ("es", "en"):
-        lang = "es"
+        lang = "en"
 
     extracted = pdf_extract.extract_document(pdf_bytes)
     texto = (extracted.get("full_text") or "").strip()
@@ -232,7 +232,7 @@ def process_intake(
     urgencia leen el idioma actual) y lo restaura al terminar, incluso en
     hilos de segundo plano reutilizados."""
     if lang not in ("es", "en"):
-        lang = "es"
+        lang = "en"
     from app.i18n import current_lang
     token = set_current_lang(lang)
     try:

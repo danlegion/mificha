@@ -24,7 +24,7 @@ from app.routers import hash_token, new_guest_token
 @pytest.fixture(scope="module")
 def client():
     from app.main import app
-    with TestClient(app) as c:
+    with TestClient(app, headers={"Accept-Language": "es"}) as c:
         yield c
 
 

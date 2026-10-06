@@ -190,9 +190,9 @@ class AnthropicProvider(LLMProvider):
 
         texto = (extracted.get("full_text") or "")[:12000]
         hint = extracted.get("doc_type_hint")
-        lang = extracted.get("lang", "es")
+        lang = extracted.get("lang", "en")
         if lang not in ("es", "en"):
-            lang = "es"
+            lang = "en"
         if lang == "en":
             pista = (
                 f"\nThe user indicated the document type is: {hint}."
@@ -272,9 +272,9 @@ class GeminiProvider(LLMProvider):
             raise RuntimeError("GEMINI_API_KEY no está configurada.")
         texto = (extracted.get("full_text") or "")[:12000]
         hint = extracted.get("doc_type_hint")
-        lang = extracted.get("lang", "es")
+        lang = extracted.get("lang", "en")
         if lang not in ("es", "en"):
-            lang = "es"
+            lang = "en"
         if lang == "en":
             pista = (
                 f"\nThe user indicated the document type is: {hint}."
@@ -639,9 +639,9 @@ class DemoExplainer(LLMProvider):
     def explain(self, extracted: dict) -> dict:
         texto = extracted.get("full_text") or ""
         hint = extracted.get("doc_type_hint")
-        lang = extracted.get("lang", "es")
+        lang = extracted.get("lang", "en")
         if lang not in ("es", "en"):
-            lang = "es"
+            lang = "en"
         tipo = _detectar_tipo(texto, hint)
 
         uncertain = []

@@ -48,7 +48,7 @@ def _run_pipeline(intake_id: str, lang: str = "es"):
         log.error("Intake %s no existe; no se procesa.", intake_id)
         return
     if lang not in ("es", "en"):
-        lang = "es"
+        lang = "en"
     qpath = quarantine_path(intake_id)
     try:
         with open(qpath, "rb") as f:

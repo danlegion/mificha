@@ -241,7 +241,7 @@ app.include_router(share.router)
 @app.get("/idioma/{lang}")
 def cambiar_idioma(lang: str, request: Request):
     """Cambio manual ES/EN: guarda la elección en cookie y vuelve atrás."""
-    lang = lang if lang in SUPPORTED else "es"
+    lang = lang if lang in SUPPORTED else "en"
     destino = request.headers.get("referer", "/") or "/"
     if not destino.startswith("/"):  # solo redirecciones internas
         destino = "/"

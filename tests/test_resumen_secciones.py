@@ -1,5 +1,6 @@
 """El resumen de la explicación se divide en subtítulos legibles."""
 
+from app.i18n import current_lang, set_current_lang
 from app.routers import render_explanation, templates
 
 
@@ -13,9 +14,14 @@ def _exp_render(**kw):
                     "timeframe": "t", "reason": "r"},
     }
     base.update(kw)
-    exp = render_explanation(base)
-    tpl = templates.get_template("_explanation.html")
-    return tpl.render({"exp": exp})
+    # Estas pruebas son de contenido en español: se fija el idioma.
+    token = set_current_lang("es")
+    try:
+        exp = render_explanation(base)
+        tpl = templates.get_template("_explanation.html")
+        return tpl.render({"exp": exp})
+    finally:
+        current_lang.reset(token)
 
 
 def test_subtitulos_presentes():
