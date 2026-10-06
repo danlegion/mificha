@@ -10,11 +10,7 @@ import urllib.parse
 from datetime import datetime, timedelta, timezone
 
 from app import config
-
-_MESES = [
-    "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-]
+from app.i18n import MESES, get_current_lang, t as _t
 
 
 def new_token() -> str:
@@ -44,10 +40,12 @@ def expiry_datetime() -> datetime:
 
 
 def format_expires_label(dt: datetime) -> str:
-    """'el 2 de octubre de 2026'."""
+    """'el 2 de octubre de 2026' / 'on October 2, 2026', según idioma actual."""
+    lang = get_current_lang()
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return f"el {dt.day} de {_MESES[dt.month - 1]} de {dt.year}"
+    mes = MESES.get(lang, MESES["es"])[dt.month - 1]
+    return _t("share.expires", day=dt.day, month=mes, year=dt.year)
 
 
 def share_url(token: str) -> str:
@@ -57,7 +55,7 @@ def share_url(token: str) -> str:
 def whatsapp_text(token: str, incluir_urgencia: bool) -> str:
     url = share_url(token)
     if incluir_urgencia:
-        msg = f"Te comparto el resumen de mi examen médico: {url}"
+        msg = _t("share.whatsapp_urgency", url=url)
     else:
-        msg = f"Te comparto información de mi examen médico: {url}"
+        msg = _t("share.whatsapp_info", url=url)
     return urllib.parse.quote(msg)

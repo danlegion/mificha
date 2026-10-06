@@ -88,7 +88,7 @@ def _intake_id_de_redirect(respuesta):
 
 
 def test_subir_con_sesion_asigna_dueno(client, usuario, monkeypatch):
-    monkeypatch.setattr(ingest_router, "_run_pipeline", lambda iid: None)
+    monkeypatch.setattr(ingest_router, "_run_pipeline", lambda iid, lang="es": None)
     r = client.post(
         "/subir",
         files={"archivo": ("examen.pdf", _pdf_valido(), "application/pdf")},
@@ -106,7 +106,7 @@ def test_subir_con_sesion_asigna_dueno(client, usuario, monkeypatch):
 
 
 def test_subir_anonimo_no_asigna_dueno(client, monkeypatch):
-    monkeypatch.setattr(ingest_router, "_run_pipeline", lambda iid: None)
+    monkeypatch.setattr(ingest_router, "_run_pipeline", lambda iid, lang="es": None)
     r = client.post(
         "/subir",
         files={"archivo": ("examen.pdf", _pdf_valido(), "application/pdf")},
@@ -129,7 +129,7 @@ def test_pipeline_guarda_documento_cuando_hay_dueno(usuario, monkeypatch):
     with open(quarantine_path(iid), "wb") as f:
         f.write(_pdf_valido())
     monkeypatch.setattr(ingest_router, "process_intake",
-                        lambda _iid, _pdf, _hint: _exp())
+                        lambda _iid, _pdf, _hint, lang="es": _exp())
     try:
         ingest_router._run_pipeline(iid)
         doc = dal.get_document(iid)
@@ -150,7 +150,7 @@ def test_pipeline_no_crea_documento_sin_dueno(monkeypatch):
     with open(quarantine_path(iid), "wb") as f:
         f.write(_pdf_valido())
     monkeypatch.setattr(ingest_router, "process_intake",
-                        lambda _iid, _pdf, _hint: _exp())
+                        lambda _iid, _pdf, _hint, lang="es": _exp())
     try:
         ingest_router._run_pipeline(iid)
         assert dal.get_document(iid) is None

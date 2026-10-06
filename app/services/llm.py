@@ -34,6 +34,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from app.i18n import t as _t
 from app.services.urgency import decide_urgency
 
 log = logging.getLogger("mificha.llm")
@@ -96,6 +97,67 @@ Devuelve SOLO un JSON válido (sin bloques de código, sin texto extra) con esta
 Si una sección no aplica al documento, usa una lista vacía []. Si un dato no quedó claro, ponlo en uncertain_fields en vez de adivinarlo."""
 
 
+# English mirror of SYSTEM_PROMPT (used when the user navigates in English).
+# JSON field names stay the same (contract); all content is generated in
+# simple, everyday English.
+SYSTEM_PROMPT_EN = """You are MiFicha, an assistant that explains medical documents in simple, everyday English, the way you'd explain them to a family member. Your audience doesn't know medicine.
+
+HARD RULES (unbreakable):
+1. REFERENCE RANGES ONLY FROM THE DOCUMENT. If a value has no range in the document, leave ref_range empty. NEVER invent ranges, "typical normal" values, or numbers from memory.
+2. NEVER diagnose. Don't prescribe, don't give doses, don't give risk scores, don't indicate treatments or which medication to take or stop.
+3. The objectives of ORDERED exams are expressed as possibilities ("it's usually used for…", "doctors order it when they want to check…"), NEVER as the confirmed reason the doctor ordered it.
+4. Simple, everyday, kind English. Explain each medical term the first time it appears.
+5. Be conservative with urgency: when in doubt, "agendar_cita" with reason "out of caution". Only use "buscar_ayuda_ya" if there is an explicit critical flag or emergency language in the document.
+6. CLINICAL PRIORITY: for each out-of-range biomarker, indicate how important it is to look into it soon (alta/media/baja) considering the real value, how far it is from the range, and the clinical weight of the exam (e.g. electrolytes like potassium/sodium and heart markers weigh more than lipids at equal deviation). It's only for ordering the list, NOT a diagnosis or medical evaluation.
+7. LAB: if the document names the lab or clinic that issued it, return it in "laboratorio" exactly as it appears; if it doesn't appear, null. Never invent it.
+8. DOCUMENT DATE: it's the date the doctor or lab completed/issued the document (report date, sample date, or issue date, in the header or footer), NOT today's date. Format YYYY-MM-DD. If it doesn't appear in the document, null: never invent it or use the current date.
+9. SECTIONED SUMMARY: besides "summary_simple", return the summary split into three short parts, each in simple language without jargon: "resumen_que_es" (what this exam/document is and what it's used for), "resumen_rapido" (the most important thing about the result in 1-2 sentences), and "resumen_hallazgos" (what came out as unexpected and what it means, in short sentences; don't repeat the list of values one by one since they go in another section).
+10. EXAM NAME ("nombre_examen"): 2 to 5 words in everyday language, as you'd tell a family member who doesn't know medicine: use the common name, not the technical one ("Complete blood test", not "Hemogram"; "Thyroid test", not "Thyroid profile"; "Chest X-ray", not "Thorax X-ray"). Be specific within what's common ("Complete blood test" better than just "Blood test" if the document allows it). If the document doesn't let you identify it, use the type label.
+
+Return ONLY valid JSON (no code blocks, no extra text) with this exact structure:
+{
+  "document_type": "lab_result" | "narrative_report" | "exam_order" | "doctor_note",
+  "type_label": "label in English, e.g. 'Lab result'",
+  "nombre_examen": "short exam name in everyday words, e.g. 'Complete blood test', 'Thyroid test'",
+  "laboratorio": "lab or clinic name as it appears in the document, or null if absent",
+  "fecha_documento": "date the doctor or lab completed/issued the document (YYYY-MM-DD format), or null if absent",
+  "summary_simple": "2-4 sentence summary in simple language",
+  "resumen_que_es": "1-2 sentences: what this exam or document is and what it's used for",
+  "resumen_rapido": "1-2 sentences: the most important thing about the result, in simple language",
+  "resumen_hallazgos": "main findings: what came out as unexpected and what it means, in short sentences",
+  "biomarkers": [
+    {"name": "name", "value": "value as text", "unit": "unit or null",
+     "ref_range": "EXACT range from the document or null",
+     "flag": "alto" | "bajo" | "normal" | "por confirmar",
+     "prioridad_clinica": "alta" | "media" | "baja",
+     "motivo_prioridad": "short sentence in simple language: why this value deserves that priority, or null",
+     "plain_explanation": "what it is, in simple language",
+     "possible_health_effect": "possible health effect, without diagnosing, or null"}
+  ],
+  "narrative_findings": [
+    {"finding": "finding as the report states it",
+     "plain_explanation": "what it means in simple language"}
+  ],
+  "ordered_tests": [
+    {"name": "exam name",
+     "what_it_is": "what it is, in simple language",
+     "usual_objectives": ["what it's usually used for…", "…"],
+     "preparation": "preparation if the document states it, or null",
+     "question_for_doctor": "one useful question to ask the doctor"}
+  ],
+  "urgency": {"level": "no_urgente" | "agendar_cita" | "hablar_hoy_con_profesional" | "buscar_ayuda_ya",
+              "label": "short label in English", "action": "what to do",
+              "timeframe": "when", "reason": "why"},
+  "recommendations": ["general, safe recommendations"],
+  "questions_for_doctor": ["useful questions for the appointment"],
+  "uncertain_fields": [{"field": "field name", "reason": "why it's uncertain"}],
+  "disclaimer": "This explanation is only informational and is not a diagnosis. Always consult a health professional.",
+  "demo_mode": false
+}
+
+If a section doesn't apply to the document, use an empty list []. If a datum wasn't clear, put it in uncertain_fields instead of guessing."""
+
+
 class LLMProvider:
     """Interfaz base."""
 
@@ -128,24 +190,42 @@ class AnthropicProvider(LLMProvider):
 
         texto = (extracted.get("full_text") or "")[:12000]
         hint = extracted.get("doc_type_hint")
-        pista = (
-            f"\nEl usuario indicó que el tipo de documento es: {hint}."
-            if hint
-            else ""
-        )
+        lang = extracted.get("lang", "es")
+        if lang not in ("es", "en"):
+            lang = "es"
+        if lang == "en":
+            pista = (
+                f"\nThe user indicated the document type is: {hint}."
+                if hint
+                else ""
+            )
+            prompt = SYSTEM_PROMPT_EN
+            user_msg = (
+                "Explain this medical document in simple English. "
+                f"Return only the JSON.{pista}\n\n"
+                f"DOCUMENT TEXT:\n{texto}"
+            )
+        else:
+            pista = (
+                f"\nEl usuario indicó que el tipo de documento es: {hint}."
+                if hint
+                else ""
+            )
+            prompt = SYSTEM_PROMPT
+            user_msg = (
+                "Explica este documento médico en español simple. "
+                f"Devuelve solo el JSON.{pista}\n\n"
+                f"TEXTO DEL DOCUMENTO:\n{texto}"
+            )
         client = anthropic.Anthropic(api_key=self.api_key)
         resp = client.messages.create(
             model=self.model,
             max_tokens=4000,
-            system=SYSTEM_PROMPT,
+            system=prompt,
             messages=[
                 {
                     "role": "user",
-                    "content": (
-                        "Explica este documento médico en español simple. "
-                        f"Devuelve solo el JSON.{pista}\n\n"
-                        f"TEXTO DEL DOCUMENTO:\n{texto}"
-                    ),
+                    "content": user_msg,
                 }
             ],
         )
@@ -192,23 +272,41 @@ class GeminiProvider(LLMProvider):
             raise RuntimeError("GEMINI_API_KEY no está configurada.")
         texto = (extracted.get("full_text") or "")[:12000]
         hint = extracted.get("doc_type_hint")
-        pista = (
-            f"\nEl usuario indicó que el tipo de documento es: {hint}."
-            if hint
-            else ""
-        )
+        lang = extracted.get("lang", "es")
+        if lang not in ("es", "en"):
+            lang = "es"
+        if lang == "en":
+            pista = (
+                f"\nThe user indicated the document type is: {hint}."
+                if hint
+                else ""
+            )
+            prompt = SYSTEM_PROMPT_EN
+            user_msg = (
+                "Explain this medical document in simple English. "
+                "Return only the JSON."
+                f"{pista}\n\nDOCUMENT TEXT:\n{texto}"
+            )
+        else:
+            pista = (
+                f"\nEl usuario indicó que el tipo de documento es: {hint}."
+                if hint
+                else ""
+            )
+            prompt = SYSTEM_PROMPT
+            user_msg = (
+                "Explica este documento médico en español "
+                "simple. Devuelve solo el JSON."
+                f"{pista}\n\nTEXTO DEL DOCUMENTO:\n{texto}"
+            )
         cuerpo = {
-            "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "systemInstruction": {"parts": [{"text": prompt}]},
             "contents": [
                 {
                     "role": "user",
                     "parts": [
                         {
-                            "text": (
-                                "Explica este documento médico en español "
-                                "simple. Devuelve solo el JSON."
-                                f"{pista}\n\nTEXTO DEL DOCUMENTO:\n{texto}"
-                            )
+                            "text": user_msg
                         }
                     ],
                 }
@@ -350,6 +448,83 @@ _CONOCIMIENTO = [
      "Tenerlo bajo puede causar debilidad muscular y calambres."),
 ]
 
+# English mirror of _CONOCIMIENTO (demo mode only). Keys stay the same
+# (they match Spanish biomarker names as printed on lab PDFs).
+_CONOCIMIENTO_EN = [
+    ("glucosa", "The sugar in your blood that your body uses for energy.",
+     "Having high sugar for a long time can damage your eyes, kidneys, nerves, and heart.",
+     "Very low sugar can cause dizziness, cold sweat, tremors, and confusion."),
+    ("glicosilada", "Your average blood sugar over the last 2 to 3 months.",
+     "A high value means sugar has been high for several weeks.",
+     "A very low value can mean frequent sugar dips."),
+    ("colesterol total", "A fat that circulates in your blood; your body needs a certain amount of it.",
+     "Having it high for a long time is linked to arteries slowly getting clogged.",
+     "A low value usually isn't a concern on its own."),
+    ("hdl", "The so-called \u00abgood cholesterol\u00bb: it helps clean your arteries.",
+     "Having it high is considered favorable.",
+     "Having it low is linked to a higher risk of heart problems down the road."),
+    ("ldl", "The so-called \u00abbad cholesterol\u00bb: in excess it can stick to artery walls.",
+     "Having it high for a long time is linked to clogged arteries.",
+     "A low value usually isn't a concern on its own."),
+    ("triglic", "Another fat in the blood, which rises with excess sugar and starch.",
+     "Very high values are linked to heart and pancreas problems.",
+     "A low value usually isn't a concern on its own."),
+    ("hemoglobina", "The part of your red blood cells that carries oxygen around your body.",
+     "Having it high can make your blood thicker.",
+     "Having it low (anemia) can cause tiredness, paleness, and shortness of breath."),
+    ("hematocrito", "The share of your blood that is red blood cells.",
+     "A high value can mean thicker blood or dehydration.",
+     "A low value can come with anemia and cause tiredness."),
+    ("leucocitos", "Your white blood cells: the cells that defend you from infections.",
+     "They usually rise when there's an infection or inflammation.",
+     "Having them low can leave you with fewer defenses against infections."),
+    ("gl\u00f3bulos blancos", "The cells that defend you from infections.",
+     "They usually rise when there's an infection or inflammation.",
+     "Having them low can leave you with fewer defenses against infections."),
+    ("plaquetas", "The cells that help your blood clot when you cut yourself.",
+     "Having them very high is sometimes linked to a higher risk of clots.",
+     "Having them low can make you bleed or bruise easily."),
+    ("creatinina", "A waste product your kidneys filter; it shows how well they're working.",
+     "Having it high can mean your kidneys aren't filtering well.",
+     "A low value usually isn't a concern on its own."),
+    ("urea", "Another waste product your kidneys remove.",
+     "Having it high can mean your kidneys need a check or that you're dehydrated.",
+     "A low value usually isn't a concern on its own."),
+    ("tsh", "The hormone that tells your thyroid how hard to work.",
+     "Having it high is usually seen when the thyroid is underactive.",
+     "Having it low is usually seen when the thyroid is overactive."),
+    ("t4 libre", "The main hormone your thyroid makes.",
+     "Having it high usually goes with an overactive thyroid.",
+     "Having it low usually goes with an underactive thyroid."),
+    ("\u00e1cido \u00farico", "A waste product that in excess can form crystals in your joints.",
+     "Having it high is linked to gout, which causes pain and swelling in joints.",
+     "A low value usually isn't a concern on its own."),
+    ("alt", "A substance that rises when the liver is irritated or overworked.",
+     "Having it high can mean your liver needs a check.",
+     "A low value usually isn't a concern on its own."),
+    ("ast", "A substance similar to ALT, related to the liver.",
+     "Having it high can mean your liver needs a check.",
+     "A low value usually isn't a concern on its own."),
+    ("prote\u00edna c reactiva", "A marker in the blood that there's inflammation in the body.",
+     "It usually rises when there's an infection or inflammation.",
+     "A low value is what's expected."),
+    ("vitamina d", "Helps your bones absorb calcium.",
+     "A very high value is rare and worth mentioning to your doctor.",
+     "Having it low is linked to weaker bones and tiredness."),
+    ("ferritina", "Your body's iron reserve.",
+     "Having it very high is worth mentioning to your doctor.",
+     "Having it low can cause tiredness and anemia."),
+    ("hierro", "A mineral that helps carry oxygen in the blood.",
+     "Having it very high is worth mentioning to your doctor.",
+     "Having it low can cause tiredness and anemia."),
+    ("sodio", "A mineral salt that helps keep your body's fluid balance.",
+     "Having it high can be related to dehydration.",
+     "Having it low can cause confusion and weakness."),
+    ("potasio", "A mineral important for your muscles and heart to work well.",
+     "Having it high or very low can affect your heart rhythm: worth checking with your doctor soon.",
+     "Having it low can cause muscle weakness and cramps."),
+]
+
 _LENGUAJE_EMERGENCIA = [
     "emergencia", "urgente", "urgencia", "código azul", "código rojo",
     "infarto", "derrame cerebral", "hemorragia", "shock séptico", "sepsis",
@@ -408,11 +583,21 @@ def _detectar_tipo(texto: str, hint) -> str:
     return mejor if puntajes[mejor] > 0 else "lab_result"
 
 
-def _conocimiento_para(nombre: str):
+def _conocimiento_para(nombre: str, lang: str = "es"):
     n = nombre.lower()
-    for key, plain, high, low in _CONOCIMIENTO:
+    base = _CONOCIMIENTO_EN if lang == "en" else _CONOCIMIENTO
+    for key, plain, high, low in base:
         if key in n:
             return plain, high, low
+    if lang == "en":
+        generico = (
+            "If it's out of range, your doctor can explain what it means in your case."
+        )
+        return (
+            "It's a measure that appears in your exam.",
+            generico,
+            generico,
+        )
     return (
         "Es una medida que aparece en tu examen.",
         "Si está fuera de rango, tu doctor puede explicarte qué significa en tu caso.",
@@ -437,6 +622,15 @@ def _severidad_por_desviacion(valor, lo, hi) -> str:
     return "grave"
 
 
+def _tipo_label(tipo: str, lang: str = "es") -> str:
+    return {
+        "lab_result": _t("demo.type_lab", lang=lang),
+        "narrative_report": _t("demo.type_narrative", lang=lang),
+        "exam_order": _t("demo.type_order", lang=lang),
+        "doctor_note": _t("demo.type_note", lang=lang),
+    }.get(tipo, _t("demo.type_unknown", lang=lang))
+
+
 class DemoExplainer(LLMProvider):
     """Explicador determinista basado en reglas. SOLO cuando no hay API key."""
 
@@ -445,6 +639,9 @@ class DemoExplainer(LLMProvider):
     def explain(self, extracted: dict) -> dict:
         texto = extracted.get("full_text") or ""
         hint = extracted.get("doc_type_hint")
+        lang = extracted.get("lang", "es")
+        if lang not in ("es", "en"):
+            lang = "es"
         tipo = _detectar_tipo(texto, hint)
 
         uncertain = []
@@ -452,71 +649,51 @@ class DemoExplainer(LLMProvider):
             uncertain.append(
                 {
                     "field": f"pages[{n}].text",
-                    "reason": (
-                        f"La página {n} parece ser una foto o un escaneo y no "
-                        "pudimos leer su texto. Estamos trabajando en poder "
-                        "leer este tipo de documentos; por ahora su contenido "
-                        "no se incluyó en esta explicación."
-                    ),
+                    "reason": _t("demo.scanned", lang=lang, n=n),
                 }
             )
 
         if tipo == "lab_result":
-            cuerpo, sen_lab = self._explicar_laboratorio(texto, uncertain)
+            cuerpo, sen_lab = self._explicar_laboratorio(texto, uncertain, lang)
             sen_extra = sen_lab
         elif tipo == "exam_order":
-            cuerpo = self._explicar_pedido(texto, uncertain)
+            cuerpo = self._explicar_pedido(texto, uncertain, lang)
             sen_extra = {"abnormal": [], "has_critical_flag": False}
         elif tipo in ("narrative_report", "doctor_note"):
-            cuerpo = self._explicar_narrativo(texto, uncertain)
+            cuerpo = self._explicar_narrativo(texto, uncertain, lang)
             sen_extra = {"abnormal": [], "has_critical_flag": False}
         else:
-            cuerpo, sen_lab = self._explicar_laboratorio(texto, uncertain)
+            cuerpo, sen_lab = self._explicar_laboratorio(texto, uncertain, lang)
             sen_extra = sen_lab
 
         exp = {
             "document_type": tipo,
-            "type_label": _TIPOS_LABEL.get(tipo, "Documento médico"),
+            "type_label": _tipo_label(tipo, lang),
             "nombre_examen": None,
             "laboratorio": None,
             "fecha_documento": None,
             **cuerpo,
             "uncertain_fields": uncertain,
-            "disclaimer": (
-                "Esta explicación es solo informativa y no es un diagnóstico. "
-                "Consulta siempre a un profesional de la salud."
-            ),
+            "disclaimer": _t("demo.disclaimer", lang=lang),
             "demo_mode": True,
         }
         # Urgencia calculada con las mismas reglas conservadoras del sistema.
         exp["urgency"] = decide_urgency(self._senales(exp, texto, sen_extra))
-        que_es, rapido, hallazgos = self._resumen_secciones(tipo, exp)
+        que_es, rapido, hallazgos = self._resumen_secciones(tipo, exp, lang)
         exp["resumen_que_es"] = que_es
         exp["resumen_rapido"] = rapido
         exp["resumen_hallazgos"] = hallazgos
         return exp
 
     @staticmethod
-    def _resumen_secciones(tipo: str, exp: dict) -> tuple:
+    def _resumen_secciones(tipo: str, exp: dict, lang: str = "es") -> tuple:
         """Resumen dividido en tres partes cortas (modo demo)."""
         que_es = {
-            "lab_result": (
-                "Un examen de laboratorio analiza una muestra de tu sangre, "
-                "orina u otro fluido para medir distintas sustancias del cuerpo."
-            ),
-            "narrative_report": (
-                "Un informe narrativo es el texto donde el doctor describe "
-                "lo que encontró en un estudio o examen."
-            ),
-            "exam_order": (
-                "Un pedido de examen es la lista de estudios que tu doctor "
-                "te mandó a hacerte."
-            ),
-            "doctor_note": (
-                "Una nota del doctor con información sobre tu consulta, "
-                "diagnóstico o tratamiento."
-            ),
-        }.get(tipo, "Un documento médico.")
+            "lab_result": _t("demo.what_lab", lang=lang),
+            "narrative_report": _t("demo.what_narrative", lang=lang),
+            "exam_order": _t("demo.what_order", lang=lang),
+            "doctor_note": _t("demo.what_note", lang=lang),
+        }.get(tipo, _t("demo.what_unknown", lang=lang))
         rapido = exp.get("summary_simple") or ""
         if tipo == "lab_result":
             anormales = [
@@ -524,9 +701,9 @@ class DemoExplainer(LLMProvider):
                 if b.get("flag") in ("alto", "bajo")
             ]
             hallazgos = (
-                f"Fuera de su rango de referencia: {', '.join(anormales)}."
+                _t("demo.some_out", lang=lang, nombres=", ".join(anormales))
                 if anormales else
-                "Todos los valores están dentro de su rango de referencia."
+                _t("demo.all_clear", lang=lang)
             )
         elif exp.get("narrative_findings"):
             hallazgos = " ".join(
@@ -543,12 +720,13 @@ class DemoExplainer(LLMProvider):
         return que_es, rapido or None, hallazgos
 
     # -- laboratorio ----------------------------------------------------
-    def _explicar_laboratorio(self, texto: str, uncertain: list) -> tuple:
+    def _explicar_laboratorio(self, texto: str, uncertain: list,
+                              lang: str = "es") -> tuple:
         biomarcadores = []
         abnormal = []
         critico = False
         for linea in texto.splitlines():
-            b = self._parsear_linea_lab(linea)
+            b = self._parsear_linea_lab(linea, lang)
             if not b:
                 continue
             biomarcadores.append(b["dict"])
@@ -572,29 +750,16 @@ class DemoExplainer(LLMProvider):
         hay_inciertos = len(biomarcadores) > len(confirmados)
 
         if anormales := [a["name"] for a in abnormal]:
-            resumen = (
-                f"Tu examen de laboratorio muestra {len(confirmados)} valores. "
-                f"Fuera de su rango de referencia: {', '.join(anormales)}."
-            )
+            resumen = _t("demo.lab_some", lang=lang, n=len(confirmados),
+                         nombres=", ".join(anormales))
         elif confirmados:
-            resumen = (
-                f"Tu examen de laboratorio muestra {len(confirmados)} valores "
-                "y todos están dentro de su rango de referencia."
-            )
+            resumen = _t("demo.lab_all", lang=lang, n=len(confirmados))
         else:
-            resumen = (
-                "Detectamos que es un examen de laboratorio, pero no pudimos "
-                "leer sus valores con confianza. Revisa el documento original "
-                "abajo."
-            )
+            resumen = _t("demo.lab_none", lang=lang)
             uncertain.append(
                 {
                     "field": "biomarkers",
-                    "reason": (
-                        "No se encontraron líneas con formato de resultado de "
-                        "laboratorio (nombre, valor y rango) que pudiéramos "
-                        "leer con confianza."
-                    ),
+                    "reason": _t("demo.lab_no_confidence", lang=lang),
                 }
             )
 
@@ -605,14 +770,14 @@ class DemoExplainer(LLMProvider):
                 "narrative_findings": [],
                 "ordered_tests": [],
                 "recommendations": [
-                    "Lleva estos resultados a tu próxima cita médica.",
-                    "Si tienes síntomas nuevos o que te preocupan, busca atención médica.",
-                    "Guarda este documento junto a tus exámenes anteriores para comparar.",
+                    _t("demo.lab_rec1", lang=lang),
+                    _t("demo.lab_rec2", lang=lang),
+                    _t("demo.lab_rec3", lang=lang),
                 ],
                 "questions_for_doctor": [
-                    "¿Estos resultados cambian algo de mi tratamiento o mis controles?",
-                    "¿Necesito repetir algún examen? ¿Cuándo?",
-                    "¿Hay algo que deba vigilar en casa?",
+                    _t("demo.lab_q1", lang=lang),
+                    _t("demo.lab_q2", lang=lang),
+                    _t("demo.lab_q3", lang=lang),
                 ],
             },
             {"abnormal": abnormal, "has_critical_flag": critico,
@@ -621,7 +786,7 @@ class DemoExplainer(LLMProvider):
              "has_uncertain_critical": hay_inciertos or not confirmados},
         )
 
-    def _parsear_linea_lab(self, linea: str):
+    def _parsear_linea_lab(self, linea: str, lang: str = "es"):
         """Intenta leer 'Nombre  valor  unidad  rango' de una línea."""
         partes = [p.strip() for p in re.split(r"\s{2,}|\t", linea.strip()) if p.strip()]
         if len(partes) < 2:
@@ -650,7 +815,7 @@ class DemoExplainer(LLMProvider):
             flag = "por confirmar"
             incierto = {
                 "field": f"biomarkers[{nombre}].ref_range",
-                "reason": "El documento no muestra un rango de referencia claro para este valor.",
+                "reason": _t("demo.norange", lang=lang),
             }
             severidad = "leve"
         elif (lo is not None and valor < lo) or (hi is not None and valor > hi):
@@ -662,7 +827,7 @@ class DemoExplainer(LLMProvider):
             incierto = None
             severidad = "leve"
 
-        plain, eff_high, eff_low = _conocimiento_para(nombre)
+        plain, eff_high, eff_low = _conocimiento_para(nombre, lang)
         efecto = None
         if flag == "alto":
             efecto = eff_high
@@ -687,7 +852,8 @@ class DemoExplainer(LLMProvider):
         }
 
     # -- pedido de examen -------------------------------------------------
-    def _explicar_pedido(self, texto: str, uncertain: list) -> dict:
+    def _explicar_pedido(self, texto: str, uncertain: list,
+                         lang: str = "es") -> dict:
         pruebas = []
         for linea in texto.splitlines():
             s = linea.strip(" •-\t").strip()
@@ -706,13 +872,12 @@ class DemoExplainer(LLMProvider):
         ordenados = [
             {
                 "name": p,
-                "what_it_is": "Es un examen que tu doctor pidió.",
+                "what_it_is": _t("demo.order_what", lang=lang),
                 "usual_objectives": [
-                    "Los doctores suelen pedir este examen para revisar tu salud; "
-                    "pregúntale a tu doctor para qué lo necesita en tu caso."
+                    _t("demo.order_obj", lang=lang)
                 ],
                 "preparation": None,
-                "question_for_doctor": "¿Para qué me pidió este examen y cómo debo prepararme?",
+                "question_for_doctor": _t("demo.order_q", lang=lang),
             }
             for p in pruebas
         ]
@@ -720,33 +885,36 @@ class DemoExplainer(LLMProvider):
             uncertain.append(
                 {
                     "field": "ordered_tests",
-                    "reason": "No se pudieron identificar los exámenes pedidos en el documento.",
+                    "reason": _t("demo.order_none", lang=lang),
                 }
             )
-            resumen = "Tu doctor te dejó un pedido de exámenes, pero no pudimos leer con claridad cuáles son."
+            resumen = _t("demo.order_summary_none", lang=lang)
         else:
             nombres = ", ".join(p["name"] for p in ordenados[:5])
-            resto = f" y {len(ordenados) - 5} más" if len(ordenados) > 5 else ""
-            resumen = f"Tu doctor pidió {len(ordenados)} exámenes: {nombres}{resto}. Aquí te explicamos qué es cada uno."
+            resto = _t("demo.order_more", lang=lang, n=len(ordenados) - 5) \
+                if len(ordenados) > 5 else ""
+            resumen = _t("demo.order_summary", lang=lang, n=len(ordenados),
+                         nombres=nombres, resto=resto)
         return {
             "summary_simple": resumen,
             "biomarkers": [],
             "narrative_findings": [],
             "ordered_tests": ordenados,
             "recommendations": [
-                "Pregúntale a tu doctor para qué pidió cada examen.",
-                "Pregunta también cómo prepararte (ayuno, medicamentos, etc.).",
-                "Guarda el pedido para llevarlo al laboratorio.",
+                _t("demo.order_rec1", lang=lang),
+                _t("demo.order_rec2", lang=lang),
+                _t("demo.order_rec3", lang=lang),
             ],
             "questions_for_doctor": [
-                "¿Para qué me pidió cada uno de estos exámenes?",
-                "¿Necesito ayuno o alguna preparación especial?",
-                "¿Cuándo debo hacérmelos y cuándo vemos los resultados?",
+                _t("demo.order_q1", lang=lang),
+                _t("demo.order_q2", lang=lang),
+                _t("demo.order_q3", lang=lang),
             ],
         }
 
     # -- narrativo / nota ---------------------------------------------------
-    def _explicar_narrativo(self, texto: str, uncertain: list) -> dict:
+    def _explicar_narrativo(self, texto: str, uncertain: list,
+                            lang: str = "es") -> dict:
         frases = [
             f.strip()
             for f in re.split(r"(?<=[.!?])\s+", texto)
@@ -760,10 +928,7 @@ class DemoExplainer(LLMProvider):
         hallazgos = [
             {
                 "finding": f,
-                "plain_explanation": (
-                    "Esto es lo que describe el informe con sus propias palabras. "
-                    "Tu doctor puede explicarte qué significa en tu caso."
-                ),
+                "plain_explanation": _t("demo.narr_plain", lang=lang),
             }
             for f in frases
         ]
@@ -771,28 +936,25 @@ class DemoExplainer(LLMProvider):
             uncertain.append(
                 {
                     "field": "narrative_findings",
-                    "reason": "No se pudieron identificar hallazgos claros en el informe.",
+                    "reason": _t("demo.narr_none", lang=lang),
                 }
             )
-            resumen = "Es un informe narrativo, pero no pudimos extraer sus hallazgos con claridad."
+            resumen = _t("demo.narr_summary_none", lang=lang)
         else:
-            resumen = (
-                "El informe describe sus hallazgos con palabras. Aquí te los "
-                "mostramos uno por uno en lenguaje simple."
-            )
+            resumen = _t("demo.narr_summary", lang=lang)
         return {
             "summary_simple": resumen,
             "biomarkers": [],
             "narrative_findings": hallazgos,
             "ordered_tests": [],
             "recommendations": [
-                "Lleva este informe a tu próxima cita para revisarlo con tu doctor.",
-                "Anota las dudas que te surjan al leerlo y pregúntalas en tu cita.",
+                _t("demo.narr_rec1", lang=lang),
+                _t("demo.narr_rec2", lang=lang),
             ],
             "questions_for_doctor": [
-                "¿Qué significan estos hallazgos en mi caso?",
-                "¿Necesito algún examen o tratamiento adicional?",
-                "¿Cuándo debo volver a controlarme?",
+                _t("demo.narr_q1", lang=lang),
+                _t("demo.narr_q2", lang=lang),
+                _t("demo.narr_q3", lang=lang),
             ],
         }
 

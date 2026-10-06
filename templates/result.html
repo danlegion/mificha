@@ -1,101 +1,101 @@
 {% extends "base.html" %}
 
-{% block title %}Explicación de tu documento{% endblock %}
+{% block title %}{{ _t('result.title') }}{% endblock %}
 
 {% block content %}
 {% include "_explanation.html" %}
 
-<section class="card original-card" aria-label="Documento original">
-  <h2>Documento original</h2>
-  <p>Si tu doctor quiere ver el documento tal como lo subiste:</p>
+<section class="card original-card" aria-label="{{ _t('result.original_h2') }}">
+  <h2>{{ _t('result.original_h2') }}</h2>
+  <p>{{ _t('result.original_p') }}</p>
   <div class="btn-row">
-    <a class="btn btn-primary" href="/resultado/{{ intake_id }}/original{% if guest_token %}?t={{ guest_token }}{% endif %}" target="_blank" rel="noopener">Ver documento original</a>
-    <a class="btn btn-secondary" href="/resultado/{{ intake_id }}/original?descargar=1{% if guest_token %}&t={{ guest_token }}{% endif %}">Descargar</a>
+    <a class="btn btn-primary" href="/resultado/{{ intake_id }}/original{% if guest_token %}?t={{ guest_token }}{% endif %}" target="_blank" rel="noopener">{{ _t('result.view_original') }}</a>
+    <a class="btn btn-secondary" href="/resultado/{{ intake_id }}/original?descargar=1{% if guest_token %}&t={{ guest_token }}{% endif %}">{{ _t('result.download') }}</a>
   </div>
 </section>
 
 {% if exp.uncertain_fields %}
-<section class="card correct-card" id="corregir" aria-label="Corregir datos">
-  <h2>Corrige lo que no quedó claro</h2>
+<section class="card correct-card" id="corregir" aria-label="{{ _t('result.correct_h2') }}">
+  <h2>{{ _t('result.correct_h2') }}</h2>
   <form action="/resultado/{{ intake_id }}/corregir" method="post">
     {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
     {% for field in exp.uncertain_fields %}
     <label class="field">
-      <span>{{ field.label }} <span class="flag flag-uncertain">por confirmar</span></span>
-      <input type="text" name="{{ field.key }}" value="{{ field.guessed_value | default('') }}" placeholder="Escribe el valor correcto">
+      <span>{{ field.label }} <span class="flag flag-uncertain">{{ _t('flag.uncertain') }}</span></span>
+      <input type="text" name="{{ field.key }}" value="{{ field.guessed_value | default('') }}" placeholder="{{ _t('result.correct_ph') }}">
       {% if field.hint %}<small>{{ field.hint }}</small>{% endif %}
     </label>
     {% endfor %}
-    <button class="btn btn-primary" type="submit">Guardar correcciones</button>
+    <button class="btn btn-primary" type="submit">{{ _t('result.save') }}</button>
   </form>
 </section>
 {% endif %}
 
 {% if not is_saved and not user %}
-<section class="card save-cta" aria-label="Crea tu cuenta para guardar tu resultado">
-  <p class="save-cta-eyebrow">Tu espacio privado</p>
-  <h2>Guarda tu resultado. Solo tú tendrás acceso.</h2>
+<section class="card save-cta" aria-label="{{ _t('result.save_h2') }}">
+  <p class="save-cta-eyebrow">{{ _t('result.eyebrow') }}</p>
+  <h2>{{ _t('result.save_h2') }}</h2>
   <ul class="check-list">
-    <li>Tu explicación no se borra: queda guardada para siempre</li>
-    <li>Tus datos están seguros: nadie puede verlos, solo tú</li>
-    <li>Mira cómo cambian tus valores en cada examen</li>
-    <li>Compártela con tu doctor cuando la necesites</li>
+    <li>{{ _t('result.save_li1') }}</li>
+    <li>{{ _t('result.save_li2') }}</li>
+    <li>{{ _t('result.save_li3') }}</li>
+    <li>{{ _t('result.save_li4') }}</li>
   </ul>
-  <a class="btn btn-light btn-large" href="/guardar/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">Crear mi cuenta gratis</a>
+  <a class="btn btn-light btn-large" href="/guardar/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">{{ _t('result.save_btn') }}</a>
 </section>
 {% endif %}
 
-<section class="card share-card" id="compartir" aria-label="Compartir">
-  <h2>Compartir un resumen</h2>
-  <p>Crea un enlace privado con solo el resumen y la urgencia. Se puede revocar cuando quieras.</p>
+<section class="card share-card" id="compartir" aria-label="{{ _t('result.share_h2') }}">
+  <h2>{{ _t('result.share_h2') }}</h2>
+  <p>{{ _t('result.share_p') }}</p>
 
   {% if share %}
   <div class="share-active">
-    <p class="eyebrow">Enlace activo</p>
+    <p class="eyebrow">{{ _t('result.share_active') }}</p>
     <div class="share-preview">
-      <h3>Esto es exactamente lo que verá quien abra el enlace:</h3>
+      <h3>{{ _t('result.share_preview') }}</h3>
       <p class="summary">{{ share.summary_simple }}</p>
       {% if share.include_urgency %}
       <p class="urgency urgency-{{ share.urgency_level }}">
         <span class="urgency-level">{{ share.urgency_label }}</span> — {{ share.action }}
       </p>
       {% endif %}
-      <p class="micro-note">Expira: {{ share.expires_label }} · Sin PDF, sin otros datos, sin tu identidad.</p>
+      <p class="micro-note">{{ _t('result.share_expires', label=share.expires_label) }}</p>
     </div>
     <div class="btn-row">
-      <a class="btn btn-primary" href="https://wa.me/?text={{ share.text_encoded }}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
-      <button class="btn btn-ghost copy-btn" type="button" data-copy="{{ share.url }}">Copiar enlace</button>
+      <a class="btn btn-primary" href="https://wa.me/?text={{ share.text_encoded }}" target="_blank" rel="noopener">{{ _t('result.share_whatsapp') }}</a>
+      <button class="btn btn-ghost copy-btn" type="button" data-copy="{{ share.url }}" data-copied-text="{{ _t('result.copied') }}">{{ _t('result.copy') }}</button>
     </div>
     <form action="/compartir/{{ intake_id }}/revocar" method="post">
       {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
-      <button class="btn btn-danger" type="submit">Revocar enlace</button>
+      <button class="btn btn-danger" type="submit">{{ _t('result.revoke') }}</button>
     </form>
   </div>
   {% else %}
   <form action="/compartir/{{ intake_id }}" method="post">
     {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
     <fieldset class="share-options">
-      <legend>Incluir en el enlace</legend>
+      <legend>{{ _t('result.include_legend') }}</legend>
       <label class="checkbox-row">
         <input type="checkbox" name="incluir_resumen" value="1" checked>
-        <span>Resumen en lenguaje simple</span>
+        <span>{{ _t('result.include_summary') }}</span>
       </label>
       <label class="checkbox-row">
         <input type="checkbox" name="incluir_urgencia" value="1" checked>
-        <span>Nivel de urgencia y qué hacer</span>
+        <span>{{ _t('result.include_urgency') }}</span>
       </label>
     </fieldset>
-    <button class="btn btn-primary" type="submit">Crear enlace para compartir</button>
+    <button class="btn btn-primary" type="submit">{{ _t('result.create_link') }}</button>
   </form>
   {% endif %}
 </section>
 
-<section class="card" aria-label="Eliminar examen">
-  <h2>Eliminar este examen</h2>
-  <p>Se borrarán la explicación y el documento que subiste. Esta acción no se puede deshacer.</p>
+<section class="card" aria-label="{{ _t('result.delete_h2') }}">
+  <h2>{{ _t('result.delete_h2') }}</h2>
+  <p>{{ _t('result.delete_p') }}</p>
   <form method="post" action="/resultado/{{ intake_id }}/eliminar{% if guest_token %}?t={{ guest_token }}{% endif %}"
-        onsubmit="return confirm('¿Eliminar este examen? Se borrarán la explicación y el documento que subiste.');">
-    <button class="btn btn-danger" type="submit">Eliminar examen</button>
+        onsubmit="return confirm({{ _t('result.delete_confirm') | tojson }});">
+    <button class="btn btn-danger" type="submit">{{ _t('result.delete_btn') }}</button>
   </form>
 </section>
 {% endblock %}

@@ -8,8 +8,9 @@ from fastapi.responses import RedirectResponse
 
 from app import auth, config
 from app.db import dal
-from app.routers import (can_view_intake, guest_token_valid, templates,
-                         urgency_css_key)
+from app.i18n import t as _t
+from app.routers import (can_view_intake, guest_token_valid, page_lang,
+                         templates, urgency_css_key)
 from app.services import share as share_svc
 
 log = logging.getLogger("mificha.share")
@@ -88,8 +89,9 @@ def ver_share(token: str, request: Request):
         return templates.TemplateResponse(
             request,
             "error.html",
-            {"request": request, "message": "Este enlace ya no está disponible.",
-             "detail": "Pudo haber expirado o haber sido revocado.",
+            {"request": request, "lang": page_lang(request),
+             "message": _t("error.link_gone"),
+             "detail": _t("error.link_gone_detail"),
              "demo_mode": False, "dev_auth": auth.DEV_AUTH},
             status_code=404,
         )
@@ -104,7 +106,8 @@ def ver_share(token: str, request: Request):
             return templates.TemplateResponse(
                 request,
                 "error.html",
-                {"request": request, "message": "Este enlace expiró.",
+                {"request": request, "lang": page_lang(request),
+                 "message": _t("error.link_expired"),
                  "detail": None, "demo_mode": False,
                  "dev_auth": auth.DEV_AUTH},
                 status_code=410,
@@ -115,7 +118,7 @@ def ver_share(token: str, request: Request):
     # Solo resumen y urgencia: sin PDF, sin otros documentos, sin identidad.
     shared = {
         "summary_simple": snap.get("summary_simple")
-        or "El resumen no fue incluido en este enlace.",
+        or _t("error.no_summary"),
         "urgency_level": urgency_css_key(snap.get("urgency_level", "no_urgente"))
         if con_urgencia else "",
         "urgency_label": snap.get("urgency_label", ""),
@@ -125,6 +128,7 @@ def ver_share(token: str, request: Request):
     return templates.TemplateResponse(
         request,
         "shared.html",
-        {"request": request, "shared": shared, "cta_url": "/",
+        {"request": request, "lang": page_lang(request),
+         "shared": shared, "cta_url": "/",
          "demo_mode": False, "dev_auth": auth.DEV_AUTH},
     )

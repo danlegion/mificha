@@ -1,29 +1,29 @@
 {% extends "base.html" %}
 
-{% block title %}Resumen compartido{% endblock %}
+{% block title %}{{ _t('shared.title') }}{% endblock %}
 
 {% block content %}
 <section class="card shared-hero">
-  <h1>Un familiar te compartió este resumen</h1>
-  <p>Esto es solo un resumen en lenguaje simple. No incluye el documento original ni más información.</p>
+  <h1>{{ _t('shared.h1') }}</h1>
+  <p>{{ _t('shared.p') }}</p>
 </section>
 
-<section class="card level1" aria-label="Resumen compartido">
+<section class="card level1" aria-label="{{ _t('shared.title') }}">
   <p class="summary">{{ shared.summary_simple }}</p>
   <div class="urgency urgency-{{ shared.urgency_level }}" role="status">
     <p class="urgency-level">{{ shared.urgency_label }}</p>
-    <p class="urgency-action"><strong>Qué hacer:</strong> {{ shared.action }}</p>
+    <p class="urgency-action"><strong>{{ _t('expl.what_to_do') }}</strong> {{ shared.action }}</p>
   </div>
-  <p class="micro-note">Este enlace expira {{ shared.expires_label }}.</p>
+  <p class="micro-note">{{ _t('shared.expires', label=shared.expires_label) }}</p>
 </section>
 
 <div class="disclaimer-box" role="note">
-  Mi Ficha Medica explica documentos médicos en lenguaje simple, pero no hace diagnósticos ni reemplaza a un doctor.
+  {{ _t('shared.disclaimer') }}
 </div>
 
 <section class="card cta-card">
-  <h2>¿Tienes tus propios exámenes?</h2>
-  <p>Mándanos el PDF y te lo explicamos en lenguaje simple, gratis.</p>
-  <a class="btn btn-primary btn-large" href="{{ cta_url }}">Explica tus propios exámenes gratis</a>
+  <h2>{{ _t('shared.cta_h2') }}</h2>
+  <p>{{ _t('shared.cta_p') }}</p>
+  <a class="btn btn-primary btn-large" href="{{ cta_url }}">{{ _t('shared.cta_btn') }}</a>
 </section>
 {% endblock %}

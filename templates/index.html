@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Tus exámenes, en lenguaje simple{% endblock %}
+{% block title %}{{ _t('home.hero_h1') }}{% endblock %}
 
 {% block content %}
 {% if user %}
   {# Usuario registrado: la acción más importante (explicar otro examen) va primero. #}
-  {% set titulo = "Explica otro examen" if total_docs else "Explica tu primer examen" %}
+  {% set titulo = _t('home.upload_another') if total_docs else _t('home.upload_first') %}
   {% include "_upload_card.html" %}
 
   {% if recent_docs %}
-  <section class="card" aria-label="Tus exámenes recientes">
+  <section class="card" aria-label="{{ _t('home.recent_h2') }}">
     <div class="section-head">
       <div>
-        <h2>Tus exámenes</h2>
-        <p class="micro-note">Últimos 6 meses · fecha del documento</p>
+        <h2>{{ _t('home.recent_h2') }}</h2>
+        <p class="micro-note">{{ _t('home.recent_note') }}</p>
       </div>
-      <a href="/ficha">Ver todos</a>
+      <a href="/ficha">{{ _t('home.view_all') }}</a>
     </div>
     <div class="table-wrap">
       <table class="docs-table">
         <thead>
-          <tr><th>Fecha</th><th>Examen</th><th>Urgencia</th><th>Fuera de rango</th></tr>
+          <tr><th>{{ _t('home.th_date') }}</th><th>{{ _t('home.th_exam') }}</th><th>{{ _t('home.th_urgency') }}</th><th>{{ _t('home.th_out') }}</th></tr>
         </thead>
         <tbody>
           {% for doc in recent_docs %}
@@ -30,8 +30,8 @@
               <a href="/ficha/{{ doc.id }}"><strong>{{ doc.exam_about }}</strong></a>
               {% if doc.laboratorio %}<span class="micro-note">{{ doc.laboratorio }}</span>{% endif %}
               {% if doc.cambio_resumen %}<span class="micro-note">{{ doc.cambio_resumen }}</span>{% endif %}
-              {% if doc.por_confirmar %}<span class="flag flag-uncertain">por confirmar</span>{% endif %}
-              {% if doc.compartido %}<span class="micro-note">Compartido con tu doctor</span>{% endif %}
+              {% if doc.por_confirmar %}<span class="flag flag-uncertain">{{ _t('home.unconfirmed') }}</span>{% endif %}
+              {% if doc.compartido %}<span class="micro-note">{{ _t('home.shared_doctor') }}</span>{% endif %}
             </td>
             <td>{% if doc.urgency_label %}<span class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</span>{% endif %}</td>
             <td class="num">{{ doc.fuera_de_rango }}</td>
@@ -42,27 +42,27 @@
     </div>
   </section>
   {% elif total_docs %}
-  <section class="card" aria-label="Exámenes anteriores">
-    <p>Tus exámenes tienen más de 6 meses. Están todos en <a href="/ficha">Mi ficha</a>.</p>
+  <section class="card" aria-label="{{ _t('home.recent_h2') }}">
+    <p>{{ _t('home.old_before') }} <a href="/ficha">{{ _t('home.old_link') }}</a>{{ _t('home.old_after') }}</p>
   </section>
   {% endif %}
 {% else %}
   <section class="hero card">
-    <h1>Entiende tu examen en minutos</h1>
-    <p>Mándanos el PDF de tu examen y te lo explicamos en palabras simples: qué está bien, qué necesita atención y qué preguntarle a tu doctor.</p>
+    <h1>{{ _t('home.hero_h1') }}</h1>
+    <p>{{ _t('home.hero_p') }}</p>
   </section>
 
-  <section class="card accepts-card" aria-label="Qué exámenes acepta Mi Ficha Medica">
-    <h2>¿Qué exámenes aceptamos?</h2>
+  <section class="card accepts-card" aria-label="{{ _t('home.accepts_h2') }}">
+    <h2>{{ _t('home.accepts_h2') }}</h2>
     <ul class="check-list">
-      <li>Resultados de laboratorio</li>
-      <li>Informes como PET scan o resonancia</li>
-      <li>Pedidos de examen: qué te mandó el doctor y para qué</li>
-      <li>Notas del doctor</li>
+      <li>{{ _t('home.accepts_lab') }}</li>
+      <li>{{ _t('home.accepts_report') }}</li>
+      <li>{{ _t('home.accepts_order') }}</li>
+      <li>{{ _t('home.accepts_note') }}</li>
     </ul>
   </section>
 
-  {% set titulo = "Explica tu primer examen" %}
+  {% set titulo = _t('home.upload_first') %}
   {% include "_upload_card.html" %}
 {% endif %}
 {% endblock %}

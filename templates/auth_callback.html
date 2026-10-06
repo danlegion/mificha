@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Verificando tu cuenta{% endblock %}
+{% block title %}{{ _t('auth.verifying_title') }}{% endblock %}
 
 {% block content %}
 <section class="card register-card" id="activar-card">
-  <h1>Verificando tu cuenta…</h1>
-  <p>Un momento, estamos confirmando tu enlace seguro.</p>
+  <h1>{{ _t('auth.verifying_h1') }}</h1>
+  <p>{{ _t('auth.verifying_p') }}</p>
   <div id="activar-error" class="error-box" role="alert" hidden></div>
   {% if error %}
   <div class="error-box" role="alert">
@@ -17,6 +17,11 @@
 <script>
 (function () {
   var box = document.getElementById("activar-error");
+  var STR = {
+    noLink: {{ _t('auth.no_link') | tojson }},
+    linkBad: {{ _t('auth.link_bad') | tojson }},
+    connError: {{ _t('auth.conn_error') | tojson }}
+  };
   function fail(msg) {
     box.hidden = false;
     box.innerHTML = "<p>" + msg + "</p>";
@@ -33,7 +38,7 @@
   } else if (query.get("error")) {
     return; // el servidor ya mostró el error
   } else {
-    fail("No encontramos tu enlace de verificación. Vuelve a tu resultado y pide un enlace nuevo.");
+    fail(STR.noLink);
     return;
   }
   // Limpia el token de la barra de direcciones.
@@ -49,11 +54,10 @@
     if (res.body && res.body.ok && res.body.redirect) {
       window.location.href = res.body.redirect;
     } else {
-      fail((res.body && res.body.message) ||
-           "No pudimos verificar tu enlace. Pide uno nuevo desde tu resultado.");
+      fail((res.body && res.body.message) || STR.linkBad);
     }
   }).catch(function () {
-    fail("Tuvimos un problema de conexión. Revisa tu internet e inténtalo de nuevo.");
+    fail(STR.connError);
   });
 })();
 </script>

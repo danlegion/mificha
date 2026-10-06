@@ -97,6 +97,9 @@ class Explanation(BaseModel):
     uncertain_fields: List[UncertainField] = Field(default_factory=list)
     disclaimer: str
     demo_mode: bool = False
+    # Idioma en que se generó la explicación ("es"/"en"); la UI puede
+    # mostrarse en otro idioma, la explicación ya generada no se retraduce.
+    lang: Optional[str] = None
     # Nota regenerada tras correcciones del usuario (no la muestra la plantilla v0.1)
     correction_note: Optional[str] = None
 

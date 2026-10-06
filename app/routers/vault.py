@@ -8,8 +8,9 @@ from fastapi.responses import FileResponse, RedirectResponse
 
 from app import auth, config, schemas
 from app.db import dal
+from app.i18n import MESES_CORTO, get_current_lang, t as _t
 from app.routers import (nombre_examen_corto, normalize_flag_key,
-                         render_explanation, share_ctx, templates,
+                         page_lang, render_explanation, share_ctx, templates,
                          urgency_css_key)
 from app.storage import delete_original, get_original_path, original_exists
 
@@ -30,14 +31,15 @@ _MESES_CORTO = [
 
 
 def _fecha_corta(iso: str | None) -> str:
-    """Fecha compacta para tarjetas: '25 sep 2026'."""
+    """Fecha compacta para tarjetas: '25 sep 2026' / '25 Sep 2026'."""
     if not iso:
         return ""
     try:
         dt = datetime.fromisoformat(iso)
     except ValueError:
         return iso
-    return f"{dt.day} {_MESES_CORTO[dt.month - 1]} {dt.year}"
+    meses = MESES_CORTO.get(get_current_lang(), MESES_CORTO["es"])
+    return f"{dt.day} {meses[dt.month - 1]} {dt.year}"
 
 
 def _fecha_efectiva(exp: dict, creado_raw: str) -> tuple[str, datetime | None]:
@@ -64,8 +66,10 @@ def _fecha_efectiva(exp: dict, creado_raw: str) -> tuple[str, datetime | None]:
 
 def _flag_label(flag) -> str:
     key = normalize_flag_key(flag)
-    return {"alto": "Alto", "bajo": "Bajo", "rango": "Normal",
-            "uncertain": "Por confirmar"}.get(key, str(flag or "").capitalize() or "—")
+    return {"alto": _t("flag.alto"), "bajo": _t("flag.bajo"),
+            "rango": _t("flag.rango"),
+            "uncertain": _t("flag.uncertain")}.get(
+                key, str(flag or "").capitalize() or _t("flag.dash"))
 
 
 def _require_user(request: Request) -> dict:
@@ -78,6 +82,7 @@ def _require_user(request: Request) -> dict:
 def _base_ctx(request: Request, user) -> dict:
     return {
         "request": request,
+        "lang": page_lang(request),
         "user": user,
         "demo_mode": DEMO_MODE,
         "dev_auth": auth.DEV_AUTH,

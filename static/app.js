@@ -78,7 +78,7 @@
     var url = btn.getAttribute("data-copy");
     function done() {
       var original = btn.textContent;
-      btn.textContent = "¡Copiado! ✅";
+      btn.textContent = btn.getAttribute("data-copied-text") || "¡Copiado! ✅";
       setTimeout(function () { btn.textContent = original; }, 2000);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {

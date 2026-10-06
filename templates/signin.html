@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Entrar a tu cuenta{% endblock %}
+{% block title %}{{ _t('auth.signin_title') }}{% endblock %}
 
 {% block content %}
 {% if step == "link" %}
 <section class="card register-card">
-  <h1>Revisa tu correo</h1>
-  <p>Te enviamos un enlace seguro a <strong>{{ email }}</strong>. Ábrelo para entrar a tu cuenta.</p>
+  <h1>{{ _t('auth.check_email') }}</h1>
+  <p>{{ _t('auth.link_sent_login', email=email) }}</p>
 
   {% if error %}
   <div class="error-box" role="alert">
@@ -14,16 +14,16 @@
   </div>
   {% endif %}
 
-  <p class="micro-note">El enlace vence en unos minutos. Si no lo ves, revisa tu carpeta de spam.</p>
+  <p class="micro-note">{{ _t('auth.link_expires') }}</p>
   <form action="/entrar" method="post" class="resend-form">
     <input type="hidden" name="email" value="{{ email }}">
-    <button class="link-btn" type="submit">No me llegó: enviar otro enlace</button>
+    <button class="link-btn" type="submit">{{ _t('auth.resend') }}</button>
   </form>
 </section>
 {% else %}
 <section class="card register-card">
-  <h1>Entra a tu cuenta</h1>
-  <p>Escribe el correo con el que creaste tu cuenta. Te enviaremos un enlace para entrar, sin contraseña.</p>
+  <h1>{{ _t('auth.signin_h1') }}</h1>
+  <p>{{ _t('auth.signin_p') }}</p>
 
   {% if error %}
   <div class="error-box" role="alert">
@@ -33,10 +33,10 @@
 
   <form action="/entrar" method="post">
     <label class="field">
-      <span>Correo electrónico</span>
+      <span>{{ _t('auth.email_label') }}</span>
       <input type="email" name="email" required autocomplete="email" placeholder="tu@correo.com" value="{{ email }}">
     </label>
-    <button class="btn btn-primary btn-large" type="submit">Enviarme el enlace</button>
+    <button class="btn btn-primary btn-large" type="submit">{{ _t('auth.send_link') }}</button>
   </form>
 </section>
 {% endif %}

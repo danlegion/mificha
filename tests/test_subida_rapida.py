@@ -55,7 +55,7 @@ def _clean(ids):
 
 def test_subir_no_guarda_original_antes_del_redirect(client, monkeypatch):
     """El POST /subir redirige sin haber subido el original a Storage."""
-    monkeypatch.setattr(ingest_router, "_run_pipeline", lambda iid: None)
+    monkeypatch.setattr(ingest_router, "_run_pipeline", lambda iid, lang="es": None)
     subidas = []
     monkeypatch.setattr(
         ingest_router, "store_original",
@@ -101,7 +101,7 @@ def test_pipeline_sube_original_en_segundo_plano(monkeypatch):
         ingest_router, "store_original", lambda _iid, _pdf: f"{_iid}.pdf")
     monkeypatch.setattr(
         ingest_router, "process_intake",
-        lambda _iid, _pdf, _hint: {"urgency": {"level": "ok"}})
+        lambda _iid, _pdf, _hint, lang="es": {"urgency": {"level": "ok"}})
     try:
         ingest_router._run_pipeline(iid)
         assert dal.get_intake(iid)["original_key"] == f"{iid}.pdf"

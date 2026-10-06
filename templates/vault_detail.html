@@ -1,76 +1,76 @@
 {% extends "base.html" %}
 
-{% block title %}Explicación guardada{% endblock %}
+{% block title %}{{ _t('vdetail.title') }}{% endblock %}
 
 {% block content %}
 {% include "_explanation.html" %}
 
-<section class="card original-card" aria-label="Documento original">
-  <h2>Documento original</h2>
+<section class="card original-card" aria-label="{{ _t('result.original_h2') }}">
+  <h2>{{ _t('result.original_h2') }}</h2>
   {% if doc.original_available %}
-  <p>Si tu doctor quiere ver el documento tal como lo subiste:</p>
+  <p>{{ _t('result.original_p') }}</p>
   <div class="btn-row">
-    <a class="btn btn-primary" href="{{ doc.original_url }}" target="_blank" rel="noopener">Ver documento original</a>
-    <a class="btn btn-secondary" href="{{ doc.download_url }}">Descargar</a>
+    <a class="btn btn-primary" href="{{ doc.original_url }}" target="_blank" rel="noopener">{{ _t('result.view_original') }}</a>
+    <a class="btn btn-secondary" href="{{ doc.download_url }}">{{ _t('result.download') }}</a>
   </div>
   {% else %}
-  <p>El documento original de este examen ya no está disponible (se guardó antes de la mejora del almacenamiento). Tu explicación sigue intacta arriba.</p>
+  <p>{{ _t('vdetail.original_gone') }}</p>
   {% endif %}
 </section>
 
-<section class="card share-card" id="compartir" aria-label="Compartir con tu doctor">
-  <h2>Compartir con mi doctor</h2>
-  <p>Crea un enlace privado con solo el resumen y la urgencia. Se puede revocar cuando quieras.</p>
+<section class="card share-card" id="compartir" aria-label="{{ _t('vdetail.share_h2') }}">
+  <h2>{{ _t('vdetail.share_h2') }}</h2>
+  <p>{{ _t('result.share_p') }}</p>
 
   {% if share %}
   <div class="share-active">
-    <p class="eyebrow">Enlace activo</p>
+    <p class="eyebrow">{{ _t('result.share_active') }}</p>
     <div class="share-preview">
-      <h3>Esto es exactamente lo que verá quien abra el enlace:</h3>
+      <h3>{{ _t('result.share_preview') }}</h3>
       <p class="summary">{{ share.summary_simple }}</p>
       {% if share.include_urgency %}
       <p class="urgency urgency-{{ share.urgency_level }}">
         <span class="urgency-level">{{ share.urgency_label }}</span> — {{ share.action }}
       </p>
       {% endif %}
-      <p class="micro-note">Expira: {{ share.expires_label }} · Sin PDF, sin otros datos, sin tu identidad.</p>
+      <p class="micro-note">{{ _t('result.share_expires', label=share.expires_label) }}</p>
     </div>
     <div class="btn-row">
-      <a class="btn btn-primary" href="https://wa.me/?text={{ share.text_encoded }}" target="_blank" rel="noopener">Compartir por WhatsApp</a>
-      <button class="btn btn-ghost copy-btn" type="button" data-copy="{{ share.url }}">Copiar enlace</button>
+      <a class="btn btn-primary" href="https://wa.me/?text={{ share.text_encoded }}" target="_blank" rel="noopener">{{ _t('result.share_whatsapp') }}</a>
+      <button class="btn btn-ghost copy-btn" type="button" data-copy="{{ share.url }}" data-copied-text="{{ _t('result.copied') }}">{{ _t('result.copy') }}</button>
     </div>
     <form action="/compartir/{{ intake_id }}/revocar" method="post">
-      <button class="btn btn-danger" type="submit">Revocar enlace</button>
+      <button class="btn btn-danger" type="submit">{{ _t('result.revoke') }}</button>
     </form>
   </div>
   {% else %}
   <form action="/compartir/{{ intake_id }}" method="post">
     <fieldset class="share-options">
-      <legend>Incluir en el enlace</legend>
+      <legend>{{ _t('result.include_legend') }}</legend>
       <label class="checkbox-row">
         <input type="checkbox" name="incluir_resumen" value="1" checked>
-        <span>Resumen en lenguaje simple</span>
+        <span>{{ _t('result.include_summary') }}</span>
       </label>
       <label class="checkbox-row">
         <input type="checkbox" name="incluir_urgencia" value="1" checked>
-        <span>Nivel de urgencia y qué hacer</span>
+        <span>{{ _t('result.include_urgency') }}</span>
       </label>
     </fieldset>
-    <button class="btn btn-primary" type="submit">Crear enlace para compartir</button>
+    <button class="btn btn-primary" type="submit">{{ _t('result.create_link') }}</button>
   </form>
   {% endif %}
 </section>
 
 {% if history %}
-<section class="card history-card" aria-label="Historial de valores">
-  <h2>Cómo han cambiado tus valores</h2>
+<section class="card history-card" aria-label="{{ _t('vdetail.history_h2') }}">
+  <h2>{{ _t('vdetail.history_h2') }}</h2>
   {% for h in history %}
   <details class="detail-section">
     <summary>{{ h.biomarker_name }}</summary>
     <div class="detail-body">
       <table class="history-table">
         <thead>
-          <tr><th>Fecha</th><th>Valor</th><th>Estado</th></tr>
+          <tr><th>{{ _t('vdetail.th_date') }}</th><th>{{ _t('vdetail.th_value') }}</th><th>{{ _t('vdetail.th_status') }}</th></tr>
         </thead>
         <tbody>
           {% for row in h.entries %}
@@ -88,12 +88,12 @@
 </section>
 {% endif %}
 
-<section class="card" aria-label="Eliminar examen">
-  <h2>Eliminar este examen</h2>
-  <p>Se borrarán la explicación y el documento original. Esta acción no se puede deshacer.</p>
+<section class="card" aria-label="{{ _t('result.delete_h2') }}">
+  <h2>{{ _t('result.delete_h2') }}</h2>
+  <p>{{ _t('vdetail.delete_p') }}</p>
   <form method="post" action="/ficha/{{ doc.id }}/eliminar"
-        onsubmit="return confirm('¿Eliminar este examen? Se borrarán la explicación y el documento original.');">
-    <button class="btn btn-danger" type="submit">Eliminar examen</button>
+        onsubmit="return confirm({{ _t('vdetail.delete_confirm') | tojson }});">
+    <button class="btn btn-danger" type="submit">{{ _t('result.delete_btn') }}</button>
   </form>
 </section>
 {% endblock %}

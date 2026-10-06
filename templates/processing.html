@@ -1,35 +1,35 @@
 {% extends "base.html" %}
 
-{% block title %}Leyendo tu documento…{% endblock %}
+{% block title %}{{ _t('proc.title') }}{% endblock %}
 
 {% block content %}
 <section class="card processing-card" aria-live="polite">
   <div class="spinner" aria-hidden="true"></div>
-  <h1>Estamos leyendo tu documento…</h1>
-  <p>Esto suele tomar unos segundos. No cierres esta página.</p>
-  <p class="micro-note">Si tarda mucho, te avisaremos aquí mismo.</p>
+  <h1>{{ _t('proc.h1') }}</h1>
+  <p>{{ _t('proc.p') }}</p>
+  <p class="micro-note">{{ _t('proc.note') }}</p>
 
   <div class="error-box" id="processing-stalled" hidden>
-    <h2>La conexión está inestable</h2>
-    <p>Tu documento se sigue procesando, pero perdimos contacto con el servidor.</p>
-    <button class="btn btn-primary" onclick="window.location.reload()">Reintentar ahora</button>
+    <h2>{{ _t('proc.stalled_h2') }}</h2>
+    <p>{{ _t('proc.stalled_p') }}</p>
+    <button class="btn btn-primary" onclick="window.location.reload()">{{ _t('proc.retry') }}</button>
   </div>
 
   <div class="error-box" id="processing-error" hidden>
-    <h2>Ups, algo salió mal</h2>
-    <p id="processing-error-msg">No pudimos leer tu documento.</p>
-    <a class="btn btn-primary" href="/">Intentar con otro archivo</a>
+    <h2>{{ _t('proc.error_h2') }}</h2>
+    <p id="processing-error-msg">{{ _t('proc.error_default') }}</p>
+    <a class="btn btn-primary" href="/">{{ _t('proc.try_other') }}</a>
   </div>
   <div class="error-box" id="processing-manual" hidden>
-    <h2>¿Sigues aquí?</h2>
-    <p>La redirección automática no arrancó. Tu resultado debería estar listo:</p>
-    <a class="btn btn-primary" id="processing-manual-link" href="/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">Ver mi resultado</a>
+    <h2>{{ _t('proc.manual_h2') }}</h2>
+    <p>{{ _t('proc.manual_p') }}</p>
+    <a class="btn btn-primary" id="processing-manual-link" href="/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">{{ _t('proc.manual_link') }}</a>
   </div>
 
   <noscript>
     <div class="error-box">
-      <p>Esta página necesita JavaScript para avanzar sola.
-      <a href="/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">Abre tu resultado aquí</a> en unos segundos.</p>
+      <p>{{ _t('proc.noscript') }}
+      <a href="/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">{{ _t('proc.noscript_link') }}</a></p>
     </div>
   </noscript>
 </section>

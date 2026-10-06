@@ -7,13 +7,15 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import auth, config
 from app.db import dal
-from app.routers import (nombre_examen_corto, normalize_flag_key, templates,
-                         urgency_css_key)
+from app.i18n import (LANG_COOKIE, SUPPORTED, get_lang, set_current_lang,
+                      t as _t)
+from app.routers import (nombre_examen_corto, normalize_flag_key,
+                         page_lang, templates, urgency_css_key)
 from app.routers import accounts, ingest, results, share, vault
 from app.routers.vault import _fecha_corta, _fecha_efectiva
 from app.services.llm import _parse_rango
@@ -37,6 +39,20 @@ async def log_requests(request: Request, call_next):
     log.info("%s %s -> %s (%d ms)",
              request.method, request.url.path, resp.status_code, ms)
     return resp
+
+
+# Idioma: navegador (Accept-Language) o cambio manual ES/EN. Queda fijado
+# para todo lo que se renderice en esta petición.
+@app.middleware("http")
+async def idioma(request: Request, call_next):
+    lang = get_lang(request)
+    request.state.lang = lang
+    token = set_current_lang(lang)
+    try:
+        return await call_next(request)
+    finally:
+        from app.i18n import current_lang
+        current_lang.reset(token)
 
 
 # El HTML es personal y cambia con cada acción (borrar, subir, guardar):
@@ -119,12 +135,14 @@ def _comparar_con_anterior(
 def _resumen_cambio(mejoraron: int, empeoraron: int, fecha_prev: str) -> str:
     partes = []
     if mejoraron:
-        partes.append("1 mejoró" if mejoraron == 1 else f"{mejoraron} mejoraron")
+        partes.append(_t("main.improved_one") if mejoraron == 1
+                      else _t("main.improved_many", n=mejoraron))
     if empeoraron:
-        partes.append("1 empeoró" if empeoraron == 1 else f"{empeoraron} empeoraron")
+        partes.append(_t("main.worsened_one") if empeoraron == 1
+                      else _t("main.worsened_many", n=empeoraron))
     if not partes:
         return ""
-    return f"Desde tu examen de {fecha_prev}: " + " · ".join(partes)
+    return _t("main.change_from", fecha=fecha_prev) + " · ".join(partes)
 
 
 @app.get("/")
@@ -184,6 +202,7 @@ def index(request: Request):
         "index.html",
         {
             "request": request,
+            "lang": page_lang(request),
             "user": user,
             "recent_docs": recent_docs,
             "total_docs": total_docs,
@@ -219,12 +238,26 @@ app.include_router(vault.router)
 app.include_router(share.router)
 
 
+@app.get("/idioma/{lang}")
+def cambiar_idioma(lang: str, request: Request):
+    """Cambio manual ES/EN: guarda la elección en cookie y vuelve atrás."""
+    lang = lang if lang in SUPPORTED else "es"
+    destino = request.headers.get("referer", "/") or "/"
+    if not destino.startswith("/"):  # solo redirecciones internas
+        destino = "/"
+    resp = RedirectResponse(destino, status_code=303)
+    resp.set_cookie(LANG_COOKIE, lang, max_age=365 * 24 * 3600,
+                    samesite="lax", path="/")
+    return resp
+
+
 @app.exception_handler(404)
 async def not_found(request: Request, exc):
     return templates.TemplateResponse(
         request,
         "error.html",
-        {"request": request, "message": "No encontramos esa página.",
+        {"request": request, "lang": page_lang(request),
+         "message": _t("error.not_found"),
          "detail": None, "demo_mode": False, "dev_auth": auth.DEV_AUTH},
         status_code=404,
     )
@@ -235,7 +268,8 @@ async def forbidden(request: Request, exc):
     return templates.TemplateResponse(
         request,
         "error.html",
-        {"request": request, "message": "No tienes acceso a esto.",
+        {"request": request, "lang": page_lang(request),
+         "message": _t("error.forbidden"),
          "detail": None, "demo_mode": False, "dev_auth": auth.DEV_AUTH},
         status_code=403,
     )

@@ -9,7 +9,9 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from app import auth, config
 from app.db import dal
-from app.routers import can_view_intake, guest_token_valid, templates
+from app.i18n import t as _t
+from app.routers import (can_view_intake, guest_token_valid, page_lang,
+                         templates)
 
 log = logging.getLogger("mificha.accounts")
 
@@ -46,6 +48,7 @@ def _ctx(request: Request, intake_id, guest_token, error=None, step="form",
          email="", telefono="", notice=None) -> dict:
     return {
         "request": request,
+        "lang": page_lang(request),
         "intake_id": intake_id,
         "guest_token": guest_token,
         "error": error,
@@ -136,7 +139,7 @@ def guardar(
     telefono = (telefono or "").strip()
     error = None
     if not _RE_EMAIL.match(email):
-        error = "Revisa tu correo electrónico, no parece válido."
+        error = _t("auth.invalid_email")
     elif len(telefono) < 6:
         error = "Revisa tu teléfono, parece incompleto."
     if error:
@@ -225,8 +228,7 @@ async def activar(request: Request):
     if not usuario:
         return JSONResponse(
             {"ok": False,
-             "message": "No encontramos una cuenta con ese correo. Si aún no "
-                        "tienes cuenta, crea una desde tu resultado."},
+             "message": _t("auth.no_account")},
             status_code=404)
     return _con_sesion(
         JSONResponse({"ok": True, "redirect": "/ficha"}),
@@ -239,6 +241,7 @@ def _ctx_entrar(request: Request, error=None, step="form", email="",
                 notice=None) -> dict:
     return {
         "request": request,
+        "lang": page_lang(request),
         "error": error,
         "step": step,
         "email": email,
@@ -263,7 +266,7 @@ def entrar(request: Request, email: str = Form(...)):
     if not _RE_EMAIL.match(email):
         return templates.TemplateResponse(
             request, "signin.html",
-            _ctx_entrar(request, "Revisa tu correo electrónico, no parece válido.",
+            _ctx_entrar(request, _t("auth.invalid_email"),
                         email=email),
             status_code=400)
     if not config.USE_SUPABASE:
@@ -272,7 +275,7 @@ def entrar(request: Request, email: str = Form(...)):
         if not usuario:
             return templates.TemplateResponse(
                 request, "signin.html",
-                _ctx_entrar(request, "No encontramos una cuenta con ese correo.",
+                _ctx_entrar(request, _t("auth.no_account"),
                             email=email),
                 status_code=404)
         log.warning("MODO DESARROLLO: inicio de sesión sin verificación (%s)",
@@ -335,5 +338,5 @@ def reenviar(
         "register.html",
         _ctx(request, intake_id, raw, step="link",
              email=email, telefono=telefono,
-             notice=f"Te enviamos un enlace nuevo a {email}."),
+             notice=_t("auth.new_link", email=email)),
     )

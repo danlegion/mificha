@@ -13,6 +13,7 @@ import re
 from datetime import datetime
 
 from app import schemas
+from app.i18n import get_current_lang, set_current_lang, t as _t
 from app.services import pdf_extract
 from app.services.llm import get_llm_provider
 from app.services.ocr import get_ocr_provider
@@ -106,10 +107,7 @@ def _aplicar_reglas_duras(exp: dict, extracted: dict) -> dict:
             exp.setdefault("uncertain_fields", []).append(
                 {
                     "field": f"biomarkers[{i}].ref_range",
-                    "reason": (
-                        f"El rango de referencia de «{b.get('name')}» no se "
-                        "encontró en el documento, así que no se incluye."
-                    ),
+                    "reason": _t("pipe.range_uncertain", name=b.get("name")),
                 }
             )
             continue
@@ -150,25 +148,19 @@ def _aplicar_reglas_duras(exp: dict, extracted: dict) -> dict:
     return exp
 
 
-def process_intake(
-    intake_id: str, pdf_bytes: bytes, doc_type_hint: str | None
+def _process_intake(
+    intake_id: str, pdf_bytes: bytes, doc_type_hint: str | None, lang: str
 ) -> dict:
-    log.info("Procesando intake %s (hint=%s)", intake_id, doc_type_hint)
+    log.info("Procesando intake %s (hint=%s, lang=%s)", intake_id, doc_type_hint, lang)
+    if lang not in ("es", "en"):
+        lang = "es"
 
     extracted = pdf_extract.extract_document(pdf_bytes)
     texto = (extracted.get("full_text") or "").strip()
     if extracted.get("num_pages", 0) == 0 or not texto:
         if extracted.get("scanned_pages"):
-            raise UnprocessableDocument(
-                "Detectamos que tu documento es una foto o un escaneo, y aún "
-                "no podemos leer ese formato: estamos trabajando en agregarlo. "
-                "Por ahora, sube el PDF original del laboratorio para obtener "
-                "tu explicación."
-            )
-        raise UnprocessableDocument(
-            "No pudimos leer ningún texto de tu documento. "
-            "Revisa que el archivo sea un PDF válido o intenta con otro archivo."
-        )
+            raise UnprocessableDocument(_t("pipe.scanned_unprocessable", lang=lang))
+        raise UnprocessableDocument(_t("pipe.unreadable", lang=lang))
 
     # OCR: las páginas escaneadas se marcan como inciertas, nunca se ignoran.
     # En v0.1 no hay proveedor OCR configurado (NullOCRProvider): el LLM
@@ -196,17 +188,18 @@ def process_intake(
                 extracted["ocr_unavailable"] = str(exc)
 
     extracted["doc_type_hint"] = doc_type_hint
+    extracted["lang"] = lang
     proveedor_llm = get_llm_provider()
     crudo = proveedor_llm.explain(extracted)
     crudo["demo_mode"] = bool(proveedor_llm.is_demo)
+    crudo["lang"] = lang
 
     try:
         exp = schemas.validate_explanation(crudo)
     except Exception as exc:
         log.warning("La explicación del LLM no validó: %s", exc)
         raise UnprocessableDocument(
-            "No pudimos entender tu documento con claridad. "
-            "Intenta con otro archivo o revisa que el PDF se lea bien."
+            _t("pipe.llm_invalid", lang=lang)
         ) from exc
 
     exp = _aplicar_reglas_duras(exp, extracted)
@@ -220,12 +213,7 @@ def process_intake(
             exp.setdefault("uncertain_fields", []).append(
                 {
                     "field": campo,
-                    "reason": (
-                        f"La página {n} parece ser una foto o un escaneo y no "
-                        "pudimos leer su texto. Estamos trabajando en poder "
-                        "leer este tipo de documentos; por ahora su contenido "
-                        "no se incluyó en esta explicación."
-                    ),
+                    "reason": _t("demo.scanned", n=n),
                 }
             )
 
@@ -234,3 +222,20 @@ def process_intake(
         intake_id, exp.get("document_type"), exp.get("urgency", {}).get("level"),
     )
     return exp
+
+
+def process_intake(
+    intake_id: str, pdf_bytes: bytes, doc_type_hint: str | None,
+    lang: str = "es"
+) -> dict:
+    """Punto de entrada: fija el idioma para esta ejecución (reglas duras y
+    urgencia leen el idioma actual) y lo restaura al terminar, incluso en
+    hilos de segundo plano reutilizados."""
+    if lang not in ("es", "en"):
+        lang = "es"
+    from app.i18n import current_lang
+    token = set_current_lang(lang)
+    try:
+        return _process_intake(intake_id, pdf_bytes, doc_type_hint, lang)
+    finally:
+        current_lang.reset(token)

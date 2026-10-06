@@ -6,6 +6,7 @@ Contrato (esquema de `signals` según tests/conftest.py):
               | "hablar_hoy_con_profesional" | "buscar_ayuda_ya",
      "label": str, "action": str, "timeframe": str, "reason": str}
 
+    Los textos salen en el idioma actual (navegador o cambio manual).
     signals = {
       "abnormal": [{"name": str, "flag": "alta"|"baja",
                     "severity": "leve"|"moderada"|"grave"|"critica"}],
@@ -27,6 +28,8 @@ Reglas conservadoras:
 
 _SEVERIDAD_CRITICA = {"critica", "crítica", "critical"}
 _SEVERIDAD_ALTA = {"grave", "moderada", "severa", "severe", "moderate"}
+
+from app.i18n import t as _t
 
 
 def _norm(s) -> str:
@@ -57,7 +60,7 @@ def decide_urgency(signals: dict) -> dict:
     priority_note = ""
     if explicit_priority:
         # Se reproduce literal; nunca se inventa.
-        priority_note = f' La orden médica indica prioridad "{explicit_priority}".'
+        priority_note = _t("u.priority_note", p=explicit_priority)
 
     es_critico = (
         has_critical_flag
@@ -72,17 +75,11 @@ def decide_urgency(signals: dict) -> dict:
         )
         return {
             "level": "buscar_ayuda_ya",
-            "label": "Busca ayuda ya",
-            "action": (
-                "Ve a urgencias o llama al número de emergencias de tu país "
-                "ahora mismo. No esperes a mañana."
-            ),
-            "timeframe": "Ahora mismo",
+            "label": _t("u.now_label"),
+            "action": _t("u.now_action"),
+            "timeframe": _t("u.now_time"),
             "reason": (
-                "Hay una señal crítica en tu documento"
-                + detalle
-                + " que necesita atención médica inmediata."
-                + priority_note
+                _t("u.now_reason", detalle=detalle) + priority_note
             ),
         }
 
@@ -90,17 +87,11 @@ def decide_urgency(signals: dict) -> dict:
         detalle = f" ({', '.join(nombres)})" if nombres else ""
         return {
             "level": "hablar_hoy_con_profesional",
-            "label": "Habla hoy con un profesional de la salud",
-            "action": (
-                "Comunícate hoy mismo con tu doctor, tu laboratorio o un "
-                "servicio de salud para que revisen estos resultados contigo."
-            ),
-            "timeframe": "Hoy",
+            "label": _t("u.today_label"),
+            "action": _t("u.today_action"),
+            "timeframe": _t("u.today_time"),
             "reason": (
-                "Hay valores fuera de rango"
-                + detalle
-                + " que conviene revisar con un profesional hoy mismo."
-                + priority_note
+                _t("u.today_reason", detalle=detalle) + priority_note
             ),
         }
 
@@ -108,46 +99,31 @@ def decide_urgency(signals: dict) -> dict:
         detalle = f" ({', '.join(nombres)})" if nombres else ""
         return {
             "level": "agendar_cita",
-            "label": "Agenda una cita",
-            "action": (
-                "Pide una cita con tu doctor para revisar estos resultados "
-                "con calma."
-            ),
-            "timeframe": "En los próximos días o semanas",
+            "label": _t("u.appt_label"),
+            "action": _t("u.appt_action"),
+            "timeframe": _t("u.appt_time"),
             "reason": (
-                "Hay valores fuera de su rango de referencia"
-                + detalle
-                + " que vale la pena comentar con tu doctor."
-                + priority_note
+                _t("u.appt_reason", detalle=detalle) + priority_note
             ),
         }
 
     if has_uncertain_critical:
         return {
             "level": "agendar_cita",
-            "label": "Agenda una cita",
-            "action": (
-                "Pide una cita con tu doctor y lleva el documento original "
-                "para que lo revise directamente."
-            ),
-            "timeframe": "En los próximos días o semanas",
+            "label": _t("u.appt_label"),
+            "action": _t("u.appt_uncertain_action"),
+            "timeframe": _t("u.appt_time"),
             "reason": (
-                "No pudimos leer con certeza una parte del documento, "
-                "por precaución conviene que un profesional lo revise."
-                + priority_note
+                _t("u.appt_uncertain_reason") + priority_note
             ),
         }
 
     return {
         "level": "no_urgente",
-        "label": "Sin urgencia",
-        "action": (
-            "Sigue tu rutina normal y comenta estos resultados en tu próxima "
-            "cita de control."
-        ),
-        "timeframe": "En tu próxima cita de control",
+        "label": _t("u.none_label"),
+        "action": _t("u.none_action"),
+        "timeframe": _t("u.none_time"),
         "reason": (
-            "Todos los valores están dentro de sus rangos de referencia."
-            + priority_note
+            _t("u.none_reason") + priority_note
         ),
     }

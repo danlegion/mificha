@@ -1,19 +1,19 @@
 {# Partial: explanation display shared by result.html and vault_detail.html.
    Expects `exp` in context. #}
 
-<section class="card level1" aria-label="Resumen">
+<section class="card level1" aria-label="{{ _t('expl.quick') }}">
   <p class="eyebrow">{{ exp.type_label }}</p>
   {% if exp.resumen_que_es or exp.resumen_rapido or exp.resumen_hallazgos %}
   {% if exp.resumen_que_es %}
-  <h2 class="summary-sub">Qué es este examen</h2>
+  <h2 class="summary-sub">{{ _t('expl.what_is') }}</h2>
   <p class="summary-text">{{ exp.resumen_que_es }}</p>
   {% endif %}
   {% if exp.resumen_rapido %}
-  <h2 class="summary-sub">Resumen rápido</h2>
+  <h2 class="summary-sub">{{ _t('expl.quick') }}</h2>
   <p class="summary-text">{{ exp.resumen_rapido }}</p>
   {% endif %}
   {% if exp.resumen_hallazgos %}
-  <h2 class="summary-sub">Hallazgos principales</h2>
+  <h2 class="summary-sub">{{ _t('expl.findings') }}</h2>
   <p class="summary-text">{{ exp.resumen_hallazgos }}</p>
   {% endif %}
   {% else %}
@@ -21,8 +21,8 @@
   {% endif %}
 
   {% if exp.concerns_top %}
-  <div class="concerns" aria-label="Valores que necesitan atención">
-    <h2>Valores que necesitan atención</h2>
+  <div class="concerns" aria-label="{{ _t('expl.concerns') }}">
+    <h2>{{ _t('expl.concerns') }}</h2>
     <ul class="concern-list">
       {% for b in exp.concerns_top %}
       <li>
@@ -30,8 +30,8 @@
           <strong class="concern-name">{{ b.name }}</strong>
           <span class="concern-value">{{ b.value }}{% if b.unit %} {{ b.unit }}{% endif %}{% if b.flag %} <span class="flag flag-{{ b.flag_key }}">{{ b.flag }}</span>{% endif %}</span>
         </div>
-        {% if b.ref_range %}<span class="concern-range">Rango esperado: {{ b.ref_range }}</span>{% endif %}
-        {% if b.motivo_prioridad %}<span class="micro-note">Por qué importa: {{ b.motivo_prioridad }}</span>{% endif %}
+        {% if b.ref_range %}<span class="concern-range">{{ _t('expl.range') }} {{ b.ref_range }}</span>{% endif %}
+        {% if b.motivo_prioridad %}<span class="micro-note">{{ _t('expl.why_matters') }} {{ b.motivo_prioridad }}</span>{% endif %}
       </li>
       {% endfor %}
     </ul>
@@ -42,13 +42,13 @@
   {% elif exp.biomarkers %}
   <p class="all-clear">
     <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#DDEEE9"/><path d="M6.5 10.2l2.4 2.4 4.6-5" stroke="#08443D" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    Todos tus valores están en rango.
+    {{ _t('expl.all_clear') }}
   </p>
   {% endif %}
 
   {% if exp.narrative_findings and not exp.resumen_hallazgos %}
-  <div class="concerns" aria-label="Hallazgos principales">
-    <h2>Hallazgos principales</h2>
+  <div class="concerns" aria-label="{{ _t('expl.findings') }}">
+    <h2>{{ _t('expl.findings') }}</h2>
     <ul class="concern-list concern-names">
       {% for f in exp.narrative_findings %}
       <li><strong>{{ f.finding }}</strong></li>
@@ -59,41 +59,41 @@
 
   <div class="urgency urgency-{{ exp.urgency.level }}" role="status">
     <p class="urgency-level">{{ exp.urgency.label }}</p>
-    <p class="urgency-action"><strong>Qué hacer:</strong> {{ exp.urgency.action }}</p>
-    <p class="urgency-timeframe"><strong>Cuándo:</strong> {{ exp.urgency.timeframe }}</p>
-    <p class="urgency-reason"><strong>Por qué:</strong> {{ exp.urgency.reason }}</p>
+    <p class="urgency-action"><strong>{{ _t('expl.what_to_do') }}</strong> {{ exp.urgency.action }}</p>
+    <p class="urgency-timeframe"><strong>{{ _t('expl.when') }}</strong> {{ exp.urgency.timeframe }}</p>
+    <p class="urgency-reason"><strong>{{ _t('expl.why') }}</strong> {{ exp.urgency.reason }}</p>
   </div>
 </section>
 
 {% if exp.uncertain_fields %}
-<section class="card uncertain-card" aria-label="Datos por confirmar">
-  <h2>Confirma estos datos</h2>
-  <p>Algunos datos no quedaron claros al leer el documento. Revisa y corrígelos si los conoces — aparecen marcados <span class="flag flag-uncertain">por confirmar</span>.</p>
+<section class="card uncertain-card" aria-label="{{ _t('expl.confirm_h2') }}">
+  <h2>{{ _t('expl.confirm_h2') }}</h2>
+  <p>{{ _t('expl.confirm_p_before') }}<span class="flag flag-uncertain">{{ _t('flag.uncertain') }}</span>{{ _t('expl.confirm_p_after') }}</p>
 </section>
 {% endif %}
 
-<section class="card" aria-label="Entender más">
-  <h2>Entender más</h2>
+<section class="card" aria-label="{{ _t('expl.understand') }}">
+  <h2>{{ _t('expl.understand') }}</h2>
 
   {% if exp.biomarkers %}
   <details class="detail-section">
-    <summary>Valores de tu examen ({{ exp.biomarkers|length }})</summary>
+    <summary>{{ _t('expl.values_count', n=exp.biomarkers|length) }}</summary>
     <div class="detail-body">
       {% for b in exp.biomarkers %}
       <article class="bio-card">
         <header>
           <h3>{{ b.name }}</h3>
           {% if b.flag_uncertain %}
-          <span class="flag flag-uncertain">por confirmar</span>
+          <span class="flag flag-uncertain">{{ _t('flag.uncertain') }}</span>
           {% endif %}
         </header>
         <p class="bio-value">{{ b.value }}{% if b.unit %} {{ b.unit }}{% endif %}
           {% if b.flag %}<span class="flag flag-{{ b.flag_key | default('') }}">{{ b.flag }}</span>{% endif %}
         </p>
-        {% if b.ref_range %}<p class="bio-range">Rango de referencia: {{ b.ref_range }}</p>{% endif %}
+        {% if b.ref_range %}<p class="bio-range">{{ _t('expl.range') }} {{ b.ref_range }}</p>{% endif %}
         <p class="bio-explain">{{ b.plain_explanation }}</p>
         {% if b.possible_health_effect %}
-        <p class="bio-effect"><strong>Posible efecto en tu salud:</strong> {{ b.possible_health_effect }}</p>
+        <p class="bio-effect"><strong>{{ _t('expl.health_effect') }}</strong> {{ b.possible_health_effect }}</p>
         {% endif %}
       </article>
       {% endfor %}
@@ -103,7 +103,7 @@
 
   {% if exp.narrative_findings %}
   <details class="detail-section">
-    <summary>Hallazgos del informe</summary>
+    <summary>{{ _t('expl.report_findings') }}</summary>
     <div class="detail-body">
       {% for f in exp.narrative_findings %}
       <article class="narrative-item">
@@ -117,16 +117,16 @@
 
   {% if exp.ordered_tests %}
   <details class="detail-section">
-    <summary>Pedidos de examen ({{ exp.ordered_tests|length }})</summary>
+    <summary>{{ _t('expl.ordered_count', n=exp.ordered_tests|length) }}</summary>
     <div class="detail-body">
       {% for t in exp.ordered_tests %}
       <article class="order-card">
         <h3>{{ t.name }}</h3>
-        <p><strong>Qué es:</strong> {{ t.what_it_is }}</p>
-        <p><strong>Suele usarse para…</strong> {{ t.usual_objectives }}</p>
-        {% if t.preparation %}<p><strong>Preparación:</strong> {{ t.preparation }}</p>{% endif %}
+        <p><strong>{{ _t('expl.what_is_short') }}:</strong> {{ t.what_it_is }}</p>
+        <p><strong>{{ _t('expl.usual_use') }}</strong> {{ t.usual_objectives }}</p>
+        {% if t.preparation %}<p><strong>{{ _t('expl.preparation') }}:</strong> {{ t.preparation }}</p>{% endif %}
         {% if t.question_for_doctor %}
-        <p class="doctor-q"><strong>Pregunta para tu doctor:</strong> {{ t.question_for_doctor }}</p>
+        <p class="doctor-q"><strong>{{ _t('expl.doctor_q') }}:</strong> {{ t.question_for_doctor }}</p>
         {% endif %}
       </article>
       {% endfor %}
@@ -136,7 +136,7 @@
 
   {% if exp.recommendations %}
   <details class="detail-section">
-    <summary>Recomendaciones generales</summary>
+    <summary>{{ _t('expl.recommendations') }}</summary>
     <div class="detail-body">
       <ul class="check-list">
         {% for r in exp.recommendations %}
@@ -149,7 +149,7 @@
 
   {% if exp.questions_for_doctor %}
   <details class="detail-section">
-    <summary>Preguntas para tu doctor</summary>
+    <summary>{{ _t('expl.questions_doctor') }}</summary>
     <div class="detail-body">
       <ol class="number-list">
         {% for q in exp.questions_for_doctor %}

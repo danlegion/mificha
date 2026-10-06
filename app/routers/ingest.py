@@ -9,7 +9,8 @@ from fastapi.responses import RedirectResponse
 
 from app import auth, config
 from app.db import dal
-from app.routers import hash_token, new_guest_token, templates
+from app.i18n import t as _t
+from app.routers import (hash_token, new_guest_token, page_lang, templates)
 from app.services.pipeline import UnprocessableDocument, process_intake
 from app.storage import quarantine_path, store_original
 
@@ -19,14 +20,12 @@ router = APIRouter()
 
 
 def _validar_pdf(pdf_bytes: bytes) -> str | None:
-    """Devuelve mensaje de error en español o None si el PDF es válido."""
+    """Devuelve mensaje de error en el idioma actual o None si el PDF es válido."""
     if not pdf_bytes.startswith(b"%PDF"):
-        return "El archivo no parece ser un PDF válido."
+        return _t("ingest.not_pdf")
     mb = len(pdf_bytes) / (1024 * 1024)
     if mb > config.MAX_PDF_MB:
-        return (
-            f"El archivo pesa {mb:.1f} MB y el límite es {config.MAX_PDF_MB} MB."
-        )
+        return _t("ingest.too_big", mb=f"{mb:.1f}", max_mb=config.MAX_PDF_MB)
     try:
         import fitz
 
@@ -34,22 +33,22 @@ def _validar_pdf(pdf_bytes: bytes) -> str | None:
         n = doc.page_count
         doc.close()
     except Exception:
-        return "No pudimos abrir el PDF. Revisa que no esté dañado."
+        return _t("ingest.cant_open")
     if n == 0:
-        return "El PDF no tiene páginas."
+        return _t("ingest.no_pages")
     if n > config.MAX_PDF_PAGES:
-        return (
-            f"El PDF tiene {n} páginas y el límite es {config.MAX_PDF_PAGES}."
-        )
+        return _t("ingest.too_many_pages", n=n, max_p=config.MAX_PDF_PAGES)
     return None
 
 
-def _run_pipeline(intake_id: str):
+def _run_pipeline(intake_id: str, lang: str = "es"):
     """Tarea en segundo plano: procesa el PDF en cuarentena."""
     intake = dal.get_intake(intake_id)
     if not intake:
         log.error("Intake %s no existe; no se procesa.", intake_id)
         return
+    if lang not in ("es", "en"):
+        lang = "es"
     qpath = quarantine_path(intake_id)
     try:
         with open(qpath, "rb") as f:
@@ -57,7 +56,7 @@ def _run_pipeline(intake_id: str):
     except OSError as exc:
         log.error("No se pudo leer cuarentena de %s: %s", intake_id, exc)
         dal.set_intake_ready(intake_id, status="failed",
-                             detail="No se pudo leer el archivo subido.")
+                             detail=_t("ingest.unreadable", lang=lang))
         return
     # El original se sube a Storage aquí, en segundo plano: ya no retrasa
     # la redirección a la página de "procesando".
@@ -68,7 +67,8 @@ def _run_pipeline(intake_id: str):
         log.exception("No se pudo guardar el original de %s; sigue sin él.",
                       intake_id)
     try:
-        exp = process_intake(intake_id, pdf_bytes, intake.get("doc_type_hint"))
+        exp = process_intake(intake_id, pdf_bytes,
+                             intake.get("doc_type_hint"), lang=lang)
     except UnprocessableDocument as exc:
         log.info("Intake %s rechazado: %s", intake_id, exc)
         dal.set_intake_ready(intake_id, status="rejected", detail=str(exc))
@@ -77,7 +77,7 @@ def _run_pipeline(intake_id: str):
         log.exception("Intake %s falló: %s", intake_id, exc)
         dal.set_intake_ready(
             intake_id, status="failed",
-            detail="Ocurrió un error al procesar tu documento. Intenta de nuevo.",
+            detail=_t("ingest.processing_error", lang=lang),
         )
         return
     dal.set_intake_ready(intake_id, explanation=exp, status="ready")
@@ -117,7 +117,8 @@ async def subir(
         return templates.TemplateResponse(
             request,
             "error.html",
-            {"request": request, "message": error, "detail": None,
+            {"request": request, "lang": page_lang(request),
+             "message": error, "detail": None,
              "dev_auth": False, "demo_mode": False},
             status_code=400,
         )
@@ -144,7 +145,7 @@ async def subir(
     # Log sin contenido clínico: solo tamaños y estado.
     log.info("Nuevo intake %s (%d bytes, hint=%s)",
              intake_id, len(contenido), tipo_doc or "-")
-    background.add_task(_run_pipeline, intake_id)
+    background.add_task(_run_pipeline, intake_id, page_lang(request))
     return RedirectResponse(
         f"/procesando/{intake_id}?t={guest_token}", status_code=303
     )

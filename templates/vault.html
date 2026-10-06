@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Mi ficha{% endblock %}
+{% block title %}{{ _t('vault.h1') }}{% endblock %}
 
 {% block content %}
 <section class="hero card">
-  <h1>Mi ficha</h1>
-  <p>Aquí están todos tus exámenes explicados, en un solo lugar.</p>
-  <a class="btn btn-primary" href="/#explicar">Explica otro examen</a>
+  <h1>{{ _t('vault.h1') }}</h1>
+  <p>{{ _t('vault.p') }}</p>
+  <a class="btn btn-primary" href="/#explicar">{{ _t('vault.another') }}</a>
 </section>
 
 {% if docs %}
-<section class="doc-grid" aria-label="Tus documentos">
+<section class="doc-grid" aria-label="{{ _t('home.recent_h2') }}">
   {% for doc in docs %}
   <a class="card doc-card" href="/ficha/{{ doc.id }}">
     <div class="doc-card-top">
@@ -18,15 +18,15 @@
       <p class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</p>
     </div>
     <h3 class="doc-about">{{ doc.exam_about }}</h3>
-    <p class="doc-cta">Ver detalle <span aria-hidden="true">→</span></p>
+    <p class="doc-cta">{{ _t('vault.view_detail') }} <span aria-hidden="true">→</span></p>
   </a>
   {% endfor %}
 </section>
 {% else %}
 <section class="card empty-state">
-  <h2>Todavía no tienes exámenes guardados</h2>
-  <p>Mándanos tu primer examen y te lo explicamos en lenguaje simple.</p>
-  <a class="btn btn-primary" href="/#explicar">Explica tu primer examen</a>
+  <h2>{{ _t('vault.empty_h2') }}</h2>
+  <p>{{ _t('vault.empty_p') }}</p>
+  <a class="btn btn-primary" href="/#explicar">{{ _t('vault.first') }}</a>
 </section>
 {% endif %}
 {% endblock %}

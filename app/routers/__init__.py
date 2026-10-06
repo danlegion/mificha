@@ -27,11 +27,24 @@ from datetime import datetime
 from fastapi.templating import Jinja2Templates
 
 from app import config, schemas
+from app.i18n import SUPPORTED, get_lang, t as _t_str
 from app.services import llm as _llm
 from app.services import share as share_svc
 
 TEMPLATES_DIR = os.path.join(config.BASE_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+# `_t("clave")` disponible en todas las plantillas: lee el idioma actual
+# (fijado por el middleware según navegador o cambio manual).
+templates.env.globals["_t"] = lambda key, **kw: _t_str(key, **kw)
+
+
+def page_lang(request) -> str:
+    """Idioma de esta petición para las plantillas (<html lang>, toggle)."""
+    lang = getattr(getattr(request, "state", None), "lang", None)
+    if lang in SUPPORTED:
+        return lang
+    return get_lang(request)
 
 # Nivel semántico -> clave de color CSS (ver static/app.css)
 URGENCY_CSS = {

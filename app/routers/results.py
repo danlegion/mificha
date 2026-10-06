@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from app import auth, config
 from app.db import dal
-from app.routers import (can_view_intake, guest_token_valid,
+from app.routers import (can_view_intake, guest_token_valid, page_lang,
                          render_explanation, share_ctx, templates)
 from app.storage import delete_original, get_original_path
 
@@ -22,6 +22,7 @@ DEMO_MODE = not bool(config.ANTHROPIC_API_KEY)
 def _base_ctx(request: Request, user=None, guest_token=None) -> dict:
     return {
         "request": request,
+        "lang": page_lang(request),
         "user": user,
         "guest_token": guest_token,
         "demo_mode": DEMO_MODE,

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Algo salió mal{% endblock %}
+{% block title %}{{ _t('error.title') }}{% endblock %}
 
 {% block content %}
 <section class="card error-page">
-  <h1>Ups, algo salió mal</h1>
+  <h1>{{ _t('error.h1') }}</h1>
   <p>{{ message }}</p>
   {% if detail %}<p class="micro-note">{{ detail }}</p>{% endif %}
   <div class="btn-row">
-    <a class="btn btn-primary" href="/">Volver al inicio</a>
+    <a class="btn btn-primary" href="/">{{ _t('error.back') }}</a>
   </div>
 </section>
 {% endblock %}

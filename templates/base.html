@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="{{ _t('meta.html_lang') }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Mi Ficha Medica explica tus exámenes médicos en lenguaje simple.">
-  <title>{% block title %}Mi Ficha Medica{% endblock %} · Mi Ficha Medica</title>
-  <link rel="stylesheet" href="/static/app.css?v=22">
+  <meta name="description" content="{{ _t('meta.description') }}">
+  <title>{% block title %}{{ _t('meta.title_suffix') }}{% endblock %} · {{ _t('meta.title_suffix') }}</title>
+  <link rel="stylesheet" href="/static/app.css?v=23">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -15,21 +15,26 @@
 </head>
 <body>
   {% if demo_mode|default(false) or dev_auth|default(false) %}
-  <div class="dev-banner" role="note">Modo demostración — nada de esto es un diagnóstico</div>
+  <div class="dev-banner" role="note">{{ _t('meta.demo_banner') }}</div>
   {% endif %}
 
   <header class="site-header">
     <div class="container">
       <nav class="site-nav" aria-label="Cuenta">
+        <span class="lang-toggle" role="group" aria-label="Idioma / Language">
+          <a href="/idioma/es"{% if lang == "es" %} class="lang-active" aria-current="true"{% endif %}>ES</a>
+          <span aria-hidden="true">·</span>
+          <a href="/idioma/en"{% if lang == "en" %} class="lang-active" aria-current="true"{% endif %}>EN</a>
+        </span>
         {% if user %}
-        <a href="/ficha">Mi ficha</a>
-        <a href="/salir">Salir</a>
+        <a href="/ficha">{{ _t('nav.my_file') }}</a>
+        <a href="/salir">{{ _t('nav.logout') }}</a>
         {% else %}
-        <a href="/entrar">Entrar</a>
+        <a href="/entrar">{{ _t('nav.login') }}</a>
         {% endif %}
       </nav>
-      <a class="wordmark" href="/"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 2.5h7.2L20.5 10.2V27c0 1.4-1.1 2.5-2.5 2.5H7c-1.4 0-2.5-1.1-2.5-2.5V5c0-1.4 1.1-2.5 2.5-2.5z" fill="#0C5B52"/><path d="M14.2 2.5v7.7h6.3z" fill="#07332E"/><rect x="8.6" y="14.2" width="7.8" height="2.3" rx="1.15" fill="#fff" opacity=".92"/><rect x="8.6" y="18.2" width="5.2" height="2.3" rx="1.15" fill="#fff" opacity=".55"/><circle cx="21.8" cy="22.2" r="7.2" fill="#0C5B52" stroke="#fff" stroke-width="2"/><path d="M18.5 22.2l2.3 2.3 4.3-4.9" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Mi Ficha Medica</a>
-      <p class="tagline">Entiende tus exámenes. Cuida a tu familia.</p>
+      <a class="wordmark" href="/"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 2.5h7.2L20.5 10.2V27c0 1.4-1.1 2.5-2.5 2.5H7c-1.4 0-2.5-1.1-2.5-2.5V5c0-1.4 1.1-2.5 2.5-2.5z" fill="#0C5B52"/><path d="M14.2 2.5v7.7h6.3z" fill="#07332E"/><rect x="8.6" y="14.2" width="7.8" height="2.3" rx="1.15" fill="#fff" opacity=".92"/><rect x="8.6" y="18.2" width="5.2" height="2.3" rx="1.15" fill="#fff" opacity=".55"/><circle cx="21.8" cy="22.2" r="7.2" fill="#0C5B52" stroke="#fff" stroke-width="2"/><path d="M18.5 22.2l2.3 2.3 4.3-4.9" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>{{ _t('meta.title_suffix') }}</a>
+      <p class="tagline">{{ _t('header.tagline') }}</p>
     </div>
   </header>
 
@@ -39,11 +44,11 @@
 
   <footer class="site-footer">
     <div class="container">
-      <p>Mi Ficha Medica explica tus documentos en lenguaje simple, pero no hace diagnósticos ni reemplaza a tu doctor.</p>
+      <p>{{ _t('footer.note') }}</p>
     </div>
   </footer>
 
-  <script src="/static/app.js?v=22" defer></script>
+  <script src="/static/app.js?v=23" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
