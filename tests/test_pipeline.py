@@ -1,4 +1,4 @@
-"""Pruebas del pipeline: rechazo de escaneos y aviso de OCR en desarrollo."""
+"""Pruebas del pipeline: rechazo de escaneos y avisos de OCR."""
 
 import pytest
 
@@ -25,13 +25,13 @@ def _extracted_vacio(monkeypatch):
     monkeypatch.setattr(pipeline.pdf_extract, "extract_document", falso)
 
 
-def test_rechazo_escaneo_menciona_deteccion_y_desarrollo(monkeypatch):
+def test_rechazo_escaneo_menciona_deteccion(monkeypatch):
     _extracted_scanned(monkeypatch)
     with pytest.raises(UnprocessableDocument) as exc:
         process_intake("abc", b"%PDF-falso", None)
     msg = str(exc.value).lower()
     assert "foto o un escaneo" in msg
-    assert "trabajando en agregarlo" in msg
+    assert "no pudimos extraer texto" in msg
 
 
 def test_rechazo_sin_paginas_no_habla_de_escaneo(monkeypatch):
@@ -41,7 +41,7 @@ def test_rechazo_sin_paginas_no_habla_de_escaneo(monkeypatch):
     assert "escaneo" not in str(exc.value).lower()
 
 
-def test_paginas_escaneadas_parciales_avisan_en_desarrollo(monkeypatch):
+def test_paginas_escaneadas_sin_ocr_avisan(monkeypatch):
     from app.services import llm as llm_mod
 
     def falso_extract(_pdf_bytes):
@@ -63,7 +63,7 @@ def test_paginas_escaneadas_parciales_avisan_en_desarrollo(monkeypatch):
 
     exp = process_intake("abc", b"%PDF-falso", None)
     razones = [f.get("reason", "") for f in exp.get("uncertain_fields", [])]
-    assert any("página 2" in r and "trabajando" in r.lower() for r in razones), razones
+    assert any("página 2" in r and "ocr" in r.lower() for r in razones), razones
 
 
 def test_resumen_secciones_se_normaliza(monkeypatch):

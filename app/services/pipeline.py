@@ -9,6 +9,7 @@ UnprocessableDocument con un mensaje en español para el usuario.
 """
 
 import logging
+import os
 import re
 from datetime import datetime
 
@@ -24,6 +25,78 @@ log = logging.getLogger("mificha.pipeline")
 
 class UnprocessableDocument(Exception):
     """El documento no se pudo procesar (mensaje en español para el usuario)."""
+
+
+# OCR: límites para no saturar la instancia gratuita de Render.
+OCR_MAX_PAGES = int(os.getenv("OCR_MAX_PAGES", "12"))
+OCR_DPI = int(os.getenv("OCR_DPI", "200"))
+OCR_MIN_CHARS = 20  # igual que pdf_extract.MIN_CHARS_FOR_TEXT_PAGE
+
+
+def _intentar_ocr(extracted: dict, pdf_bytes: bytes, lang: str) -> None:
+    """Pasa OCR por las páginas escaneadas e inyecta el texto en `extracted`.
+
+    Las páginas cuyo OCR devuelve texto útil salen de `scanned_pages` y entran
+    en `ocr_pages`. Las que fallan quedan en `scanned_pages`. Nunca tumba el
+    flujo: los fallos se registran y la página sigue marcada como incierta.
+    """
+    try:
+        proveedor = get_ocr_provider()
+    except Exception as exc:  # noqa: BLE001 - OCR mal configurado no tumba el flujo
+        log.warning("OCR no disponible: %s", exc)
+        extracted["ocr_unavailable"] = str(exc)
+        return
+    if proveedor.name == "null":
+        log.info(
+            "Páginas escaneadas sin OCR (%s): se marcan como inciertas",
+            extracted["scanned_pages"],
+        )
+        extracted["ocr_unavailable"] = "OCR vendor not configured — set OCR_PROVIDER"
+        return
+
+    import fitz
+
+    pendientes = list(extracted.get("scanned_pages") or [])[:OCR_MAX_PAGES]
+    if len(extracted.get("scanned_pages") or []) > OCR_MAX_PAGES:
+        log.warning(
+            "OCR limitado a %d de %d páginas escaneadas",
+            OCR_MAX_PAGES, len(extracted["scanned_pages"]),
+        )
+    ocr_pages = []
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        for numero in pendientes:
+            try:
+                pagina = doc[numero - 1]
+                pix = pagina.get_pixmap(dpi=OCR_DPI)
+                imagen = pix.tobytes("png")
+                texto = proveedor.extract_text(imagen).strip()
+            except Exception as exc:  # noqa: BLE001 - una página no tumba el flujo
+                log.warning("OCR falló en la página %d: %s", numero, exc)
+                continue
+            if len(texto) < OCR_MIN_CHARS:
+                log.info("OCR sin texto útil en la página %d", numero)
+                continue
+            for p in extracted["pages"]:
+                if p.get("page_number") == numero:
+                    p["text"] = texto
+                    p["has_text"] = True
+                    p["is_scanned"] = False
+                    p["ocr_text"] = True
+                    break
+            ocr_pages.append(numero)
+            log.info("OCR leyó %d caracteres en la página %d", len(texto), numero)
+    finally:
+        doc.close()
+
+    if ocr_pages:
+        leidas = set(ocr_pages)
+        extracted["scanned_pages"] = [
+            n for n in extracted["scanned_pages"] if n not in leidas
+        ]
+        extracted["ocr_pages"] = ocr_pages
+        textos = [p.get("text", "") for p in extracted["pages"] if p.get("text")]
+        extracted["full_text"] = "\n\n".join(textos)
 
 
 # Palabras que en un informe sugieren una situación de emergencia.
@@ -156,36 +229,17 @@ def _process_intake(
         lang = "en"
 
     extracted = pdf_extract.extract_document(pdf_bytes)
+
+    # OCR primero: las páginas escaneadas se intentan leer antes de decidir
+    # que el documento no tiene texto útil.
+    if extracted.get("scanned_pages"):
+        _intentar_ocr(extracted, pdf_bytes, lang)
+
     texto = (extracted.get("full_text") or "").strip()
     if extracted.get("num_pages", 0) == 0 or not texto:
         if extracted.get("scanned_pages"):
             raise UnprocessableDocument(_t("pipe.scanned_unprocessable", lang=lang))
         raise UnprocessableDocument(_t("pipe.unreadable", lang=lang))
-
-    # OCR: las páginas escaneadas se marcan como inciertas, nunca se ignoran.
-    # En v0.1 no hay proveedor OCR configurado (NullOCRProvider): el LLM
-    # recibe la nota y esas páginas terminan en uncertain_fields.
-    if extracted.get("scanned_pages"):
-        proveedor = get_ocr_provider()
-        if proveedor.name == "null":
-            log.info(
-                "Páginas escaneadas sin OCR (%s): se marcan como inciertas",
-                extracted["scanned_pages"],
-            )
-            extracted["ocr_unavailable"] = (
-                "OCR vendor not configured — set OCR_PROVIDER"
-            )
-        else:
-            # Proveedor real: aquí se renderizaría cada página escaneada a
-            # imagen y se llamaría a proveedor.extract_text(imagen_bytes).
-            try:
-                for n in extracted["scanned_pages"]:
-                    raise NotImplementedError(
-                        f"OCR page render no implementado para {proveedor.name}"
-                    )
-            except Exception as exc:  # noqa: BLE001 - el OCR no tumba el flujo
-                log.warning("OCR falló en páginas escaneadas: %s", exc)
-                extracted["ocr_unavailable"] = str(exc)
 
     extracted["doc_type_hint"] = doc_type_hint
     extracted["lang"] = lang
@@ -204,8 +258,9 @@ def _process_intake(
 
     exp = _aplicar_reglas_duras(exp, extracted)
 
-    # Páginas escaneadas: se informa al usuario en todos los motores.
-    # (DemoExplainer ya las agrega; aquí se cubren Gemini/Anthropic.)
+    # Páginas escaneadas y leídas por OCR: se informa al usuario en todos
+    # los motores. (DemoExplainer ya las agrega; aquí se cubren
+    # Gemini/Anthropic.)
     for n in extracted.get("scanned_pages", []):
         campo = f"pages[{n}].text"
         ya = any(f.get("field") == campo for f in exp.get("uncertain_fields", []))
@@ -214,6 +269,16 @@ def _process_intake(
                 {
                     "field": campo,
                     "reason": _t("demo.scanned", n=n),
+                }
+            )
+    for n in extracted.get("ocr_pages", []):
+        campo = f"pages[{n}].text"
+        ya = any(f.get("field") == campo for f in exp.get("uncertain_fields", []))
+        if not ya:
+            exp.setdefault("uncertain_fields", []).append(
+                {
+                    "field": campo,
+                    "reason": _t("demo.ocr_page", n=n),
                 }
             )
 

@@ -4,11 +4,12 @@
 services:
   - type: web
     name: mificha
-    runtime: python
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: OCR_PROVIDER
+        value: tesseract
       - key: GEMINI_MODEL
         value: gemini-3.5-flash-lite
       - key: GEMINI_API_KEY

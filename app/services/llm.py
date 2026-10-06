@@ -651,6 +651,13 @@ class DemoExplainer(LLMProvider):
                     "reason": _t("demo.scanned", lang=lang, n=n),
                 }
             )
+        for n in extracted.get("ocr_pages", []):
+            uncertain.append(
+                {
+                    "field": f"pages[{n}].text",
+                    "reason": _t("demo.ocr_page", lang=lang, n=n),
+                }
+            )
 
         if tipo == "lab_result":
             cuerpo, sen_lab = self._explicar_laboratorio(texto, uncertain, lang)
