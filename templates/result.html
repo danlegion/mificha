@@ -94,8 +94,18 @@
   <h2>{{ _t('result.delete_h2') }}</h2>
   <p>{{ _t('result.delete_p') }}</p>
   <form method="post" action="/resultado/{{ intake_id }}/eliminar{% if guest_token %}?t={{ guest_token }}{% endif %}"
-        onsubmit="return confirm({{ _t('result.delete_confirm') | tojson }});">
+        data-confirm-dialog="delete-dialog"
+        data-confirm-text="{{ _t('result.delete_confirm') }}">
     <button class="btn btn-danger" type="submit">{{ _t('result.delete_btn') }}</button>
   </form>
 </section>
+
+<dialog class="confirm-dialog" id="delete-dialog" aria-labelledby="delete-dialog-title">
+  <h2 id="delete-dialog-title">{{ _t('result.delete_h2') }}</h2>
+  <p>{{ _t('result.delete_p') }}</p>
+  <div class="confirm-actions">
+    <button class="btn btn-ghost" type="button" data-close-dialog>{{ _t('ui.cancel') }}</button>
+    <button class="btn btn-danger" type="button" data-confirm-submit>{{ _t('result.delete_btn') }}</button>
+  </div>
+</dialog>
 {% endblock %}

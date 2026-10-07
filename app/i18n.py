@@ -194,6 +194,7 @@ STRINGS = {
 "result.delete_p": "Se borrarán la explicación y el documento que subiste. Esta acción no se puede deshacer.",
 "result.delete_confirm": "¿Eliminar este examen? Se borrarán la explicación y el documento que subiste.",
 "result.delete_btn": "Eliminar examen",
+"ui.cancel": "Cancelar",
 
 "vault.h1": "Mi ficha",
 "vault.p": "Aquí están todos tus exámenes explicados, en un solo lugar.",
@@ -474,6 +475,7 @@ STRINGS = {
 "result.delete_p": "The explanation and the document you uploaded will be deleted. This can't be undone.",
 "result.delete_confirm": "Delete this exam? The explanation and the document you uploaded will be deleted.",
 "result.delete_btn": "Delete exam",
+"ui.cancel": "Cancel",
 
 "vault.h1": "My file",
 "vault.p": "All your explained exams in one place.",

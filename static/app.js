@@ -66,6 +66,45 @@
     }
   });
 
+  /* ---------- Diálogos de confirmación ---------- */
+  window.MIFicha.initConfirmDialogs = function () {
+    document.querySelectorAll("form[data-confirm-dialog]").forEach(function (form) {
+      var dlg = document.getElementById(form.getAttribute("data-confirm-dialog"));
+      var text = form.getAttribute("data-confirm-text") || "";
+      form.addEventListener("submit", function (e) {
+        if (form.dataset.confirmed === "1") return; /* ya confirmado */
+        e.preventDefault();
+        if (dlg && typeof dlg.showModal === "function") {
+          dlg.showModal();
+          var cancel = dlg.querySelector("[data-close-dialog]");
+          if (cancel) cancel.focus();
+        } else if (text && confirm(text)) {
+          /* Navegador sin <dialog>: se usa el confirm nativo. */
+          form.dataset.confirmed = "1";
+          form.submit();
+        }
+      });
+    });
+    document.querySelectorAll("dialog.confirm-dialog").forEach(function (dlg) {
+      dlg.addEventListener("click", function (e) {
+        if (e.target === dlg) dlg.close(); /* clic en el overlay */
+      });
+      dlg.querySelectorAll("[data-close-dialog]").forEach(function (b) {
+        b.addEventListener("click", function () { dlg.close(); });
+      });
+      var ok = dlg.querySelector("[data-confirm-submit]");
+      if (ok) ok.addEventListener("click", function () {
+        var form = document.querySelector(
+          'form[data-confirm-dialog="' + dlg.id + '"]');
+        if (form) { form.dataset.confirmed = "1"; form.submit(); }
+      });
+    });
+  };
+
+  document.addEventListener("DOMContentLoaded", function () {
+    window.MIFicha.initConfirmDialogs();
+  });
+
   /* ---------- File input: show chosen filename ---------- */
   document.addEventListener("change", function (e) {
     if (e.target && e.target.type === "file") {
