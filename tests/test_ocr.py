@@ -37,13 +37,19 @@ def test_fabrica_tesseract_sin_binario_falla_claro(monkeypatch):
 
 # ---------- TesseractOCRProvider (sin binario: subprocess simulado) ----------
 
-def _simular_tesseract(monkeypatch, texto=b"GLUCOSA 95", codigo=0):
+def _simular_tesseract(monkeypatch, texto=b"GLUCOSA 95", codigo=0, rotar=0):
     monkeypatch.setattr(shutil, "which", lambda _cmd: "/usr/bin/tesseract")
 
     def falso_run(cmd, **kw):
         assert cmd[:3] == ["tesseract", "stdin", "stdout"]
         assert "-l" in cmd and "--psm" in cmd
         assert kw["input"]  # recibe los bytes de la imagen
+        if "--psm" in cmd and cmd[cmd.index("--psm") + 1] == "0":
+            # Llamada OSD: informa la rotación a aplicar.
+            osd = (f"Page number: 0\nOrientation in degrees: 0\n"
+                   f"Rotate: {rotar}\nOrientation confidence: 10.0\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout=osd.encode(),
+                                              stderr=b"")
         return subprocess.CompletedProcess(cmd, codigo, stdout=texto, stderr=b"")
 
     monkeypatch.setattr(subprocess, "run", falso_run)
@@ -73,12 +79,56 @@ def test_tesseract_timeout(monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda _cmd: "/usr/bin/tesseract")
 
     def falso_run(cmd, **kw):
+        if cmd[cmd.index("--psm") + 1] == "0":
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=b"Rotate: 0\n", stderr=b"")
         raise subprocess.TimeoutExpired(cmd, 90)
 
     monkeypatch.setattr(subprocess, "run", falso_run)
     with pytest.raises(RuntimeError) as exc:
         TesseractOCRProvider(timeout=90).extract_text(b"<png>")
     assert "90s" in str(exc.value)
+
+
+def test_osd_endereza_imagen_rotada(monkeypatch):
+    """OSD dice Rotate: 90 -> la imagen se rota antes del OCR."""
+    _simular_tesseract(monkeypatch, texto=b"TEXTO ENDEREZADO", rotar=90)
+    from PIL import Image
+    import io
+
+    # Imagen apaisada (más ancha que alta); al rotar 90° queda vertical.
+    img = Image.new("RGB", (200, 100), "white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    original = buf.getvalue()
+
+    vistos = {}
+
+    real_rotar = TesseractOCRProvider._rotar_horario
+
+    def espia(imagen, grados):
+        vistos["grados"] = grados
+        out = real_rotar(imagen, grados)
+        with Image.open(io.BytesIO(out)) as r:
+            vistos["tamano"] = r.size
+        return out
+
+    monkeypatch.setattr(TesseractOCRProvider, "_rotar_horario",
+                        staticmethod(espia))
+    assert TesseractOCRProvider().extract_text(original) == "TEXTO ENDEREZADO"
+    assert vistos["grados"] == 90
+    assert vistos["tamano"] == (100, 200)  # dimensiones intercambiadas
+
+
+def test_osd_sin_rotacion_no_toca_la_imagen(monkeypatch):
+    _simular_tesseract(monkeypatch, rotar=0)
+    llamadas = []
+    monkeypatch.setattr(
+        TesseractOCRProvider, "_rotar_horario",
+        staticmethod(lambda imagen, grados: llamadas.append(grados) or imagen),
+    )
+    TesseractOCRProvider().extract_text(b"<png>")
+    assert llamadas == []
 
 
 # ---------- Integración en el pipeline (proveedor falso) ----------

@@ -11,6 +11,7 @@ pydantic>=2.6
 
 # PDFs
 PyMuPDF>=1.23             # extracción de texto (los tests generan PDFs con fitz)
+Pillow>=10.0              # rotación de imágenes para OCR (OSD)
 
 # LLM (modo real). Vacío => modo demo local, sin llamadas de red.
 anthropic>=0.39
