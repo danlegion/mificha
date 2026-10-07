@@ -1,13 +1,14 @@
 """MiFicha v0.1 — resultado: procesando, estado, explicación y correcciones."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from app import auth, config
 from app.db import dal
+from app.i18n import t as _t
 from app.routers import (can_view_intake, guest_token_valid, page_lang,
                          render_explanation, share_ctx, templates)
 from app.storage import delete_original, get_original_path
@@ -17,6 +18,24 @@ log = logging.getLogger("mificha.results")
 router = APIRouter()
 
 DEMO_MODE = not bool(config.ANTHROPIC_API_KEY)
+
+# Si un intake lleva "processing" más que esto, la tarea en segundo plano
+# murió sin escribir estado (p. ej. el proceso se reinició): se informa
+# como fallo en lugar de dejar el spinner girando para siempre.
+STALLED_AFTER_SECONDS = 10 * 60
+
+
+def _estancado(intake: dict) -> bool:
+    """True si lleva demasiado tiempo en "processing" sin actualizarse."""
+    raw = intake.get("updated_at") or intake.get("created_at") or ""
+    try:
+        ts = datetime.fromisoformat(raw)
+    except ValueError:
+        return False
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    delta = (datetime.now(timezone.utc) - ts).total_seconds()
+    return delta > STALLED_AFTER_SECONDS
 
 
 def _base_ctx(request: Request, user=None, guest_token=None) -> dict:
@@ -61,9 +80,15 @@ def procesando(intake_id: str, request: Request):
 @router.get("/api/v1/estado/{intake_id}")
 def estado(intake_id: str, request: Request):
     intake, _, _ = _resolver_acceso(intake_id, request)
+    status = intake["status"]
     detalle = intake.get("detail")
+    if status == "processing" and _estancado(intake):
+        log.warning("Intake %s estancado en processing; se reporta como fallo",
+                    intake_id)
+        status = "failed"
+        detalle = _t("ingest.stalled_timeout", lang=page_lang(request))
     return JSONResponse(
-        {"status": intake["status"], "detail": detalle, "message": detalle}
+        {"status": status, "detail": detalle, "message": detalle}
     )
 
 

@@ -15,6 +15,7 @@
     if (!estadoUrl || !resultadoUrl) { window.MIFicha._polling = false; return; }
 
     var fails = 0;
+    var polls = 0;
     var timer = setInterval(function () {
       fetch(estadoUrl, { credentials: "same-origin", cache: "no-store" })
         .then(function (resp) {
@@ -23,8 +24,14 @@
         })
         .then(function (data) {
           fails = 0;
+          polls++;
           var stalled = document.getElementById("processing-stalled");
           if (stalled) stalled.hidden = true;
+          /* A los ~3 min se avisa que sigue trabajando: los escaneos tardan. */
+          if (polls === 90) {
+            var slow = document.getElementById("processing-slow");
+            if (slow) slow.hidden = false;
+          }
           if (data.status === "ready") {
             clearInterval(timer);
             window.MIFicha._polling = false;

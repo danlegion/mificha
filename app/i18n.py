@@ -124,6 +124,7 @@ STRINGS = {
 "proc.h1": "Estamos leyendo tu documento…",
 "proc.p": "Esto suele tomar unos segundos. No cierres esta página.",
 "proc.note": "Si tarda mucho, te avisaremos aquí mismo.",
+"proc.slow": "Está tomando más de lo habitual (los escaneos tardan unos minutos). Seguimos trabajando…",
 "proc.stalled_h2": "La conexión está inestable",
 "proc.stalled_p": "Tu documento se sigue procesando, pero perdimos contacto con el servidor.",
 "proc.retry": "Reintentar ahora",
@@ -344,6 +345,7 @@ STRINGS = {
 
 "ingest.unreadable": "No se pudo leer el archivo subido.",
 "ingest.processing_error": "Ocurrió un error al procesar tu documento. Intenta de nuevo.",
+"ingest.stalled_timeout": "El procesamiento tardó demasiado y parece haberse detenido. Por favor, sube tu documento de nuevo.",
 "ingest.not_pdf": "El archivo no parece ser un PDF válido.",
 "ingest.too_big": "El archivo pesa {mb} MB y el límite es {max_mb} MB.",
 "ingest.cant_open": "No pudimos abrir el PDF. Revisa que no esté dañado.",
@@ -402,6 +404,7 @@ STRINGS = {
 "proc.h1": "We're reading your document…",
 "proc.p": "This usually takes a few seconds. Don't close this page.",
 "proc.note": "If it takes long, we'll let you know right here.",
+"proc.slow": "Taking longer than usual (scans take a few minutes). Still working…",
 "proc.stalled_h2": "The connection is unstable",
 "proc.stalled_p": "Your document is still being processed, but we lost contact with the server.",
 "proc.retry": "Retry now",
@@ -622,6 +625,7 @@ STRINGS = {
 
 "ingest.unreadable": "We couldn't read the uploaded file.",
 "ingest.processing_error": "Something went wrong while processing your document. Try again.",
+"ingest.stalled_timeout": "Processing took too long and seems to have stopped. Please upload your document again.",
 "ingest.not_pdf": "The file doesn't look like a valid PDF.",
 "ingest.too_big": "The file is {mb} MB and the limit is {max_mb} MB.",
 "ingest.cant_open": "We couldn't open the PDF. Check that it isn't damaged.",
