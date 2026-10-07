@@ -45,7 +45,8 @@ def _simular_tesseract(monkeypatch, texto=b"GLUCOSA 95", codigo=0, rotar=0):
         assert "-l" in cmd and "--psm" in cmd
         assert kw["input"]  # recibe los bytes de la imagen
         if "--psm" in cmd and cmd[cmd.index("--psm") + 1] == "0":
-            # Llamada OSD: informa la rotación a aplicar.
+            # Llamada OSD (siempre con -l osd): informa rotación y confianza.
+            assert cmd[cmd.index("-l") + 1] == "osd"
             osd = (f"Page number: 0\nOrientation in degrees: 0\n"
                    f"Rotate: {rotar}\nOrientation confidence: 10.0\n")
             return subprocess.CompletedProcess(cmd, 0, stdout=osd.encode(),
@@ -129,6 +130,21 @@ def test_osd_sin_rotacion_no_toca_la_imagen(monkeypatch):
     )
     TesseractOCRProvider().extract_text(b"<png>")
     assert llamadas == []
+
+
+def test_osd_confianza_baja_no_rota(monkeypatch):
+    """OSD inseguro (confianza < 1.0): no se arriesga a rotar."""
+    monkeypatch.setattr(shutil, "which", lambda _cmd: "/usr/bin/tesseract")
+
+    def falso_run(cmd, **kw):
+        if cmd[cmd.index("--psm") + 1] == "0":
+            osd = (b"Page number: 0\nOrientation in degrees: 90\n"
+                   b"Rotate: 270\nOrientation confidence: 0.4\n")
+            return subprocess.CompletedProcess(cmd, 0, stdout=osd, stderr=b"")
+        return subprocess.CompletedProcess(cmd, 0, stdout=b"OK", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", falso_run)
+    assert TesseractOCRProvider()._detectar_rotacion(b"<png>") == 0
 
 
 # ---------- Integración en el pipeline (proveedor falso) ----------

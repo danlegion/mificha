@@ -57,11 +57,15 @@ class TesseractOCRProvider(OCRProvider):
         return shutil.which("tesseract") is not None
 
     def _detectar_rotacion(self, image_bytes: bytes) -> int:
-        """Grados horarios para enderezar la imagen (0/90/180/270)."""
+        """Grados horarios para enderezar la imagen (0/90/180/270).
+
+        Usa el modelo OSD de tesseract (`-l osd`; con spa+eng el OSD falla).
+        Solo se aplica con confianza razonable: un falso positivo rotaría
+        un documento que ya estaba bien.
+        """
         try:
             proc = subprocess.run(
-                ["tesseract", "stdin", "stdout", "--psm", "0",
-                 "-l", self.langs],
+                ["tesseract", "stdin", "stdout", "--psm", "0", "-l", "osd"],
                 input=image_bytes,
                 capture_output=True,
                 timeout=30,
@@ -70,13 +74,25 @@ class TesseractOCRProvider(OCRProvider):
         except Exception as exc:  # noqa: BLE001 - sin OSD se sigue sin rotar
             log.warning("OSD de tesseract falló: %s", exc)
             return 0
+        if proc.returncode != 0:
+            log.warning("OSD de tesseract no disponible en este entorno")
+            return 0
         salida = (proc.stdout or b"").decode("utf-8", "replace")
+        rotar, confianza = 0, 0.0
         for linea in salida.splitlines():
             if "Rotate:" in linea:
                 try:
-                    return int(linea.split("Rotate:")[1].strip().split()[0]) % 360
+                    rotar = int(linea.split("Rotate:")[1].strip().split()[0]) % 360
                 except (ValueError, IndexError):
-                    return 0
+                    pass
+            if "Orientation confidence:" in linea:
+                try:
+                    confianza = float(linea.split(":")[1].strip().split()[0])
+                except (ValueError, IndexError):
+                    pass
+        if rotar and confianza >= 1.0:
+            log.info("OSD: rotación de %d° (confianza %.1f)", rotar, confianza)
+            return rotar
         return 0
 
     @staticmethod
