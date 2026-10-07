@@ -219,6 +219,118 @@ def test_ocr_mal_configurado_no_tumba_el_flujo(monkeypatch):
     assert "escaneo" in str(exc.value).lower()
 
 
+# ---------- Fallback: Google Document AI ----------
+
+def test_fallback_no_configurado_devuelve_none(monkeypatch):
+    monkeypatch.delenv("DOCAI_PROCESSOR", raising=False)
+    monkeypatch.delenv("DOCAI_CREDENTIALS_JSON", raising=False)
+    from app.services.ocr import get_ocr_fallback_provider
+    assert get_ocr_fallback_provider() is None
+
+
+def test_docai_requiere_configuracion():
+    from app.services.ocr import GoogleDocAIProvider
+    with pytest.raises(ValueError):
+        GoogleDocAIProvider(processor="", credentials_json="")
+    assert not GoogleDocAIProvider.is_configured()
+
+
+def _libs_docai_falsas(monkeypatch, texto="TEXTO DOCAI"):
+    import types
+
+    vistos = {}
+
+    class FakeRaw:
+        def __init__(self, content, mime_type):
+            vistos["bytes"] = content
+            vistos["mime"] = mime_type
+
+    class FakeReq:
+        def __init__(self, name, raw_document):
+            vistos["processor"] = name
+
+    class FakeClient:
+        def __init__(self, credentials, client_options):
+            vistos["endpoint"] = client_options["api_endpoint"]
+
+        def process_document(self, request, timeout):
+            vistos["timeout"] = timeout
+            return types.SimpleNamespace(
+                document=types.SimpleNamespace(text=texto))
+
+    FakeCreds = types.SimpleNamespace(
+        from_service_account_info=staticmethod(
+            lambda info: vistos.update(cred_info=info) or "creds"))
+
+    fake_docai = types.SimpleNamespace(
+        RawDocument=FakeRaw,
+        ProcessRequest=FakeReq,
+        DocumentProcessorServiceClient=FakeClient,
+    )
+    fake_sa = types.SimpleNamespace(Credentials=FakeCreds)
+    import app.services.ocr as ocr_mod
+    monkeypatch.setattr(ocr_mod, "_docai_libs", lambda: (fake_docai, fake_sa))
+    return vistos
+
+
+def test_docai_envia_imagen_y_devuelve_texto(monkeypatch):
+    from app.services.ocr import GoogleDocAIProvider
+    vistos = _libs_docai_falsas(monkeypatch)
+    monkeypatch.setenv("DOCAI_PROCESSOR",
+                       "projects/p1/locations/us/processors/proc1")
+    monkeypatch.setenv("DOCAI_CREDENTIALS_JSON", '{"client_email": "x@y.iam"}')
+    p = GoogleDocAIProvider()
+    assert p.extract_text(b"<png>") == "TEXTO DOCAI"
+    assert vistos["processor"] == "projects/p1/locations/us/processors/proc1"
+    assert vistos["endpoint"] == "us-documentai.googleapis.com"
+    assert vistos["bytes"] == b"<png>" and vistos["mime"] == "image/png"
+    assert vistos["cred_info"] == {"client_email": "x@y.iam"}
+
+
+def test_pipeline_fallback_solo_si_primario_falla(monkeypatch):
+    """Primario con texto útil -> el fallback no se llama (no se factura)."""
+    monkeypatch.setattr(pipeline.pdf_extract, "extract_document",
+                        _extracted_escaneado)
+    primario = _ProveedorFalso("GLUCOSA  95  mg/dL  70 - 100")
+    fb = _ProveedorFalso("TEXTO FALLBACK")
+    monkeypatch.setattr(pipeline, "get_ocr_provider", lambda: primario)
+    monkeypatch.setattr(pipeline, "get_ocr_fallback_provider", lambda: fb)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    exp = process_intake("abc", _pdf_minimo(), None, lang="es")
+    assert primario.llamadas == 1
+    assert fb.llamadas == 0
+    assert any("lucosa" in b["name"].lower() for b in exp["biomarkers"])
+
+
+def test_pipeline_fallback_rescata_pagina(monkeypatch):
+    """Primario sin texto útil -> el fallback sí se intenta."""
+    monkeypatch.setattr(pipeline.pdf_extract, "extract_document",
+                        _extracted_escaneado)
+    primario = _ProveedorFalso("   ")
+    fb = _ProveedorFalso("GLUCOSA  95  mg/dL  70 - 100")
+    monkeypatch.setattr(pipeline, "get_ocr_provider", lambda: primario)
+    monkeypatch.setattr(pipeline, "get_ocr_fallback_provider", lambda: fb)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    exp = process_intake("abc", _pdf_minimo(), None, lang="es")
+    assert primario.llamadas == 1
+    assert fb.llamadas == 1
+    assert any("lucosa" in b["name"].lower() for b in exp["biomarkers"])
+
+
+def test_pipeline_fallback_tambien_falla_rechaza(monkeypatch):
+    monkeypatch.setattr(pipeline.pdf_extract, "extract_document",
+                        _extracted_escaneado)
+    monkeypatch.setattr(pipeline, "get_ocr_provider",
+                        lambda: _ProveedorFalso("  "))
+    monkeypatch.setattr(pipeline, "get_ocr_fallback_provider",
+                        lambda: _ProveedorFalso("  "))
+    with pytest.raises(pipeline.UnprocessableDocument):
+        process_intake("abc", _pdf_minimo(), None, lang="es")
+
 # ---------- OCR real (solo si el binario está instalado) ----------
 
 tesseract_hay = shutil.which("tesseract") is not None

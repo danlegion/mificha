@@ -17,7 +17,7 @@ from app import schemas
 from app.i18n import get_current_lang, set_current_lang, t as _t
 from app.services import pdf_extract
 from app.services.llm import get_llm_provider
-from app.services.ocr import get_ocr_provider
+from app.services.ocr import get_ocr_fallback_provider, get_ocr_provider
 from app.services.urgency import decide_urgency
 
 log = logging.getLogger("mificha.pipeline")
@@ -36,23 +36,29 @@ OCR_MIN_CHARS = 20  # igual que pdf_extract.MIN_CHARS_FOR_TEXT_PAGE
 def _intentar_ocr(extracted: dict, pdf_bytes: bytes, lang: str) -> None:
     """Pasa OCR por las páginas escaneadas e inyecta el texto en `extracted`.
 
-    Las páginas cuyo OCR devuelve texto útil salen de `scanned_pages` y entran
-    en `ocr_pages`. Las que fallan quedan en `scanned_pages`. Nunca tumba el
-    flujo: los fallos se registran y la página sigue marcada como incierta.
+    Cadena: OCR primario (Tesseract) y, solo cuando este no extrae texto
+    útil, el fallback administrado (Google Document AI). Las páginas leídas
+    salen de `scanned_pages` y entran en `ocr_pages`. Las que fallan quedan
+    en `scanned_pages`. Nunca tumba el flujo: los fallos se registran y la
+    página sigue marcada como incierta.
     """
     try:
         proveedor = get_ocr_provider()
     except Exception as exc:  # noqa: BLE001 - OCR mal configurado no tumba el flujo
-        log.warning("OCR no disponible: %s", exc)
-        extracted["ocr_unavailable"] = str(exc)
-        return
-    if proveedor.name == "null":
+        log.warning("OCR primario no disponible: %s", exc)
+        proveedor = None
+    fallback = get_ocr_fallback_provider()
+    if (proveedor is None or proveedor.name == "null") and fallback is None:
         log.info(
             "Páginas escaneadas sin OCR (%s): se marcan como inciertas",
             extracted["scanned_pages"],
         )
-        extracted["ocr_unavailable"] = "OCR vendor not configured — set OCR_PROVIDER"
+        extracted["ocr_unavailable"] = (
+            "OCR no configurado — ver OCR_PROVIDER / DOCAI_*"
+        )
         return
+    if proveedor is None or proveedor.name == "null":
+        log.info("Sin OCR primario; usando fallback %s", fallback.name)
 
     import fitz
 
@@ -70,10 +76,28 @@ def _intentar_ocr(extracted: dict, pdf_bytes: bytes, lang: str) -> None:
                 pagina = doc[numero - 1]
                 pix = pagina.get_pixmap(dpi=OCR_DPI)
                 imagen = pix.tobytes("png")
-                texto = proveedor.extract_text(imagen).strip()
             except Exception as exc:  # noqa: BLE001 - una página no tumba el flujo
-                log.warning("OCR falló en la página %d: %s", numero, exc)
+                log.warning("No se pudo renderizar la página %d: %s", numero, exc)
                 continue
+            texto, fuente = "", None
+            if proveedor is not None and proveedor.name != "null":
+                try:
+                    texto = proveedor.extract_text(imagen).strip()
+                    fuente = proveedor.name
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("OCR primario falló en la página %d: %s",
+                                numero, exc)
+            # Fallback administrado solo si el primario no dio texto útil:
+            # cada página que lo usa se factura en Google Cloud.
+            if len(texto) < OCR_MIN_CHARS and fallback is not None:
+                try:
+                    log.info("Página %d: primario sin texto útil, probando %s",
+                             numero, fallback.name)
+                    texto = fallback.extract_text(imagen).strip()
+                    fuente = fallback.name
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("OCR fallback falló en la página %d: %s",
+                                numero, exc)
             if len(texto) < OCR_MIN_CHARS:
                 log.info("OCR sin texto útil en la página %d", numero)
                 continue
@@ -83,9 +107,11 @@ def _intentar_ocr(extracted: dict, pdf_bytes: bytes, lang: str) -> None:
                     p["has_text"] = True
                     p["is_scanned"] = False
                     p["ocr_text"] = True
+                    p["ocr_provider"] = fuente
                     break
             ocr_pages.append(numero)
-            log.info("OCR leyó %d caracteres en la página %d", len(texto), numero)
+            log.info("OCR (%s) leyó %d caracteres en la página %d",
+                     fuente, len(texto), numero)
     finally:
         doc.close()
 

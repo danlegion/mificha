@@ -1,7 +1,8 @@
 """MiFicha — proveedores OCR.
 
-Tesseract (local, gratuito, privado) es el proveedor real: lee páginas
-escaneadas/fotos sin costo por página y sin enviar el documento a terceros.
+Cadena: Tesseract (local, gratuito, privado) como primario y Google
+Document AI como fallback administrado cuando el primario no extrae texto
+útil — el rol que el diseño del sistema v1.5 asigna al OCR fallback.
 `NullOCRProvider` queda para cuando no hay OCR configurado.
 """
 
@@ -141,8 +142,79 @@ class TesseractOCRProvider(OCRProvider):
             raise RuntimeError(f"tesseract tardó más de {self.timeout}s") from exc
 
 
+def _docai_libs():
+    """Import perezoso de las libs de Google (no frenan el arranque)."""
+    from google.cloud import documentai
+    from google.oauth2 import service_account
+
+    return documentai, service_account
+
+
+class GoogleDocAIProvider(OCRProvider):
+    """Fallback administrado: Google Document AI (processor Document OCR).
+
+    Solo se invoca cuando el OCR primario no extrajo texto útil.
+    Requiere (variables de entorno):
+      DOCAI_PROCESSOR = projects/{p}/locations/{loc}/processors/{id}
+      DOCAI_CREDENTIALS_JSON = service account JSON con el rol
+        "Document AI API User".
+    Precios: primeras 1.000 páginas/mes gratis; luego USD 1.50 por 1.000.
+    """
+
+    name = "documentai"
+
+    def __init__(
+        self,
+        processor: str | None = None,
+        credentials_json: str | None = None,
+        timeout: int | None = None,
+    ):
+        self.processor = (processor or os.getenv("DOCAI_PROCESSOR", "")).strip()
+        self.credentials_json = (
+            credentials_json or os.getenv("DOCAI_CREDENTIALS_JSON", "")
+        ).strip()
+        self.timeout = timeout or int(os.getenv("DOCAI_TIMEOUT", "120"))
+        if not self.processor or not self.credentials_json:
+            raise ValueError(
+                "DOCAI_PROCESSOR y DOCAI_CREDENTIALS_JSON son requeridos"
+            )
+        self._client = None
+
+    @staticmethod
+    def is_configured() -> bool:
+        return bool(
+            os.getenv("DOCAI_PROCESSOR", "").strip()
+            and os.getenv("DOCAI_CREDENTIALS_JSON", "").strip()
+        )
+
+    def _cliente(self):
+        if self._client is None:
+            import json
+
+            documentai, service_account = _docai_libs()
+            info = json.loads(self.credentials_json)
+            creds = service_account.Credentials.from_service_account_info(info)
+            # projects/{p}/locations/{loc}/processors/{id} -> endpoint regional
+            location = self.processor.split("/")[3]
+            self._client = documentai.DocumentProcessorServiceClient(
+                credentials=creds,
+                client_options={
+                    "api_endpoint": f"{location}-documentai.googleapis.com"
+                },
+            )
+        return self._client
+
+    def extract_text(self, image_bytes: bytes) -> str:
+        documentai, _ = _docai_libs()
+        client = self._cliente()
+        raw = documentai.RawDocument(content=image_bytes, mime_type="image/png")
+        req = documentai.ProcessRequest(name=self.processor, raw_document=raw)
+        result = client.process_document(request=req, timeout=self.timeout)
+        return (result.document.text or "").strip()
+
+
 def get_ocr_provider() -> OCRProvider:
-    """Fábrica: lee OCR_PROVIDER del entorno (default "null")."""
+    """Fábrica del OCR primario: lee OCR_PROVIDER del entorno (default "null")."""
     provider = os.getenv("OCR_PROVIDER", "null").strip().lower()
     if provider in ("", "null", "none", "off"):
         return NullOCRProvider()
@@ -154,3 +226,17 @@ def get_ocr_provider() -> OCRProvider:
             )
         return TesseractOCRProvider()
     raise ValueError(f"Proveedor OCR desconocido: {provider!r}")
+
+
+def get_ocr_fallback_provider() -> OCRProvider | None:
+    """Fallback administrado (Google Document AI). None si no está configurado.
+
+    Nunca tumba el flujo: un fallback mal configurado solo se registra.
+    """
+    if not GoogleDocAIProvider.is_configured():
+        return None
+    try:
+        return GoogleDocAIProvider()
+    except Exception as exc:  # noqa: BLE001 - el fallback es opcional
+        log.warning("Fallback OCR no disponible: %s", exc)
+        return None

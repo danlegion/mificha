@@ -13,6 +13,9 @@ pydantic>=2.6
 PyMuPDF>=1.23             # extracción de texto (los tests generan PDFs con fitz)
 Pillow>=10.0              # rotación de imágenes para OCR (OSD)
 
+# OCR fallback administrado (Google Document AI)
+google-cloud-documentai>=2.0
+
 # LLM (modo real). Vacío => modo demo local, sin llamadas de red.
 anthropic>=0.39
 
