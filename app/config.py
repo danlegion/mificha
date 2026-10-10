@@ -53,7 +53,7 @@ MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "30"))
 # --- Compartir --------------------------------------------------------------
 SHARE_TTL_DAYS = int(os.getenv("SHARE_TTL_DAYS", "7"))
 # Tope de subidas por IP y por hora (anti-abuso: cada subida quema IA).
-UPLOAD_RATE_LIMIT_PER_HOUR = int(os.getenv("UPLOAD_RATE_LIMIT_PER_HOUR", "20"))
+UPLOAD_RATE_LIMIT_PER_HOUR = int(os.getenv("UPLOAD_RATE_LIMIT_PER_HOUR", "10"))
 
 # --- URLs ------------------------------------------------------------------
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")

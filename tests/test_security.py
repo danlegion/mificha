@@ -1,16 +1,13 @@
-"""Seguridad: rate limit de subidas y registro de auditoría."""
+"""Seguridad: rate limit de subidas (anti-abuso del crédito de IA)."""
 
 import sqlite3
-import uuid
 
 import pytest
 from fastapi.testclient import TestClient
 
 import app.config as config
 from app import ratelimit
-from app.db import dal
 from app.routers import ingest as ingest_router
-from app.routers import hash_token, new_guest_token
 
 
 @pytest.fixture()
@@ -34,7 +31,7 @@ def _pdf_valido() -> bytes:
 
 def _clean(ids):
     con = sqlite3.connect(config.DATA_DIR + "/mificha.db")
-    for table in ("intakes", "users", "documents", "shares", "audit_log"):
+    for table in ("intakes", "users", "documents", "shares"):
         for i in ids:
             try:
                 con.execute(f"DELETE FROM {table} WHERE id=?", (i,))
@@ -42,15 +39,6 @@ def _clean(ids):
                 pass
     con.commit()
     con.close()
-
-
-def _audit_rows(intake_id):
-    con = sqlite3.connect(config.DATA_DIR + "/mificha.db")
-    rows = con.execute(
-        "SELECT action, actor FROM audit_log WHERE intake_id=? ORDER BY created_at",
-        (intake_id,)).fetchall()
-    con.close()
-    return rows
 
 
 def _subir(client, monkeypatch):
@@ -67,6 +55,7 @@ def test_rate_limit_frena_tras_el_tope(client, monkeypatch):
     ratelimit.reset()
     monkeypatch.setattr(config, "UPLOAD_RATE_LIMIT_PER_HOUR", 2)
     iids = []
+    r1 = r2 = None
     try:
         r1 = _subir(client, monkeypatch)
         r2 = _subir(client, monkeypatch)
@@ -77,39 +66,13 @@ def test_rate_limit_frena_tras_el_tope(client, monkeypatch):
         assert "demasiados documentos" in r3.text
     finally:
         for r in (r1, r2):
+            if r is None:
+                continue
             loc = r.headers.get("location", "")
             if "/procesando/" in loc:
                 iids.append(loc.split("/procesando/")[1].split("?")[0])
         _clean(iids)
 
 
-def test_subir_registra_auditoria_upload(client, monkeypatch):
-    r = _subir(client, monkeypatch)
-    assert r.status_code in (303, 307)
-    iid = r.headers["location"].split("/procesando/")[1].split("?")[0]
-    try:
-        rows = _audit_rows(iid)
-        assert ("upload", "anon") in rows
-    finally:
-        _clean([iid])
-
-
-def test_ver_resultado_registra_auditoria(client):
-    iid = "a-" + uuid.uuid4().hex[:12]
-    token = new_guest_token()
-    dal.save_intake({"id": iid, "status": "ready",
-                     "explanation": {
-                         "type_label": "Resultado de laboratorio",
-                         "summary_simple": "resumen",
-                         "biomarkers": [],
-                         "urgency": {"level": "no_urgente", "label": "x",
-                                     "action": "a", "timeframe": "t",
-                                     "reason": "r"}},
-                     "guest_token_hash": hash_token(token)})
-    try:
-        r = client.get(f"/resultado/{iid}?t={token}")
-        assert r.status_code == 200
-        rows = _audit_rows(iid)
-        assert ("view_result", "guest") in rows
-    finally:
-        _clean([iid])
+def test_rate_limit_por_defecto_es_10_por_hora():
+    assert config.UPLOAD_RATE_LIMIT_PER_HOUR == 10

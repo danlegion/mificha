@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 
 from app import auth, config, schemas
-from app import audit as audit_log
 from app.db import dal
 from app.i18n import MESES_CORTO, get_current_lang, t as _t
 from app.routers import (nombre_examen_corto, normalize_flag_key,
@@ -137,8 +136,6 @@ def ficha_detalle(doc_id: str, request: Request):
     exp = render_explanation(doc.get("explanation") or {})
     intake_id = doc.get("intake_id") or doc["id"]
     share_row = dal.get_active_share_for_intake(intake_id)
-    audit_log.log_event("view_result", request, intake_id=intake_id,
-                        doc_id=doc["id"])
     return templates.TemplateResponse(
         request,
         "vault_detail.html",
@@ -241,8 +238,6 @@ def ficha_original(doc_id: str, request: Request, descargar: bool = False):
     if not path:
         raise HTTPException(status_code=404, detail="Original no disponible")
     modo = "attachment" if descargar else "inline"
-    audit_log.log_event("view_original", request,
-                        intake_id=doc.get("intake_id") or doc_id, doc_id=doc_id)
     return FileResponse(
         path,
         media_type="application/pdf",
@@ -267,5 +262,4 @@ def ficha_eliminar(doc_id: str, request: Request):
     dal.revoke_shares_for_intake(intake_id)
     dal.delete_document(doc_id)
     dal.delete_intake(intake_id)
-    audit_log.log_event("delete", request, intake_id=intake_id, doc_id=doc_id)
     return RedirectResponse("/ficha", status_code=303)

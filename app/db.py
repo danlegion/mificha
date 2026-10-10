@@ -66,17 +66,6 @@ def _sqlite_dal():
         created_at = Column(DateTime, default=_now)
         updated_at = Column(DateTime, default=_now, onupdate=_now)
 
-    class AuditLog(Base):
-        __tablename__ = "audit_log"
-        id = Column(String, primary_key=True)
-        created_at = Column(DateTime, default=_now, index=True)
-        actor = Column(String, nullable=True)
-        action = Column(String, index=True)
-        intake_id = Column(String, nullable=True, index=True)
-        doc_id = Column(String, nullable=True)
-        ip = Column(String, nullable=True)
-        detail = Column(Text, nullable=True)
-
     class User(Base):
         __tablename__ = "users"
         id = Column(String, primary_key=True)
@@ -175,22 +164,6 @@ def _sqlite_dal():
                 s.delete(obj)
                 s.commit()
                 return True
-
-        # -- auditoría --------------------------------------------------
-        def log_audit(self, entry: dict) -> None:
-            with Session() as s:
-                s.add(AuditLog(
-                    id=entry["id"],
-                    created_at=datetime.fromisoformat(entry["created_at"])
-                    if entry.get("created_at") else _now(),
-                    actor=entry.get("actor"),
-                    action=entry.get("action"),
-                    intake_id=entry.get("intake_id"),
-                    doc_id=entry.get("doc_id"),
-                    ip=entry.get("ip"),
-                    detail=entry.get("detail"),
-                ))
-                s.commit()
 
         def set_intake_ready(self, intake_id, explanation=None, status="ready", detail=None):
             with Session() as s:
@@ -540,24 +513,6 @@ def _supabase_dal():
             resp = (client.table("shares").update({"revoked": True})
                     .eq("intake_id", intake_id).eq("revoked", False).execute())
             return len(resp.data or [])
-
-        # -- auditoría --------------------------------------------------
-        # Best-effort: si la tabla audit_log aún no existe en el proyecto
-        # de Supabase, se advierte y se sigue (ver supabase_audit_log.sql).
-        def log_audit(self, entry: dict) -> None:
-            try:
-                client.table("audit_log").insert({
-                    "id": entry["id"],
-                    "created_at": entry.get("created_at"),
-                    "actor": entry.get("actor"),
-                    "action": entry.get("action"),
-                    "intake_id": entry.get("intake_id"),
-                    "doc_id": entry.get("doc_id"),
-                    "ip": entry.get("ip"),
-                    "detail": entry.get("detail"),
-                }).execute()
-            except Exception as exc:  # noqa: BLE001
-                log.warning("audit_log en Supabase no disponible: %s", exc)
 
     return SupabaseDAL()
 

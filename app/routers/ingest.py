@@ -8,7 +8,6 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 
 from app import auth, config
-from app import audit as audit_log
 from app import ratelimit
 from app.db import dal
 from app.i18n import t as _t
@@ -19,6 +18,16 @@ from app.storage import quarantine_path, store_original
 log = logging.getLogger("mificha.ingest")
 
 router = APIRouter()
+
+
+def _client_ip(request: Request) -> str:
+    """IP real del cliente (Render pone el proxy delante)."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "?"
 
 
 def _validar_pdf(pdf_bytes: bytes) -> str | None:
@@ -113,7 +122,7 @@ async def subir(
     archivo: UploadFile = File(...),
     tipo_doc: str = Form(default=""),
 ):
-    ip = audit_log.client_ip(request)
+    ip = _client_ip(request)
     if not ratelimit.check(f"subir:{ip}", config.UPLOAD_RATE_LIMIT_PER_HOUR):
         log.warning("Rate limit de subida excedido para %s", ip)
         return templates.TemplateResponse(
@@ -158,8 +167,6 @@ async def subir(
     # Log sin contenido clínico: solo tamaños y estado.
     log.info("Nuevo intake %s (%d bytes, hint=%s)",
              intake_id, len(contenido), tipo_doc or "-")
-    audit_log.log_event("upload", request, intake_id=intake_id,
-                        detail={"bytes": len(contenido)})
     background.add_task(_run_pipeline, intake_id, page_lang(request))
     return RedirectResponse(
         f"/procesando/{intake_id}?t={guest_token}", status_code=303
