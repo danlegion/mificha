@@ -87,6 +87,7 @@ def _con_sesion(resp, user_id: str):
         httponly=True,
         samesite="lax",
         max_age=60 * 60 * 24 * 90,
+        secure=config.BASE_URL.startswith("https://"),
     )
     return resp
 

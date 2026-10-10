@@ -65,6 +65,15 @@ async def no_cache_html(request: Request, call_next):
     return resp
 
 
+# Seguridad: los tokens de share/invitado viajan en la URL (?t=...).
+# Esta cabecera impide que el navegador los envíe a terceros en Referer.
+@app.middleware("http")
+async def referrer_policy(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return resp
+
+
 def _num_valor(s) -> float | None:
     """Primer número parseable del texto de un valor, o None."""
     if s is None:
@@ -247,7 +256,8 @@ def cambiar_idioma(lang: str, request: Request):
         destino = "/"
     resp = RedirectResponse(destino, status_code=303)
     resp.set_cookie(LANG_COOKIE, lang, max_age=365 * 24 * 3600,
-                    samesite="lax", path="/")
+                    samesite="lax", path="/",
+                    secure=config.BASE_URL.startswith("https://"))
     return resp
 
 
