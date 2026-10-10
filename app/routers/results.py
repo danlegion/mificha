@@ -7,6 +7,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from app import auth, config
+from app import audit as audit_log
 from app.db import dal
 from app.i18n import t as _t
 from app.routers import (can_view_intake, guest_token_valid, page_lang,
@@ -127,6 +128,8 @@ def resultado(intake_id: str, request: Request):
         log.info("Intake %s reclamado al verlo por usuario %s",
                  intake_id, user["id"])
         intake = dal.get_intake(intake_id) or intake
+    audit_log.log_event("view_result", request, intake_id=intake_id,
+                        intake=intake)
     return templates.TemplateResponse(
         request,
         "result.html",
@@ -148,6 +151,8 @@ def resultado_original(intake_id: str, request: Request, descargar: bool = False
     if not path:
         raise HTTPException(status_code=404, detail="Original no disponible")
     modo = "attachment" if descargar else "inline"
+    audit_log.log_event("view_original", request, intake_id=intake_id,
+                        intake=intake)
     return FileResponse(
         path,
         media_type="application/pdf",
@@ -165,6 +170,8 @@ def resultado_eliminar(intake_id: str, request: Request):
         dal.delete_document(intake_id)
     dal.delete_intake(intake_id)
     log.info("Intake %s eliminado (guardado=%s)", intake_id, guardado)
+    audit_log.log_event("delete", request, intake_id=intake_id,
+                        detail={"guardado": guardado})
     destino = "/ficha" if (user and guardado) else "/"
     return RedirectResponse(destino, status_code=303)
 

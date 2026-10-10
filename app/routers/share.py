@@ -7,6 +7,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from app import auth, config
+from app import audit as audit_log
 from app.db import dal
 from app.i18n import t as _t
 from app.routers import (can_view_intake, guest_token_valid, page_lang,
@@ -64,6 +65,8 @@ async def crear_share(
     )
     log.info("Share creado para intake %s (expira en %d días)",
              intake_id, config.SHARE_TTL_DAYS)
+    audit_log.log_event("share_create", request, intake_id=intake_id,
+                        intake=intake)
 
     destino = f"/resultado/{intake_id}"
     if raw:
@@ -76,6 +79,8 @@ async def revocar_share(intake_id: str, request: Request, t: str = Form(default=
     _intake, _, raw = _resolver_acceso(intake_id, request, t or None)
     n = dal.revoke_shares_for_intake(intake_id)
     log.info("Shares revocados para intake %s: %d", intake_id, n)
+    audit_log.log_event("share_revoke", request, intake_id=intake_id,
+                        detail={"revocados": n})
     destino = f"/resultado/{intake_id}"
     if raw:
         destino += f"?t={raw}"
@@ -116,6 +121,8 @@ def ver_share(token: str, request: Request):
     snap = row.get("snapshot") or {}
     con_urgencia = bool(snap.get("incluir_urgencia"))
     # Solo resumen y urgencia: sin PDF, sin otros documentos, sin identidad.
+    audit_log.log_event("view_shared", request,
+                        intake_id=row.get("intake_id"), actor="share")
     shared = {
         "summary_simple": snap.get("summary_simple")
         or _t("error.no_summary"),

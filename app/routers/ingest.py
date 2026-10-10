@@ -8,6 +8,8 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 
 from app import auth, config
+from app import audit as audit_log
+from app import ratelimit
 from app.db import dal
 from app.i18n import t as _t
 from app.routers import (hash_token, new_guest_token, page_lang, templates)
@@ -111,6 +113,17 @@ async def subir(
     archivo: UploadFile = File(...),
     tipo_doc: str = Form(default=""),
 ):
+    ip = audit_log.client_ip(request)
+    if not ratelimit.check(f"subir:{ip}", config.UPLOAD_RATE_LIMIT_PER_HOUR):
+        log.warning("Rate limit de subida excedido para %s", ip)
+        return templates.TemplateResponse(
+            request,
+            "error.html",
+            {"request": request, "lang": page_lang(request),
+             "message": _t("ingest.rate_limited"), "detail": None,
+             "dev_auth": False, "demo_mode": False},
+            status_code=429,
+        )
     contenido = await archivo.read()
     error = _validar_pdf(contenido)
     if error:
@@ -145,6 +158,8 @@ async def subir(
     # Log sin contenido clínico: solo tamaños y estado.
     log.info("Nuevo intake %s (%d bytes, hint=%s)",
              intake_id, len(contenido), tipo_doc or "-")
+    audit_log.log_event("upload", request, intake_id=intake_id,
+                        detail={"bytes": len(contenido)})
     background.add_task(_run_pipeline, intake_id, page_lang(request))
     return RedirectResponse(
         f"/procesando/{intake_id}?t={guest_token}", status_code=303
