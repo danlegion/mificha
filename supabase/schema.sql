@@ -1,8 +1,8 @@
 -- ============================================================================
--- MiFicha — schema para Supabase (Postgres)
--- Ejecutar una vez en el SQL Editor del proyecto Supabase.
--- Replica los modelos del DAL SQLite (app/db.py) para que el backend use
--- Supabase cuando SUPABASE_URL y SUPABASE_ANON_KEY están configuradas.
+-- MiFicha — schema for Supabase (Postgres)
+-- Run once in the Supabase project's SQL Editor.
+-- Mirrors the SQLite DAL models (app/db.py) so the backend uses
+-- Supabase when SUPABASE_URL and SUPABASE_ANON_KEY are configured.
 -- ============================================================================
 
 create table if not exists intakes (
@@ -45,21 +45,21 @@ create table if not exists shares (
   created_at    timestamptz default now()
 );
 
--- Seguridad: RLS ACTIVADO en todas las tablas, sin políticas para anon ni
--- authenticated (denegar por defecto). El backend accede con la
--- SUPABASE_SERVICE_ROLE_KEY (salta RLS) solo desde el servidor; la anon key
--- queda reservada a Supabase Auth (magic links) y ya no puede leer ni
--- escribir estas tablas aunque se filtrara.
+-- Security: RLS ENABLED on all tables, with no policies for anon or
+-- authenticated (deny by default). The backend accesses them with the
+-- SUPABASE_SERVICE_ROLE_KEY (bypasses RLS) only from the server; the anon key
+-- stays reserved for Supabase Auth (magic links) and can no longer read or
+-- write these tables even if it leaked.
 alter table intakes   enable row level security;
 alter table users      enable row level security;
 alter table documents  enable row level security;
 alter table shares     enable row level security;
 
 -- ---------------------------------------------------------------------------
--- Storage: bucket "originales" para los PDFs originales.
--- El backend usa SUPABASE_SERVICE_ROLE_KEY (salta RLS), así que el bucket no
--- necesita políticas para anon: sin políticas, el acceso anónimo queda
--- denegado por defecto. Idempotente.
+-- Storage: bucket "originales" for the original PDFs.
+-- The backend uses SUPABASE_SERVICE_ROLE_KEY (bypasses RLS), so the bucket
+-- needs no anon policies: with no policies, anonymous access is
+-- denied by default. Idempotent.
 -- ---------------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('originales', 'originales', false)

@@ -1,60 +1,60 @@
-# MiFicha v0.1 — prototipo
+# MiFicha v0.1 — prototype
 
-MiFicha es un prototipo de app de salud que explica documentos médicos en español simple: resultados de laboratorio, informes narrativos (por ejemplo un PET) y órdenes de exámenes. Por cada documento dice qué significa cada valor, qué tan fuera de rango está, qué efecto podría tener en la salud y qué tan urgente es buscar atención médica — sin dar diagnósticos.
+MiFicha is a health app prototype that explains medical documents in plain language: lab results, narrative reports (for example a PET scan), and exam orders. For each document it says what each value means, how far out of range it is, what effect it could have on your health, and how urgently you should seek medical attention — without giving diagnoses.
 
-## Self-hosting con Docker: código y datos separados
+## Self-hosting with Docker: code and data separate
 
-Esta es la forma recomendada para uso personal/familiar, y la que usa
-el despliegue privado: el código vive en este repo y en la imagen Docker;
-los datos viven fuera de la imagen, en una carpeta normal del host.
+This is the recommended setup for personal/family use, and the one the
+private deployment uses: the code lives in this repo and in the Docker
+image; the data lives outside the image, in a plain folder on the host.
 
 ```bash
 git clone https://github.com/danlegion/mificha.git
 cd mificha
 cp .env.example .env
-# Edita .env: GEMINI_API_KEY, SECRET_KEY (genera una aleatoria) y
-# BASE_URL (p. ej. http://mini-pc:18473 si usas Tailscale).
-# Deja SUPABASE_URL vacío para usar SQLite local.
+# Edit .env: GEMINI_API_KEY, SECRET_KEY (generate a random one) and
+# BASE_URL (e.g. http://mini-pc:18473 if you use Tailscale).
+# Leave SUPABASE_URL empty to use local SQLite.
 docker compose up -d --build
 ```
 
-Abre la app en `http://<tu-máquina>:18473`, o solo por Tailscale en un
-despliegue privado. No hagas port-forward de tu router a este puerto.
+Open the app at `http://<your-machine>:18473`, or only over Tailscale in a
+private deployment. Do not port-forward your router to this port.
 
-La carpeta de datos (por defecto `./mificha-data`, configurable con
-`MIFICHA_DATA_DIR`) es la fuente de verdad y nunca se sube a git
-(está en `.gitignore` y `.dockerignore`):
+The data folder (by default `./mificha-data`, configurable with
+`MIFICHA_DATA_DIR`) is the source of truth and is never committed to git
+(it is in `.gitignore` and `.dockerignore`):
 
 ```
 mificha-data/
-  mificha.db         # índice SQLite: usuarios, documentos, intakes, shares
-  originales/*.pdf   # PDFs originales subidos, sin modificar
-  quarantine/*.pdf   # subidas retenidas durante el procesamiento
+  mificha.db         # SQLite index: users, documents, intakes, shares
+  originales/*.pdf   # original uploaded PDFs, untouched
+  quarantine/*.pdf   # uploads held aside during processing
 ```
 
-El contenedor es desechable: puedes borrarlo y recrearlo sin perder
-datos, siempre que no borres la carpeta de datos. Haz copia de esa
-carpeta, no del contenedor:
+The container is disposable: you can delete it and recreate it without
+losing data, as long as you do not delete the data folder. Back up that
+folder, not the container:
 
 ```bash
-cp -r ./mificha-data /ruta/de/respaldo/
-# o sincronización plana a un bucket / carpeta de Drive, p. ej.:
+cp -r ./mificha-data /path/to/backup/
+# or a plain sync to a bucket / Drive folder, e.g.:
 rclone sync ./mificha-data remote:mificha-backup
 ```
 
-Restaurar es copiar la carpeta de vuelta. La app se puede reconstruir
-a partir de ella; ningún proveedor en la nube es necesario para leer
-los archivos (son PDFs, SQLite y, en el futuro, JSON/CSV por persona).
-Sin llave de Gemini, la app corre en modo demo local, sin llamadas de red.
+Restoring is copying the folder back. The app can be rebuilt from it;
+no cloud provider is needed to read the files (they are PDFs, SQLite
+and, in the future, JSON/CSV per person). Without a Gemini key, the app
+runs in local demo mode, with no network calls.
 
-Licencia: GNU Affero General Public License v3.0, ver `LICENSE`.
+License: GNU Affero General Public License v3.0, see `LICENSE`.
 
-## Requisitos
+## Requirements
 
-- Python 3.11 o superior
-- (Opcional) claves de API para modo real: Anthropic, Supabase, proveedor OCR
+- Python 3.11 or later
+- (Optional) API keys for real mode: Anthropic, Supabase, OCR provider
 
-## Instalación
+## Installation
 
 ```bash
 cd ~/workspace/mificha
@@ -64,7 +64,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-## Cómo correr
+## How to run
 
 ```bash
 cd ~/workspace/mificha
@@ -72,80 +72,80 @@ source .venv/bin/activate
 uvicorn app.main:app --reload --port 18473
 ```
 
-La app queda en http://localhost:18473.
+The app is then at http://localhost:18473.
 
-## Variables de entorno
+## Environment variables
 
-| Variable | Obligatoria | Default (si vacía) | Descripción |
+| Variable | Required | Default (if empty) | Description |
 |---|---|---|---|
-| `GEMINI_API_KEY` | No | modo demo | Clave de Gemini (AI Studio). Primera opción si está presente. |
-| `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Modelo Gemini (verificado en free tier). |
-| `ANTHROPIC_API_KEY` | No | modo demo | Clave de Anthropic (alternativa). Vacías ambas = explicación local determinista, sin llamadas de red. |
-| `LLM_MODEL` | No | default del backend | Modelo LLM para Anthropic. |
-| `SUPABASE_URL` | No | SQLite local | URL del proyecto Supabase (producción). |
-| `SUPABASE_ANON_KEY` | No | — | Clave anónima: solo para Supabase Auth (magic links). Con RLS activado ya no accede a las tablas. |
-| `SUPABASE_SERVICE_KEY` | Sí, con RLS activado | — | Clave service_role (solo servidor, nunca al navegador): acceso a datos y Storage. Obligatoria desde que RLS está activado. |
-| `OCR_PROVIDER` | No | `tesseract` | Tesseract local (español + inglés, dentro de la imagen Docker). |
-| `DOCAI_PROCESSOR` | Solo para fallback | — | Procesador de Google Document AI (`projects/.../processors/...`); solo se usa si Tesseract no extrae texto útil. |
-| `DOCAI_CREDENTIALS_JSON` | Solo para fallback | — | JSON de la cuenta de servicio de Document AI. |
-| `SECRET_KEY` | Sí | — | Firma de sesiones/tokens. **Cámbiala en producción.** |
-| `DATABASE_URL` / `STORAGE_DIR` | — | — | Ya no se leen en el código actual: SQLite vive en la carpeta de datos (`./data/mificha.db` local, `./mificha-data/mificha.db` con Docker) y los PDFs en `originales/` dentro de esa misma carpeta. |
-| `PORT` | No | `18473` | Puerto del servidor. |
-| `BASE_URL` | No | `http://localhost:18473` | URL pública; construye los enlaces de WhatsApp. En producción usa tu dominio. |
+| `GEMINI_API_KEY` | No | demo mode | Gemini key (AI Studio). First option if present. |
+| `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Gemini model (verified on the free tier). |
+| `ANTHROPIC_API_KEY` | No | demo mode | Anthropic key (alternative). With both empty, the explanation is local and deterministic, with no network calls. |
+| `LLM_MODEL` | No | backend default | LLM model for Anthropic. |
+| `SUPABASE_URL` | No | local SQLite | Supabase project URL (production). |
+| `SUPABASE_ANON_KEY` | No | — | Anonymous key: only for Supabase Auth (magic links). With RLS enabled it no longer accesses the tables. |
+| `SUPABASE_SERVICE_KEY` | Yes, with RLS enabled | — | service_role key (server only, never to the browser): data and Storage access. Required since RLS was enabled. |
+| `OCR_PROVIDER` | No | `tesseract` | Local Tesseract (Spanish + English, inside the Docker image). |
+| `DOCAI_PROCESSOR` | Fallback only | — | Google Document AI processor (`projects/.../processors/...`); only used if Tesseract extracts no useful text. |
+| `DOCAI_CREDENTIALS_JSON` | Fallback only | — | Document AI service-account JSON. |
+| `SECRET_KEY` | Yes | — | Session/token signing key. **Change it in production.** |
+| `DATABASE_URL` / `STORAGE_DIR` | — | — | No longer read by the current code: SQLite lives in the data folder (`./data/mificha.db` locally, `./mificha-data/mificha.db` with Docker) and PDFs in `originales/` inside that same folder. |
+| `PORT` | No | `18473` | Server port. |
+| `BASE_URL` | No | `http://localhost:18473` | Public URL; builds the WhatsApp links. In production use your domain. |
 
-## Qué funciona sin keys (modo demo)
+## What works without keys (demo mode)
 
-- Explicación local determinista (sin LLM): plantillas en español simple, sin llamadas de red.
-- Auth de desarrollo (sin Supabase).
-- SQLite local en `./data/mificha.db` y PDFs en `./data/originales`.
-- Detección de páginas escaneadas: se marcan como tales (sin OCR no se extrae su texto).
+- Local deterministic explanation (no LLM): plain-language templates, no network calls.
+- Development auth (no Supabase).
+- Local SQLite in `./data/mificha.db` and PDFs in `./data/originales`.
+- Scanned-page detection: pages are flagged as scanned (without OCR their text is not extracted).
 
-## Para producción hay que conectar
+## For production, connect
 
-1. **Supabase**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` (y `DATABASE_URL` si usas Postgres directo).
-2. **Gemini (o Anthropic)**: `GEMINI_API_KEY` (y `GEMINI_MODEL` si quieres fijar el modelo) para la explicación en lenguaje natural. Alternativa: `ANTHROPIC_API_KEY` + `LLM_MODEL`.
-3. **OCR**: `OCR_PROVIDER=azure|google` con sus credenciales, para extraer texto de PDFs escaneados.
+1. **Supabase**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` (and `DATABASE_URL` if you use Postgres directly).
+2. **Gemini (or Anthropic)**: `GEMINI_API_KEY` (and `GEMINI_MODEL` if you want to pin the model) for the natural-language explanation. Alternative: `ANTHROPIC_API_KEY` + `LLM_MODEL`.
+3. **OCR**: local Tesseract by default; Google Document AI as fallback with its credentials, to extract text from scanned PDFs.
 
-## Cómo correr los tests
+## How to run the tests
 
 ```bash
 cd ~/workspace/mificha
 python -m pytest -q
 ```
 
-- Los tests no hacen llamadas de red y generan sus PDFs en memoria (PyMuPDF).
-- `tests/test_explain_llm.py` prueba los proveedores con la red mockeada.
-- Contratos que cubren: `tests/test_pdf_extract.py` (extracción de PDFs), `tests/test_urgency.py` (niveles de urgencia), `tests/test_schemas.py` (modelo Explanation).
+- The tests make no network calls and generate their PDFs in memory (PyMuPDF).
+- `tests/test_explain_llm.py` tests the providers with the network mocked.
+- Contracts covered: `tests/test_pdf_extract.py` (PDF extraction), `tests/test_urgency.py` (urgency levels), `tests/test_schemas.py` (Explanation model).
 
-## Estructura del proyecto
+## Project structure
 
 ```
 mificha/
 ├── app/
-│   ├── main.py                 # app FastAPI (backend)
-│   ├── schemas.py              # modelos pydantic de la Explanation
+│   ├── main.py                 # FastAPI app (backend)
+│   ├── schemas.py              # pydantic models for the Explanation
 │   └── services/
 │       ├── pdf_extract.py      # extract_document(pdf_bytes) -> dict
 │       ├── urgency.py          # decide_urgency(signals) -> dict
-│       └── explain.py          # explicación (demo local o LLM)
-├── static/                     # assets frontend
-├── templates/                  # vistas
-├── tests/                      # suite pytest (contratos)
-├── data/                       # SQLite + PDFs (local, no va a git)
+│       └── explain.py          # explanation (local demo or LLM)
+├── static/                     # frontend assets
+├── templates/                  # views
+├── tests/                      # pytest suite (contracts)
+├── data/                       # SQLite + PDFs (local, not committed to git)
 ├── .env.example
 ├── requirements.txt
 └── README.md
 ```
 
-## Qué está implementado vs. qué es stub
+## What is implemented vs. what is a stub
 
-- **Real**: extracción de texto de PDFs digitales, detección de páginas escaneadas (menos de 20 caracteres → escaneada), reglas de urgencia, esquemas de la Explanation.
-- **Stub / demo**: explicación en lenguaje simple sin LLM (plantillas deterministas); OCR de escaneados (solo se marcan hasta conectar un proveedor); auth dev y SQLite local.
+- **Real**: text extraction from digital PDFs, scanned-page detection (fewer than 20 characters → scanned), urgency rules, Explanation schemas.
+- **Stub / demo**: plain-language explanation without an LLM (deterministic templates); OCR of scans (only flagged until a provider is connected); dev auth and local SQLite.
 
-## Reglas duras
+## Hard rules
 
-1. **Los rangos de referencia salen solo del documento.** Nunca inventar rangos ni valores.
-2. **Sin diagnósticos.** Se explican valores y hallazgos; no se dice qué enfermedad tiene el usuario.
-3. **La prioridad de una orden se cita literal** en la explicación; nunca se inventa.
-4. **Ante dato crítico incierto, ser conservador**: nunca `no_urgente`.
-5. **Lenguaje simple** en español: valores fuera de rango marcados con qué tan lejos están, y guía visible de si/cuándo buscar atención médica.
+1. **Reference ranges come only from the document.** Never invent ranges or values.
+2. **No diagnoses.** Values and findings are explained; the user is never told what disease they have.
+3. **An order's priority is quoted literally** in the explanation; never invented.
+4. **When critical data is uncertain, be conservative**: never `no_urgente`.
+5. **Plain language**: out-of-range values are marked with how far off they are, with visible guidance on whether/when to seek medical attention.

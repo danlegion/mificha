@@ -1,6 +1,6 @@
-# MiFicha en Render — plan gratuito.
-# Despliegue: Render Dashboard -> New -> Blueprint -> conectar repo danlegion/mificha.
-# Las variables marcadas sync:false se pegan a mano en el dashboard tras crear el servicio.
+# MiFicha on Render — free plan.
+# Deploy: Render Dashboard -> New -> Blueprint -> connect repo danlegion/mificha.
+# Variables marked sync:false are pasted by hand in the dashboard after creating the service.
 services:
   - type: web
     name: mificha
