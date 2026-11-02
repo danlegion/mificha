@@ -47,6 +47,8 @@ a partir de ella; ningún proveedor en la nube es necesario para leer
 los archivos (son PDFs, SQLite y, en el futuro, JSON/CSV por persona).
 Sin llave de Gemini, la app corre en modo demo local, sin llamadas de red.
 
+Licencia: GNU Affero General Public License v3.0, ver `LICENSE`.
+
 ## Requisitos
 
 - Python 3.11 o superior
