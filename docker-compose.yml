@@ -15,8 +15,8 @@
 # Usage:
 #   1. cp .env.example .env   # then set GEMINI_API_KEY, SECRET_KEY, BASE_URL
 #   2. docker compose up -d --build
-#   3. Open the app at http://<this-machine>:8000 — or, for a private
-#      family setup, only over Tailscale (http://<tailscale-name>:8000).
+#   3. Open the app at http://<this-machine>:18473 — or, for a private
+#      family setup, only over Tailscale (http://<tailscale-name>:18473).
 #      Do NOT port-forward your router to this port.
 #
 # No Supabase is involved in this mode: leave SUPABASE_URL empty and the
@@ -34,13 +34,16 @@ services:
     build: .
     container_name: mificha
     restart: unless-stopped
-    # PORT is read by the Dockerfile CMD; 8000 is the default.
+    # PORT is read by the Dockerfile CMD; 18473 is the default.
+    # 18473 was chosen over the common 8000 to avoid clashes on a
+    # shared home machine. Override it in .env if you need another port,
+    # and change the host port below to match.
     env_file:
       - .env
     environment:
-      - PORT=8000
+      - PORT=18473
     ports:
-      - "8000:8000"
+      - "18473:18473"
     volumes:
       # Host folder (default ./mificha-data) -> /app/data in the container.
       # Override with: MIFICHA_DATA_DIR=/srv/mificha-data docker compose up -d

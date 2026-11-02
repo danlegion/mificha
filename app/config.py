@@ -56,4 +56,4 @@ SHARE_TTL_DAYS = int(os.getenv("SHARE_TTL_DAYS", "7"))
 UPLOAD_RATE_LIMIT_PER_HOUR = int(os.getenv("UPLOAD_RATE_LIMIT_PER_HOUR", "10"))
 
 # --- URLs ------------------------------------------------------------------
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
+BASE_URL = os.getenv("BASE_URL", "http://localhost:18473").rstrip("/")

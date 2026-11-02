@@ -13,12 +13,12 @@ git clone https://github.com/danlegion/mificha.git
 cd mificha
 cp .env.example .env
 # Edita .env: GEMINI_API_KEY, SECRET_KEY (genera una aleatoria) y
-# BASE_URL (p. ej. http://mini-pc:8000 si usas Tailscale).
+# BASE_URL (p. ej. http://mini-pc:18473 si usas Tailscale).
 # Deja SUPABASE_URL vacío para usar SQLite local.
 docker compose up -d --build
 ```
 
-Abre la app en `http://<tu-máquina>:8000`, o solo por Tailscale en un
+Abre la app en `http://<tu-máquina>:18473`, o solo por Tailscale en un
 despliegue privado. No hagas port-forward de tu router a este puerto.
 
 La carpeta de datos (por defecto `./mificha-data`, configurable con
@@ -67,10 +67,10 @@ cp .env.example .env
 ```bash
 cd ~/workspace/mificha
 source .venv/bin/activate
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 18473
 ```
 
-La app queda en http://localhost:8000 (o el `PORT` de tu `.env`).
+La app queda en http://localhost:18473.
 
 ## Variables de entorno
 
@@ -88,8 +88,8 @@ La app queda en http://localhost:8000 (o el `PORT` de tu `.env`).
 | `DOCAI_CREDENTIALS_JSON` | Solo para fallback | — | JSON de la cuenta de servicio de Document AI. |
 | `SECRET_KEY` | Sí | — | Firma de sesiones/tokens. **Cámbiala en producción.** |
 | `DATABASE_URL` / `STORAGE_DIR` | — | — | Ya no se leen en el código actual: SQLite vive en la carpeta de datos (`./data/mificha.db` local, `./mificha-data/mificha.db` con Docker) y los PDFs en `originales/` dentro de esa misma carpeta. |
-| `PORT` | No | `8000` | Puerto del servidor. |
-| `BASE_URL` | No | `http://localhost:8000` | URL pública; construye los enlaces de WhatsApp. En producción usa tu dominio. |
+| `PORT` | No | `18473` | Puerto del servidor. |
+| `BASE_URL` | No | `http://localhost:18473` | URL pública; construye los enlaces de WhatsApp. En producción usa tu dominio. |
 
 ## Qué funciona sin keys (modo demo)
 
