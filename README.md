@@ -2,6 +2,51 @@
 
 MiFicha es un prototipo de app de salud que explica documentos médicos en español simple: resultados de laboratorio, informes narrativos (por ejemplo un PET) y órdenes de exámenes. Por cada documento dice qué significa cada valor, qué tan fuera de rango está, qué efecto podría tener en la salud y qué tan urgente es buscar atención médica — sin dar diagnósticos.
 
+## Self-hosting con Docker: código y datos separados
+
+Esta es la forma recomendada para uso personal/familiar, y la que usa
+el despliegue privado: el código vive en este repo y en la imagen Docker;
+los datos viven fuera de la imagen, en una carpeta normal del host.
+
+```bash
+git clone https://github.com/danlegion/mificha.git
+cd mificha
+cp .env.example .env
+# Edita .env: GEMINI_API_KEY, SECRET_KEY (genera una aleatoria) y
+# BASE_URL (p. ej. http://mini-pc:8000 si usas Tailscale).
+# Deja SUPABASE_URL vacío para usar SQLite local.
+docker compose up -d --build
+```
+
+Abre la app en `http://<tu-máquina>:8000`, o solo por Tailscale en un
+despliegue privado. No hagas port-forward de tu router a este puerto.
+
+La carpeta de datos (por defecto `./mificha-data`, configurable con
+`MIFICHA_DATA_DIR`) es la fuente de verdad y nunca se sube a git
+(está en `.gitignore` y `.dockerignore`):
+
+```
+mificha-data/
+  mificha.db         # índice SQLite: usuarios, documentos, intakes, shares
+  originales/*.pdf   # PDFs originales subidos, sin modificar
+  quarantine/*.pdf   # subidas retenidas durante el procesamiento
+```
+
+El contenedor es desechable: puedes borrarlo y recrearlo sin perder
+datos, siempre que no borres la carpeta de datos. Haz copia de esa
+carpeta, no del contenedor:
+
+```bash
+cp -r ./mificha-data /ruta/de/respaldo/
+# o sincronización plana a un bucket / carpeta de Drive, p. ej.:
+rclone sync ./mificha-data remote:mificha-backup
+```
+
+Restaurar es copiar la carpeta de vuelta. La app se puede reconstruir
+a partir de ella; ningún proveedor en la nube es necesario para leer
+los archivos (son PDFs, SQLite y, en el futuro, JSON/CSV por persona).
+Sin llave de Gemini, la app corre en modo demo local, sin llamadas de red.
+
 ## Requisitos
 
 - Python 3.11 o superior
@@ -38,13 +83,11 @@ La app queda en http://localhost:8000 (o el `PORT` de tu `.env`).
 | `SUPABASE_URL` | No | SQLite local | URL del proyecto Supabase (producción). |
 | `SUPABASE_ANON_KEY` | No | — | Clave anónima: solo para Supabase Auth (magic links). Con RLS activado ya no accede a las tablas. |
 | `SUPABASE_SERVICE_KEY` | Sí, con RLS activado | — | Clave service_role (solo servidor, nunca al navegador): acceso a datos y Storage. Obligatoria desde que RLS está activado. |
-| `OCR_PROVIDER` | No | `null` | `null` \| `azure` \| `google`. `null` = las páginas escaneadas solo se marcan, sin OCR. |
-| `AZURE_DI_ENDPOINT` | Si `OCR_PROVIDER=azure` | — | Endpoint de Azure Document Intelligence. |
-| `AZURE_DI_KEY` | Si `OCR_PROVIDER=azure` | — | Clave de Azure Document Intelligence. |
-| `GOOGLE_DOCAI_PROJECT` | Si `OCR_PROVIDER=google` | — | Proyecto de Google Document AI. |
+| `OCR_PROVIDER` | No | `tesseract` | Tesseract local (español + inglés, dentro de la imagen Docker). |
+| `DOCAI_PROCESSOR` | Solo para fallback | — | Procesador de Google Document AI (`projects/.../processors/...`); solo se usa si Tesseract no extrae texto útil. |
+| `DOCAI_CREDENTIALS_JSON` | Solo para fallback | — | JSON de la cuenta de servicio de Document AI. |
 | `SECRET_KEY` | Sí | — | Firma de sesiones/tokens. **Cámbiala en producción.** |
-| `DATABASE_URL` | No | `./data/mificha.db` | Vacía = SQLite local. |
-| `STORAGE_DIR` | No | `./data/originales` | Carpeta donde se guardan los PDFs subidos. |
+| `DATABASE_URL` / `STORAGE_DIR` | — | — | Ya no se leen en el código actual: SQLite vive en la carpeta de datos (`./data/mificha.db` local, `./mificha-data/mificha.db` con Docker) y los PDFs en `originales/` dentro de esa misma carpeta. |
 | `PORT` | No | `8000` | Puerto del servidor. |
 | `BASE_URL` | No | `http://localhost:8000` | URL pública; construye los enlaces de WhatsApp. En producción usa tu dominio. |
 

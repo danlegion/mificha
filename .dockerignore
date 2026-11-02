@@ -1,0 +1,16 @@
+# Never put secrets or local data into the image.
+# The image must be safe to share: data lives in a mounted host folder.
+.env
+.env.*
+!.env.example
+mificha-data/
+data/
+.venv/
+venv/
+.git/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store

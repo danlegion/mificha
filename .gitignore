@@ -17,7 +17,11 @@ ENV/
 !.env.example
 
 # --- Datos locales (SQLite, PDFs originales) ---
+# data/ is the app's default folder; mificha-data/ is the Docker
+# self-hosting mount (see docker-compose.yml). Both are the source of
+# truth for a deployment and are NEVER committed to git.
 data/
+mificha-data/
 
 # --- Tests y cobertura ---
 .pytest_cache/

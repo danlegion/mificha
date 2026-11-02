@@ -1,0 +1,47 @@
+# MiFicha — self-hosting with Docker (family / personal instance).
+#
+# Code and data are separate by design:
+#   - Code lives in this repo / in the container image. The container
+#     itself is disposable: delete it and rebuild it any time.
+#   - Data lives OUTSIDE the image, in a plain folder on the host.
+#     That folder is the source of truth and is never committed to git.
+#
+# What the data folder holds (plain files, readable without this app):
+#   mificha-data/
+#     mificha.db            # SQLite index: users, documents, intakes, shares
+#     originales/*.pdf      # original uploaded PDFs, untouched
+#     quarantine/*.pdf      # uploads held aside during processing
+#
+# Usage:
+#   1. cp .env.example .env   # then set GEMINI_API_KEY, SECRET_KEY, BASE_URL
+#   2. docker compose up -d --build
+#   3. Open the app at http://<this-machine>:8000 — or, for a private
+#      family setup, only over Tailscale (http://<tailscale-name>:8000).
+#      Do NOT port-forward your router to this port.
+#
+# No Supabase is involved in this mode: leave SUPABASE_URL empty and the
+# app uses SQLite in the data folder. Gemini is the only outside service
+# called, and only for explanations (Tesseract OCR runs inside the image).
+#
+# Back up the data folder, not the container:
+#   cp -r ./mificha-data /somewhere-safe/
+#   # or, plain (unencrypted) sync to a bucket / Drive folder, e.g.:
+#   rclone sync ./mificha-data remote:mificha-backup
+# Restoring is copying the folder back. The app can be rebuilt from it.
+
+services:
+  mificha:
+    build: .
+    container_name: mificha
+    restart: unless-stopped
+    # PORT is read by the Dockerfile CMD; 8000 is the default.
+    env_file:
+      - .env
+    environment:
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    volumes:
+      # Host folder (default ./mificha-data) -> /app/data in the container.
+      # Override with: MIFICHA_DATA_DIR=/srv/mificha-data docker compose up -d
+      - ${MIFICHA_DATA_DIR:-./mificha-data}:/app/data
