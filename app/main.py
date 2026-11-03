@@ -215,6 +215,7 @@ def index(request: Request):
             "user": user,
             "recent_docs": recent_docs,
             "total_docs": total_docs,
+            "members": dal.list_members(user["id"]) if user else [],
             "guest_token": None,
             "demo_mode": not bool(config.ANTHROPIC_API_KEY),
             "dev_auth": auth.DEV_AUTH,

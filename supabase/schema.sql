@@ -45,6 +45,18 @@ create table if not exists shares (
   created_at    timestamptz default now()
 );
 
+-- Family members: profiles owned by one account, not separate logins.
+create table if not exists members (
+  id            text primary key,
+  owner_user_id text not null,
+  name          text not null,
+  created_at    timestamptz default now()
+);
+
+-- Backfill for databases created before family members existed.
+alter table intakes add column if not exists member_id text;
+alter table documents add column if not exists member_id text;
+
 -- Security: RLS ENABLED on all tables, with no policies for anon or
 -- authenticated (deny by default). The backend accesses them with the
 -- SUPABASE_SERVICE_ROLE_KEY (bypasses RLS) only from the server; the anon key
@@ -54,6 +66,7 @@ alter table intakes   enable row level security;
 alter table users      enable row level security;
 alter table documents  enable row level security;
 alter table shares     enable row level security;
+alter table members    enable row level security;
 
 -- ---------------------------------------------------------------------------
 -- Storage: bucket "originales" for the original PDFs.

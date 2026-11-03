@@ -5,6 +5,20 @@
 {% block content %}
 {% include "_explanation.html" %}
 
+<section class="card" aria-label="{{ _t('vault.member') }}">
+  <h2>{{ _t('vault.member') }}</h2>
+  <p>{{ doc.member_name or _t('vault.member_unassigned') }}</p>
+  <form action="/ficha/{{ doc.id }}/miembro" method="post">
+    <select name="miembro" aria-label="{{ _t('vault.member') }}">
+      <option value="" {% if not doc.member_id %}selected{% endif %}>{{ _t('vault.member_unassigned') }}</option>
+      {% for m in members %}
+      <option value="{{ m.id }}" {% if doc.member_id == m.id %}selected{% endif %}>{{ m.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-secondary" type="submit">{{ _t('vault.member_change') }}</button>
+  </form>
+</section>
+
 <section class="card original-card" aria-label="{{ _t('result.original_h2') }}">
   <h2>{{ _t('result.original_h2') }}</h2>
   {% if doc.original_available %}

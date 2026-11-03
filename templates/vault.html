@@ -9,19 +9,40 @@
   <a class="btn btn-primary" href="/#explicar">{{ _t('vault.another') }}</a>
 </section>
 
-{% if docs %}
-<section class="doc-grid" aria-label="{{ _t('home.recent_h2') }}">
-  {% for doc in docs %}
-  <a class="card doc-card" href="/ficha/{{ doc.id }}">
-    <div class="doc-card-top">
-      <p class="doc-date">{{ doc.date_label }}</p>
-      <p class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</p>
-    </div>
-    <h3 class="doc-about">{{ doc.exam_about }}</h3>
-    <p class="doc-cta">{{ _t('vault.view_detail') }} <span aria-hidden="true">→</span></p>
-  </a>
-  {% endfor %}
+<section class="card">
+  <h2>{{ _t('vault.members_h2') }}</h2>
+  <p>
+    <a href="/ficha" {% if not selected_member %}aria-current="page"{% endif %}>{{ _t('vault.member_all') }}</a>
+    {% for m in members %}
+    · <a href="/ficha?miembro={{ m.id }}" {% if selected_member == m.id %}aria-current="page"{% endif %}>{{ m.name }}</a>
+    {% endfor %}
+  </p>
+  <form action="/ficha/miembros" method="post">
+    <input type="text" name="nombre" placeholder="{{ _t('vault.member_name_ph') }}" aria-label="{{ _t('vault.member_name_ph') }}" required>
+    <button class="btn btn-secondary" type="submit">{{ _t('vault.member_add') }}</button>
+  </form>
 </section>
+
+{% if docs %}
+  {% for group in groups %}
+    {% if group.docs %}
+    <section aria-label="{{ group.member_name or _t('vault.member_unassigned') }}">
+      <h2>{{ group.member_name or _t('vault.member_unassigned') }}</h2>
+      <div class="doc-grid">
+        {% for doc in group.docs %}
+        <a class="card doc-card" href="/ficha/{{ doc.id }}">
+          <div class="doc-card-top">
+            <p class="doc-date">{{ doc.date_label }}</p>
+            <p class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</p>
+          </div>
+          <h3 class="doc-about">{{ doc.exam_about }}</h3>
+          <p class="doc-cta">{{ _t('vault.view_detail') }} <span aria-hidden="true">→</span></p>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  {% endfor %}
 {% else %}
 <section class="card empty-state">
   <h2>{{ _t('vault.empty_h2') }}</h2>

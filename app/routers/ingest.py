@@ -105,6 +105,7 @@ def _run_pipeline(intake_id: str, lang: str = "es"):
                 "intake_id": intake_id,
                 "original_key": intake.get("original_key"),
                 "explanation": exp,
+                "member_id": intake.get("member_id"),
             }
         )
         log.info("Intake %s guardado en la ficha del usuario %s",
@@ -121,6 +122,8 @@ async def subir(
     background: BackgroundTasks,
     archivo: UploadFile = File(...),
     tipo_doc: str = Form(default=""),
+    miembro: str = Form(default=""),
+    nuevo_miembro: str = Form(default=""),
 ):
     ip = _client_ip(request)
     if not ratelimit.check(f"subir:{ip}", config.UPLOAD_RATE_LIMIT_PER_HOUR):
@@ -145,6 +148,28 @@ async def subir(
             status_code=400,
         )
 
+    # Signed-in uploads may be assigned to a family member: either pick
+    # an existing member or create one inline. A member id that does not
+    # belong to this account is rejected, never silently reassigned.
+    user = auth.get_current_user(request)
+    member_id = None
+    if user:
+        if (nuevo_miembro or "").strip():
+            member_id = dal.create_member(
+                user["id"], nuevo_miembro.strip())["id"]
+        elif (miembro or "").strip():
+            member = dal.get_member(miembro.strip())
+            if not member or member.get("owner_user_id") != user["id"]:
+                return templates.TemplateResponse(
+                    request,
+                    "error.html",
+                    {"request": request, "lang": page_lang(request),
+                     "message": _t("member.invalid"), "detail": None,
+                     "dev_auth": False, "demo_mode": False},
+                    status_code=400,
+                )
+            member_id = member["id"]
+
     intake_id = uuid.uuid4().hex
     guest_token = new_guest_token()
     with open(quarantine_path(intake_id), "wb") as f:
@@ -154,7 +179,6 @@ async def subir(
     # procesamiento el documento se guarda solo en su ficha.
     # (El PDF original se sube a Storage en segundo plano, sin bloquear
     # la redirección a la página de "procesando".)
-    user = auth.get_current_user(request)
     nuevo_intake = {
         "id": intake_id,
         "guest_token_hash": hash_token(guest_token),
@@ -163,6 +187,8 @@ async def subir(
     }
     if user:
         nuevo_intake["owner_user_id"] = user["id"]
+    if member_id:
+        nuevo_intake["member_id"] = member_id
     dal.save_intake(nuevo_intake)
     # Log sin contenido clínico: solo tamaños y estado.
     log.info("Nuevo intake %s (%d bytes, hint=%s)",

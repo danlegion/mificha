@@ -18,7 +18,7 @@ from app import config
 
 log = logging.getLogger("mificha.db")
 
-TABLES = ("intakes", "users", "documents", "shares")
+TABLES = ("intakes", "users", "documents", "shares", "members")
 
 
 def _now():
@@ -63,6 +63,7 @@ def _sqlite_dal():
         explanation_json = Column(Text, nullable=True)
         corrections_json = Column(Text, default="[]")
         owner_user_id = Column(String, nullable=True)
+        member_id = Column(String, nullable=True)
         created_at = Column(DateTime, default=_now)
         updated_at = Column(DateTime, default=_now, onupdate=_now)
 
@@ -80,6 +81,15 @@ def _sqlite_dal():
         intake_id = Column(String, nullable=False)
         original_key = Column(String, nullable=True)
         explanation_json = Column(Text, nullable=True)
+        member_id = Column(String, nullable=True)
+        created_at = Column(DateTime, default=_now)
+
+    # Family members: profiles owned by one account, not separate logins.
+    class Member(Base):
+        __tablename__ = "members"
+        id = Column(String, primary_key=True)
+        owner_user_id = Column(String, nullable=False)
+        name = Column(String, nullable=False)
         created_at = Column(DateTime, default=_now)
 
     class Share(Base):
@@ -93,6 +103,16 @@ def _sqlite_dal():
         created_at = Column(DateTime, default=_now)
 
     Base.metadata.create_all(engine)
+    # create_all does not add columns to existing tables, so backfill
+    # member_id on databases created before family members existed.
+    from sqlalchemy import text as _sa_text
+    with engine.begin() as _conn:
+        for _table in ("intakes", "documents"):
+            _cols = [r[1] for r in _conn.execute(
+                _sa_text(f"PRAGMA table_info({_table})")).fetchall()]
+            if "member_id" not in _cols:
+                _conn.execute(_sa_text(
+                    f"ALTER TABLE {_table} ADD COLUMN member_id TEXT"))
 
     def _intake_d(i: Intake) -> dict:
         return {
@@ -105,6 +125,7 @@ def _sqlite_dal():
             "explanation": json.loads(i.explanation_json) if i.explanation_json else None,
             "corrections": json.loads(i.corrections_json or "[]"),
             "owner_user_id": i.owner_user_id,
+            "member_id": i.member_id,
             "created_at": _iso(i.created_at),
             "updated_at": _iso(i.updated_at),
         }
@@ -118,7 +139,14 @@ def _sqlite_dal():
             "id": d.id, "user_id": d.user_id, "intake_id": d.intake_id,
             "original_key": d.original_key,
             "explanation": json.loads(d.explanation_json) if d.explanation_json else None,
+            "member_id": d.member_id,
             "created_at": _iso(d.created_at),
+        }
+
+    def _member_d(m: Member) -> dict:
+        return {
+            "id": m.id, "owner_user_id": m.owner_user_id, "name": m.name,
+            "created_at": _iso(m.created_at),
         }
 
     def _share_d(s: Share) -> dict:
@@ -148,6 +176,8 @@ def _sqlite_dal():
                     obj.corrections_json = json.dumps(intake["corrections"], ensure_ascii=False)
                 if "owner_user_id" in intake:
                     obj.owner_user_id = intake["owner_user_id"]
+                if "member_id" in intake:
+                    obj.member_id = intake["member_id"]
                 s.commit()
                 return _intake_d(obj)
 
@@ -254,6 +284,8 @@ def _sqlite_dal():
                 obj.user_id = doc["user_id"]
                 obj.intake_id = doc.get("intake_id", doc["id"])
                 obj.original_key = doc.get("original_key")
+                if "member_id" in doc:
+                    obj.member_id = doc["member_id"]
                 if doc.get("explanation") is not None:
                     obj.explanation_json = json.dumps(doc["explanation"], ensure_ascii=False)
                 s.commit()
@@ -264,15 +296,40 @@ def _sqlite_dal():
                 obj = s.get(Document, doc_id)
                 return _doc_d(obj) if obj else None
 
-        def list_documents(self, user_id):
+        def list_documents(self, user_id, member_id=None):
+            with Session() as s:
+                q = s.query(Document).filter_by(user_id=user_id)
+                if member_id is not None:
+                    q = q.filter_by(member_id=member_id)
+                objs = q.order_by(desc(Document.created_at)).all()
+                return [_doc_d(o) for o in objs]
+
+        # -- members -----------------------------------------------------
+        def create_member(self, owner_user_id, name):
+            name = (name or "").strip()
+            if not name:
+                raise ValueError("member name is required")
+            with Session() as s:
+                obj = Member(id=uuid.uuid4().hex, owner_user_id=owner_user_id,
+                             name=name)
+                s.add(obj)
+                s.commit()
+                return _member_d(obj)
+
+        def list_members(self, owner_user_id):
             with Session() as s:
                 objs = (
-                    s.query(Document)
-                    .filter_by(user_id=user_id)
-                    .order_by(desc(Document.created_at))
+                    s.query(Member)
+                    .filter_by(owner_user_id=owner_user_id)
+                    .order_by(Member.created_at, Member.name)
                     .all()
                 )
-                return [_doc_d(o) for o in objs]
+                return [_member_d(o) for o in objs]
+
+        def get_member(self, member_id):
+            with Session() as s:
+                obj = s.get(Member, member_id)
+                return _member_d(obj) if obj else None
 
         def delete_document(self, doc_id: str) -> bool:
             with Session() as s:
@@ -359,6 +416,7 @@ def _supabase_dal():
             "explanation": json.loads(r["explanation_json"]) if r.get("explanation_json") else None,
             "corrections": json.loads(r.get("corrections_json") or "[]"),
             "owner_user_id": r.get("owner_user_id"),
+            "member_id": r.get("member_id"),
             "created_at": r.get("created_at"),
             "updated_at": r.get("updated_at"),
         }
@@ -376,8 +434,15 @@ def _supabase_dal():
             "id": r["id"], "user_id": r.get("user_id"),
             "intake_id": r.get("intake_id"), "original_key": r.get("original_key"),
             "explanation": json.loads(r["explanation_json"]) if r.get("explanation_json") else None,
+            "member_id": r.get("member_id"),
             "created_at": r.get("created_at"),
         }
+
+    def _n_member(r):
+        if not r:
+            return None
+        return {"id": r["id"], "owner_user_id": r.get("owner_user_id"),
+                "name": r.get("name"), "created_at": r.get("created_at")}
 
     def _n_share(r):
         if not r:
@@ -403,6 +468,7 @@ def _supabase_dal():
                 if intake.get("explanation") is not None else None,
                 "corrections_json": json.dumps(intake.get("corrections") or []),
                 "owner_user_id": intake.get("owner_user_id"),
+                "member_id": intake.get("member_id"),
                 "updated_at": _now().isoformat(),
             }
             return _n_intake(_one(client.table("intakes").upsert(row).execute()))
@@ -466,16 +532,39 @@ def _supabase_dal():
                 "original_key": doc.get("original_key"),
                 "explanation_json": json.dumps(doc["explanation"], ensure_ascii=False)
                 if doc.get("explanation") is not None else None,
+                "member_id": doc.get("member_id"),
             }
             return _n_doc(_one(client.table("documents").upsert(row).execute()))
 
         def get_document(self, doc_id):
             return _n_doc(_one(client.table("documents").select("*").eq("id", doc_id).execute()))
 
-        def list_documents(self, user_id):
-            resp = (client.table("documents").select("*").eq("user_id", user_id)
-                    .order("created_at", desc=True).execute())
+        def list_documents(self, user_id, member_id=None):
+            q = client.table("documents").select("*").eq("user_id", user_id)
+            if member_id is not None:
+                q = q.eq("member_id", member_id)
+            resp = q.order("created_at", desc=True).execute()
             return [_n_doc(r) for r in (resp.data or [])]
+
+        # -- members -----------------------------------------------------
+        def create_member(self, owner_user_id, name):
+            name = (name or "").strip()
+            if not name:
+                raise ValueError("member name is required")
+            return _n_member(_one(client.table("members").insert(
+                {"id": uuid.uuid4().hex, "owner_user_id": owner_user_id,
+                 "name": name}
+            ).execute()))
+
+        def list_members(self, owner_user_id):
+            resp = (client.table("members").select("*")
+                    .eq("owner_user_id", owner_user_id)
+                    .order("created_at").execute())
+            return [_n_member(r) for r in (resp.data or [])]
+
+        def get_member(self, member_id):
+            return _n_member(_one(client.table("members").select("*")
+                                  .eq("id", member_id).execute()))
 
         def delete_document(self, doc_id: str) -> bool:
             client.table("documents").delete().eq("id", doc_id).execute()

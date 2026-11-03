@@ -18,6 +18,16 @@
       <span class="file-hint">{{ _t('upload.hint') }}</span>
       <input type="file" id="archivo" name="archivo" accept=".pdf" required>
     </label>
+    {% if user %}
+    <label class="field-label" for="miembro">{{ _t('upload.member_label') }}</label>
+    <select id="miembro" name="miembro">
+      <option value="">{{ _t('upload.member_unassigned') }}</option>
+      {% for m in members or [] %}
+      <option value="{{ m.id }}">{{ m.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="nuevo_miembro" placeholder="{{ _t('upload.member_new') }}" aria-label="{{ _t('upload.member_new') }}">
+    {% endif %}
     <button class="btn btn-primary btn-large" type="submit" data-upload-btn>{{ _t('upload.submit') }}</button>
     {% if not user %}<p class="micro-note">{{ _t('upload.no_account') }}</p>{% endif %}
   </form>

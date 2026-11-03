@@ -3,7 +3,7 @@
 import re
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 
 from app import auth, config, schemas
@@ -90,11 +90,16 @@ def _base_ctx(request: Request, user) -> dict:
 
 
 @router.get("/ficha")
-def ficha(request: Request):
+def ficha(request: Request, miembro: str = ""):
     try:
         user = _require_user(request)
     except HTTPException:
         return RedirectResponse("/", status_code=303)
+    members = dal.list_members(user["id"])
+    by_id = {m["id"]: m["name"] for m in members}
+    # Filter by member when requested; an unknown id shows everything
+    # rather than an empty vault, so a stale link never hides files.
+    selected = miembro.strip() if miembro.strip() in by_id else ""
     docs = []
     crudos = dal.list_documents(user["id"])
     # Orden: por fecha del examen (doctor/laboratorio), no de subida.
@@ -117,11 +122,56 @@ def ficha(request: Request):
                 "exam_about": nombre_examen_corto(exp),
                 "urgency_label": urg.get("label", ""),
                 "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
+                "member_id": d.get("member_id"),
+                "member_name": by_id.get(d.get("member_id") or ""),
             }
         )
+    # Group by member, members first in creation order, unassigned last.
+    groups = []
+    for m in members:
+        group_docs = [d for d in docs if d["member_id"] == m["id"]]
+        if not selected or selected == m["id"]:
+            groups.append({"member_id": m["id"], "member_name": m["name"],
+                           "docs": group_docs})
+    unassigned = [d for d in docs if not d.get("member_id")]
+    if not selected:
+        groups.append({"member_id": "", "member_name": "",
+                       "docs": unassigned})
     return templates.TemplateResponse(
         request,
-        "vault.html", {**_base_ctx(request, user), "docs": docs})
+        "vault.html",
+        {**_base_ctx(request, user), "docs": docs, "groups": groups,
+         "members": members, "selected_member": selected})
+
+
+@router.post("/ficha/miembros")
+def crear_miembro(request: Request, nombre: str = Form(default="")):
+    try:
+        user = _require_user(request)
+    except HTTPException:
+        return RedirectResponse("/", status_code=303)
+    if (nombre or "").strip():
+        dal.create_member(user["id"], nombre.strip())
+    return RedirectResponse("/ficha", status_code=303)
+
+
+@router.post("/ficha/{doc_id}/miembro")
+def cambiar_miembro(doc_id: str, request: Request,
+                    miembro: str = Form(default="")):
+    try:
+        user = _require_user(request)
+    except HTTPException:
+        return RedirectResponse("/", status_code=303)
+    doc = dal.get_document(doc_id)
+    if not doc or doc.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    member_id = (miembro or "").strip() or None
+    if member_id:
+        member = dal.get_member(member_id)
+        if not member or member.get("owner_user_id") != user["id"]:
+            raise HTTPException(status_code=404, detail="No encontrado")
+    dal.save_document({**doc, "member_id": member_id})
+    return RedirectResponse(f"/ficha/{doc_id}", status_code=303)
 
 
 @router.get("/ficha/{doc_id}")
@@ -136,6 +186,8 @@ def ficha_detalle(doc_id: str, request: Request):
     exp = render_explanation(doc.get("explanation") or {})
     intake_id = doc.get("intake_id") or doc["id"]
     share_row = dal.get_active_share_for_intake(intake_id)
+    members = dal.list_members(user["id"])
+    by_id = {m["id"]: m["name"] for m in members}
     return templates.TemplateResponse(
         request,
         "vault_detail.html",
@@ -147,8 +199,12 @@ def ficha_detalle(doc_id: str, request: Request):
                 "original_url": f"/ficha/{doc['id']}/original",
                 "download_url": f"/ficha/{doc['id']}/original?descargar=1",
                 "original_available": original_exists(doc.get("original_key") or ""),
+                "member_id": doc.get("member_id"),
+                "member_name": by_id.get(doc.get("member_id") or ""),
             },
-            "history": _historial(user["id"], doc_id),
+            "members": members,
+            "history": _historial(user["id"], doc_id,
+                                  member_id=doc.get("member_id")),
             "intake_id": intake_id,
             "share": share_ctx(share_row),
         },
@@ -188,13 +244,20 @@ def _agrupar_por_analisis(items):
     ]
 
 
-def _historial(user_id: str, doc_actual_id: str) -> list:
+def _historial(user_id: str, doc_actual_id: str,
+               member_id: str | None = None) -> list:
     """[{biomarker_name, entries:[{date_label,value,unit,flag_label,is_current}]}]
 
     NOTA: es una lista (no un dict), porque la plantilla itera
     `{% for h in history %}` y usa `h.entries`.
     """
     docs = dal.list_documents(user_id)
+    # History stays within one person: a member's values never mix with
+    # another member's, and unassigned docs only compare with unassigned.
+    if member_id:
+        docs = [d for d in docs if d.get("member_id") == member_id]
+    else:
+        docs = [d for d in docs if not d.get("member_id")]
     items = []
     for d in docs:
         exp = d.get("explanation") or {}

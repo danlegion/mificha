@@ -74,6 +74,7 @@ def _reclamar(intake_id: str, email: str, telefono: str | None) -> dict:
             "intake_id": intake_id,
             "original_key": intake.get("original_key"),
             "explanation": intake.get("explanation"),
+            "member_id": intake.get("member_id"),
         }
     )
     log.info("Intake %s reclamado por usuario %s", intake_id, nuevo_usuario["id"])

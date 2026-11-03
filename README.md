@@ -47,6 +47,24 @@ no cloud provider is needed to read the files (they are PDFs, SQLite
 and, in the future, JSON/CSV per person). Without a Gemini key, the app
 runs in local demo mode, with no network calls.
 
+## Family members
+
+The private/family version has no guest accounts. The account holder
+creates family-member profiles under their own account — members are
+profiles, not separate logins, so they need no email or password — and
+assigns each upload to a member:
+
+- On upload (signed in): pick a member, or type a new member's name to
+  create one inline.
+- In the vault (`/ficha`): create members, filter by member, and see
+  documents grouped by member, unassigned last.
+- On a saved document's detail page: reassign it to another member.
+  Biomarker history on that page stays within the same member, so one
+  person's values never mix with another's.
+
+Each self-hosted instance has its own account holder and its own
+members; there is no central family registry.
+
 License: GNU Affero General Public License v3.0, see `LICENSE`.
 
 ## Requirements
