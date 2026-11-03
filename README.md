@@ -115,7 +115,7 @@ The app is then at http://localhost:18473.
 | `SUPABASE_ANON_KEY` | No | — | Anonymous key: only for Supabase Auth (magic links). With RLS enabled it no longer accesses the tables. |
 | `SUPABASE_SERVICE_KEY` | Yes, with RLS enabled | — | service_role key (server only, never to the browser): data and Storage access. Required since RLS was enabled. |
 | `OCR_PROVIDER` | No | `tesseract` | Local Tesseract (Spanish + English, inside the Docker image). |
-| `DOCAI_PROCESSOR` | Fallback only | — | Google Document AI processor (`projects/.../processors/...`); only used if Tesseract extracts no useful text. |
+| `DOCAI_PROCESSOR` | Fallback only | — | Google Document AI processor (`projects/.../processors/...`); only used if Tesseract extracts no useful text or clearly garbled text. |
 | `DOCAI_CREDENTIALS_JSON` | Fallback only | — | Document AI service-account JSON. |
 | `SECRET_KEY` | Yes | — | Session/token signing key. **Change it in production.** |
 | `DATABASE_URL` / `STORAGE_DIR` | — | — | No longer read by the current code: SQLite lives in the data folder (`./data/mificha.db` locally, `./mificha-data/mificha.db` with Docker) and PDFs in `originales/` inside that same folder. |
@@ -133,7 +133,7 @@ The app is then at http://localhost:18473.
 
 1. **Supabase**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` (and `DATABASE_URL` if you use Postgres directly).
 2. **Gemini (or Anthropic)**: `GEMINI_API_KEY` (and `GEMINI_MODEL` if you want to pin the model) for the natural-language explanation. Alternative: `ANTHROPIC_API_KEY` + `LLM_MODEL`.
-3. **OCR**: local Tesseract by default; Google Document AI as fallback with its credentials, to extract text from scanned PDFs.
+3. **OCR**: local Tesseract by default, with a garbled-text quality gate (`app/services/ocr_quality.py`): text that is clearly garbled is not saved as document text — it goes to the Google Document AI fallback instead, and if the fallback is also garbled (or not configured) the page stays marked as scanned/uncertain. The gate is character-level only and conservative: numbers, units, abbreviations, and dates all count as clean.
 
 ## How to run the tests
 

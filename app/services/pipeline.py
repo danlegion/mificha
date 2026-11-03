@@ -18,6 +18,7 @@ from app.i18n import get_current_lang, set_current_lang, t as _t
 from app.services import pdf_extract
 from app.services.llm import get_llm_provider
 from app.services.ocr import get_ocr_fallback_provider, get_ocr_provider
+from app.services.ocr_quality import is_garbled
 from app.services.urgency import decide_urgency
 
 log = logging.getLogger("mificha.pipeline")
@@ -37,10 +38,12 @@ def _intentar_ocr(extracted: dict, pdf_bytes: bytes, lang: str) -> None:
     """Pasa OCR por las páginas escaneadas e inyecta el texto en `extracted`.
 
     Cadena: OCR primario (Tesseract) y, solo cuando este no extrae texto
-    útil, el fallback administrado (Google Document AI). Las páginas leídas
-    salen de `scanned_pages` y entran en `ocr_pages`. Las que fallan quedan
-    en `scanned_pages`. Nunca tumba el flujo: los fallos se registran y la
-    página sigue marcada como incierta.
+    útil o su texto está claramente garbled, el fallback administrado
+    (Google Document AI). Las páginas leídas salen de `scanned_pages` y
+    entran en `ocr_pages`. Las que fallan — o cuyo texto sigue garbled
+    tras el fallback — quedan en `scanned_pages`, sin guardarse como si
+    fueran texto válido. Nunca tumba el flujo: los fallos se registran
+    y la página sigue marcada como incierta.
     """
     try:
         proveedor = get_ocr_provider()
@@ -87,19 +90,31 @@ def _intentar_ocr(extracted: dict, pdf_bytes: bytes, lang: str) -> None:
                 except Exception as exc:  # noqa: BLE001
                     log.warning("OCR primario falló en la página %d: %s",
                                 numero, exc)
-            # Fallback administrado solo si el primario no dio texto útil:
-            # cada página que lo usa se factura en Google Cloud.
-            if len(texto) < OCR_MIN_CHARS and fallback is not None:
+            # Fallback administrado solo si el primario no dio texto útil
+            # o lo dio garbled: cada página que lo usa se factura en
+            # Google Cloud, así que el texto limpio nunca lo llama.
+            if (len(texto) < OCR_MIN_CHARS or is_garbled(texto)) \
+                    and fallback is not None:
                 try:
-                    log.info("Página %d: primario sin texto útil, probando %s",
-                             numero, fallback.name)
+                    log.info("Página %d: primario sin texto útil o garbled, "
+                             "probando %s", numero, fallback.name)
                     texto = fallback.extract_text(imagen).strip()
                     fuente = fallback.name
+                    # Si el fallback también sale garbled, el chequeo
+                    # final de abajo descarta la página en vez de
+                    # guardarlo como texto válido.
                 except Exception as exc:  # noqa: BLE001
                     log.warning("OCR fallback falló en la página %d: %s",
                                 numero, exc)
             if len(texto) < OCR_MIN_CHARS:
                 log.info("OCR sin texto útil en la página %d", numero)
+                continue
+            if is_garbled(texto):
+                # Sin fallback, o con un fallback también garbled: no se
+                # guarda basura como si fuera el documento. La página
+                # queda en scanned_pages y se marca incierta.
+                log.warning("OCR garbled en la página %d: no se guarda",
+                            numero)
                 continue
             for p in extracted["pages"]:
                 if p.get("page_number") == numero:
