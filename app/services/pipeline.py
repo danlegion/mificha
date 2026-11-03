@@ -239,6 +239,32 @@ def _aplicar_reglas_duras(exp: dict, extracted: dict) -> dict:
         s = str(exp.get(campo) or "").strip()
         exp[campo] = s[:600] or None
 
+    # Vacunas: solo lo que dice el documento; normaliza la fecha cuando
+    # se puede parsear, sin inventar ninguna, y quita duplicados.
+    from app.services.vaccines import parse_vaccine_date
+    vacunas_ok, _vistas = [], set()
+    for v in exp.get("vaccines") or []:
+        nombre = str(v.get("name") or "").strip()
+        if not nombre:
+            continue
+        fecha = str(v.get("date_administered") or "").strip() or None
+        if fecha:
+            fecha = parse_vaccine_date(fecha) or fecha
+        clave = (nombre.lower(), fecha or "",
+                 str(v.get("dose") or "").strip())
+        if clave in _vistas:
+            continue
+        _vistas.add(clave)
+        vacunas_ok.append({
+            "name": nombre[:120],
+            "date_administered": fecha,
+            "dose": (str(v.get("dose") or "").strip() or None),
+            "lot": (str(v.get("lot") or "").strip() or None),
+            "manufacturer": (str(v.get("manufacturer") or "").strip() or None),
+            "provider": (str(v.get("provider") or "").strip() or None),
+        })
+    exp["vaccines"] = vacunas_ok
+
     # Urgencia: la regla conservadora nunca baja lo que el LLM marcó.
     regla = decide_urgency(_derivar_senales(exp, extracted))
     nivel_llm = (exp.get("urgency") or {}).get("level", "no_urgente")

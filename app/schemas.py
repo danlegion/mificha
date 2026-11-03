@@ -30,6 +30,7 @@ DocumentType = Literal[
     "narrative_report",
     "exam_order",
     "doctor_note",
+    "vaccine_record",
     "unknown",
 ]
 
@@ -57,6 +58,17 @@ class OrderedTest(BaseModel):
     usual_objectives: List[str] = Field(default_factory=list)
     preparation: Optional[str] = None
     question_for_doctor: str
+
+
+class Vaccine(BaseModel):
+    # A vaccine already received, exactly as the document states it.
+    # No due dates are ever computed from this record.
+    name: str
+    date_administered: Optional[str] = None  # YYYY-MM-DD when parseable
+    dose: Optional[str] = None  # e.g. "1", "2", "refuerzo" — as stated
+    lot: Optional[str] = None
+    manufacturer: Optional[str] = None
+    provider: Optional[str] = None
 
 
 class Urgency(BaseModel):
@@ -91,6 +103,7 @@ class Explanation(BaseModel):
     biomarkers: List[Biomarker] = Field(default_factory=list)
     narrative_findings: List[NarrativeFinding] = Field(default_factory=list)
     ordered_tests: List[OrderedTest] = Field(default_factory=list)
+    vaccines: List[Vaccine] = Field(default_factory=list)
     urgency: Urgency
     recommendations: List[str] = Field(default_factory=list)
     questions_for_doctor: List[str] = Field(default_factory=list)

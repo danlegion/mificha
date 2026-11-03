@@ -12,6 +12,7 @@ from app.i18n import MESES_CORTO, get_current_lang, t as _t
 from app.routers import (nombre_examen_corto, normalize_flag_key,
                          page_lang, render_explanation, share_ctx, templates,
                          urgency_css_key)
+from app.services.vaccines import group_vaccines_by_member
 from app.storage import delete_original, get_original_path, original_exists
 
 router = APIRouter()
@@ -141,6 +142,25 @@ def ficha(request: Request, miembro: str = ""):
         request,
         "vault.html",
         {**_base_ctx(request, user), "docs": docs, "groups": groups,
+         "members": members, "selected_member": selected})
+
+
+@router.get("/vacunas")
+def vacunas(request: Request, miembro: str = ""):
+    try:
+        user = _require_user(request)
+    except HTTPException:
+        return RedirectResponse("/", status_code=303)
+    members = dal.list_members(user["id"])
+    by_id = {m["id"]: m["name"] for m in members}
+    selected = miembro.strip() if miembro.strip() in by_id else ""
+    groups = group_vaccines_by_member(dal.list_documents(user["id"]), members)
+    if selected:
+        groups = [g for g in groups if g["member_id"] == selected]
+    return templates.TemplateResponse(
+        request,
+        "vaccines.html",
+        {**_base_ctx(request, user), "groups": groups,
          "members": members, "selected_member": selected})
 
 

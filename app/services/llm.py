@@ -52,10 +52,11 @@ REGLAS DURAS (inquebrantables):
 8. FECHA DEL DOCUMENTO: es la fecha en que el doctor o laboratorio completó/emitió el documento (fecha del informe, de la toma de muestra o de emisión, en el encabezado o pie), NO la fecha de hoy. Formato AAAA-MM-DD. Si no aparece en el documento, null: nunca la inventes ni uses la fecha actual.
 9. RESUMEN POR SECCIONES: además de "summary_simple", devuelve el resumen dividido en tres partes cortas, cada una en lenguaje simple y sin tecnicismos: "resumen_que_es" (qué es este examen/documento y para qué se usa), "resumen_rapido" (lo más importante del resultado en 1-2 frases) y "resumen_hallazgos" (qué salió fuera de lo esperado y qué significa, en frases cortas; no repitas la lista de valores uno por uno porque ya van en otra sección).
 10. NOMBRE DEL EXAMEN ("nombre_examen"): 2 a 5 palabras en lenguaje cotidiano, como se lo dirías a un familiar que no sabe de medicina: usa el nombre común, no el técnico ("Examen de sangre completo", no "Hemograma"; "Examen de la tiroides", no "Perfil tiroideo"; "Radiografía del pecho", no "Radiografía de tórax"). Sé específico dentro de lo común ("Examen de sangre completo" mejor que solo "Examen de sangre" si el documento lo permite). Si el documento no permite identificarlo, usa la etiqueta de tipo.
+11. VACUNAS: si el documento es un registro de vacunación ("vaccine_record"), lista en "vaccines" cada vacuna recibida tal como aparece: nombre, fecha de administración, dosis, lote, fabricante y proveedor SOLO si el documento los dice. Nunca inventes fechas, dosis ni vacunas, y nunca calcules próximas dosis ni recomiendes qué vacunas ponerse: el registro es solo lo ya recibido.
 
 Devuelve SOLO un JSON válido (sin bloques de código, sin texto extra) con esta estructura exacta:
 {
-  "document_type": "lab_result" | "narrative_report" | "exam_order" | "doctor_note",
+  "document_type": "lab_result" | "narrative_report" | "exam_order" | "doctor_note" | "vaccine_record",
   "type_label": "etiqueta en español, p. ej. 'Resultado de laboratorio'",
   "nombre_examen": "nombre corto del examen en palabras cotidianas, p. ej. 'Examen de sangre completo', 'Examen de la tiroides'",
   "laboratorio": "nombre del laboratorio o clínica como aparece en el documento, o null si no aparece",
@@ -83,6 +84,13 @@ Devuelve SOLO un JSON válido (sin bloques de código, sin texto extra) con esta
      "usual_objectives": ["para qué suele usarse…", "…"],
      "preparation": "preparación si el documento la dice, o null",
      "question_for_doctor": "una pregunta útil para hacerle al doctor"}
+  ],
+  "vaccines": [
+    {"name": "nombre de la vacuna tal como aparece en el documento",
+     "date_administered": "fecha de administración (AAAA-MM-DD) o null si no aparece",
+     "dose": "dosis tal como aparece (p. ej. '1', '2', 'refuerzo') o null",
+     "lot": "lote o null", "manufacturer": "fabricante o null",
+     "provider": "quién la aplicó / clínica o null"}
   ],
   "urgency": {"level": "no_urgente" | "agendar_cita" | "hablar_hoy_con_profesional" | "buscar_ayuda_ya",
               "label": "etiqueta corta en español", "action": "qué hacer",
@@ -113,10 +121,11 @@ HARD RULES (unbreakable):
 8. DOCUMENT DATE: it's the date the doctor or lab completed/issued the document (report date, sample date, or issue date, in the header or footer), NOT today's date. Format YYYY-MM-DD. If it doesn't appear in the document, null: never invent it or use the current date.
 9. SECTIONED SUMMARY: besides "summary_simple", return the summary split into three short parts, each in simple language without jargon: "resumen_que_es" (what this exam/document is and what it's used for), "resumen_rapido" (the most important thing about the result in 1-2 sentences), and "resumen_hallazgos" (what came out as unexpected and what it means, in short sentences; don't repeat the list of values one by one since they go in another section).
 10. EXAM NAME ("nombre_examen"): 2 to 5 words in everyday language, as you'd tell a family member who doesn't know medicine: use the common name, not the technical one ("Complete blood test", not "Hemogram"; "Thyroid test", not "Thyroid profile"; "Chest X-ray", not "Thorax X-ray"). Be specific within what's common ("Complete blood test" better than just "Blood test" if the document allows it). If the document doesn't let you identify it, use the type label.
+11. VACCINES: if the document is a vaccination record ("vaccine_record"), list in "vaccines" each vaccine received exactly as it appears: name, date administered, dose, lot, manufacturer, and provider ONLY if the document states them. Never invent dates, doses, or vaccines, and never compute next doses or recommend which vaccines to get: the registry is only what was already received.
 
 Return ONLY valid JSON (no code blocks, no extra text) with this exact structure:
 {
-  "document_type": "lab_result" | "narrative_report" | "exam_order" | "doctor_note",
+  "document_type": "lab_result" | "narrative_report" | "exam_order" | "doctor_note" | "vaccine_record",
   "type_label": "label in English, e.g. 'Lab result'",
   "nombre_examen": "short exam name in everyday words, e.g. 'Complete blood test', 'Thyroid test'",
   "laboratorio": "lab or clinic name as it appears in the document, or null if absent",
@@ -144,6 +153,13 @@ Return ONLY valid JSON (no code blocks, no extra text) with this exact structure
      "usual_objectives": ["what it's usually used for…", "…"],
      "preparation": "preparation if the document states it, or null",
      "question_for_doctor": "one useful question to ask the doctor"}
+  ],
+  "vaccines": [
+    {"name": "vaccine name as it appears in the document",
+     "date_administered": "date administered (YYYY-MM-DD) or null if absent",
+     "dose": "dose as stated (e.g. '1', '2', 'booster') or null",
+     "lot": "lot or null", "manufacturer": "manufacturer or null",
+     "provider": "who gave it / clinic or null"}
   ],
   "urgency": {"level": "no_urgente" | "agendar_cita" | "hablar_hoy_con_profesional" | "buscar_ayuda_ya",
               "label": "short label in English", "action": "what to do",
@@ -367,6 +383,7 @@ _TIPOS_LABEL = {
     "narrative_report": "Informe narrativo",
     "exam_order": "Pedido de examen",
     "doctor_note": "Nota del doctor",
+    "vaccine_record": "Registro de vacunas",
     "unknown": "Documento médico",
 }
 
@@ -568,11 +585,14 @@ def _detectar_tipo(texto: str, hint) -> str:
         "pedido": "exam_order",
         "informe": "narrative_report",
         "nota": "doctor_note",
+        "vacuna": "vaccine_record",
+        "vaccine": "vaccine_record",
     }
     if hint and str(hint).strip().lower() in mapa_hint:
         return mapa_hint[str(hint).strip().lower()]
     t = texto.lower()
     puntajes = {
+        "vaccine_record": sum(k in t for k in ["registro de vacun", "vaccination record", "immunization record", "cartilla de vacun", "carnet de vacun", "vacuna aplicada", "fecha de vacun", "vaccines received", "inmunización", "inmunizacion"]),
         "exam_order": sum(k in t for k in ["orden de", "solicitud de examen", "se solicita", "pedido de", "solicito"]),
         "narrative_report": sum(k in t for k in ["informe", "hallazgo", "impresión", "pet-ct", "tomografía", "resonancia", "ecografía", "radiografía"]),
         "doctor_note": sum(k in t for k in ["nota médica", "evolución", "motivo de consulta", "examen físico", "plan:"]),
@@ -627,6 +647,7 @@ def _tipo_label(tipo: str, lang: str = "es") -> str:
         "narrative_report": _t("demo.type_narrative", lang=lang),
         "exam_order": _t("demo.type_order", lang=lang),
         "doctor_note": _t("demo.type_note", lang=lang),
+        "vaccine_record": _t("demo.type_vaccine", lang=lang),
     }.get(tipo, _t("demo.type_unknown", lang=lang))
 
 
@@ -662,6 +683,9 @@ class DemoExplainer(LLMProvider):
         if tipo == "lab_result":
             cuerpo, sen_lab = self._explicar_laboratorio(texto, uncertain, lang)
             sen_extra = sen_lab
+        elif tipo == "vaccine_record":
+            cuerpo = self._explicar_vacunas(texto, uncertain, lang)
+            sen_extra = {"abnormal": [], "has_critical_flag": False}
         elif tipo == "exam_order":
             cuerpo = self._explicar_pedido(texto, uncertain, lang)
             sen_extra = {"abnormal": [], "has_critical_flag": False}
@@ -699,6 +723,7 @@ class DemoExplainer(LLMProvider):
             "narrative_report": _t("demo.what_narrative", lang=lang),
             "exam_order": _t("demo.what_order", lang=lang),
             "doctor_note": _t("demo.what_note", lang=lang),
+            "vaccine_record": _t("demo.what_vaccine", lang=lang),
         }.get(tipo, _t("demo.what_unknown", lang=lang))
         rapido = exp.get("summary_simple") or ""
         if tipo == "lab_result":
@@ -711,6 +736,11 @@ class DemoExplainer(LLMProvider):
                 if anormales else
                 _t("demo.all_clear", lang=lang)
             )
+        elif exp.get("vaccines"):
+            hallazgos = _t("demo.vaccine_summary", lang=lang,
+                           n=len(exp["vaccines"]),
+                           nombres=", ".join(
+                               v.get("name", "") for v in exp["vaccines"][:5]))
         elif exp.get("narrative_findings"):
             hallazgos = " ".join(
                 f.get("finding", "") for f in exp["narrative_findings"][:4]
@@ -855,6 +885,99 @@ class DemoExplainer(LLMProvider):
             "incierto": incierto,
             "severidad": severidad,
             "critico": critico,
+        }
+
+    # -- registro de vacunas --------------------------------------------
+    # Conservative demo parser: only lines that name a known vaccine AND
+    # carry a date become registry entries. Anything else is left out
+    # rather than guessed; the LLM path extracts the full record.
+    _VACUNAS_CONOCIDAS = (
+        "influenza", "flu", "covid", "sars", "tetanus", "tétanos",
+        "tetano", "tdap", "dtap", "mmr", "sarampion", "sarampión",
+        "rubeola", "rubéola", "hepatitis", "hpv", "varicela",
+        "chickenpox", "neumococo", "pneumococcal", "mening", "rotavirus",
+        "polio", "bcg", "fiebre amarilla", "yellow fever", "difteria",
+        "diphtheria", "pertussis", "tos ferina", "herpes zoster",
+        "shingles", "rsv", "vrs",
+    )
+    _FABRICANTES = ("pfizer", "moderna", "astrazeneca", "janssen",
+                    "sinovac", "novavax", "gsk", "sanofi", "merck")
+
+    def _explicar_vacunas(self, texto: str, uncertain: list,
+                          lang: str = "es") -> dict:
+        from app.services.vaccines import parse_vaccine_date
+        vacunas = []
+        vistos = set()
+        for linea in texto.splitlines():
+            s = " ".join(linea.strip().split())
+            if not s or len(s) > 200:
+                continue
+            bajo = s.lower()
+            if any(k in bajo for k in ["paciente", "patient", "nacimiento",
+                                       "birth", "nombre:", "name:",
+                                       "cédula", "teléfono", "dirección",
+                                       "firma", "signature"]):
+                continue
+            if not any(k in bajo for k in self._VACUNAS_CONOCIDAS):
+                continue
+            m_fecha = re.search(
+                r"(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4}|"
+                r"\d{1,2}\s+(?:de\s+)?[A-Za-záéíóúñ]+\s+(?:de\s+)?\d{4})", s)
+            if not m_fecha:
+                continue
+            fecha = parse_vaccine_date(m_fecha.group(0)) or m_fecha.group(0)
+            # Name: text before the date, cleaned of separators and
+            # trailing dose/lot markers; fall back to the known name.
+            nombre = re.split(r"[,;|]", s[:m_fecha.start()])[-1].strip(" •-\t")
+            nombre = re.sub(r"\s+", " ", nombre).strip()
+            if len(nombre) < 3 or len(nombre) > 80:
+                nombre = next(k for k in self._VACUNAS_CONOCIDAS if k in bajo)
+            m_dosis = re.search(
+                r"(?i)\b(?:dosis|dose)\s*(\d+|refuerzo|booster)\b", s)
+            if not m_dosis:
+                m_dosis = re.search(r"\b(\d+)(?:a|ª|st|nd|rd|th)\s+"
+                                    r"(?:dosis|dose)\b", s, re.IGNORECASE)
+            m_lote = re.search(r"(?i)\b(?:lote|lot)\s*[:#]?\s*([A-Za-z0-9-]+)",
+                               s)
+            fabricante = next((f for f in self._FABRICANTES if f in bajo),
+                              None)
+            clave = (nombre.lower(), fecha)
+            if clave in vistos:
+                continue
+            vistos.add(clave)
+            vacunas.append({
+                "name": nombre,
+                "date_administered": fecha,
+                "dose": m_dosis.group(1) if m_dosis else None,
+                "lot": m_lote.group(1) if m_lote else None,
+                "manufacturer": fabricante,
+                "provider": None,
+            })
+        if not vacunas:
+            uncertain.append({
+                "field": "vaccines",
+                "reason": _t("demo.vaccine_none", lang=lang),
+            })
+            resumen = _t("demo.vaccine_summary_none", lang=lang)
+        else:
+            nombres = ", ".join(v["name"] for v in vacunas[:5])
+            resto = _t("demo.order_more", lang=lang,
+                       n=len(vacunas) - 5) if len(vacunas) > 5 else ""
+            resumen = _t("demo.vaccine_summary", lang=lang, n=len(vacunas),
+                         nombres=nombres) + resto
+        return {
+            "summary_simple": resumen,
+            "biomarkers": [],
+            "narrative_findings": [],
+            "ordered_tests": [],
+            "vaccines": vacunas,
+            "recommendations": [
+                _t("demo.vaccine_rec1", lang=lang),
+                _t("demo.vaccine_rec2", lang=lang),
+            ],
+            "questions_for_doctor": [
+                _t("demo.vaccine_q1", lang=lang),
+            ],
         }
 
     # -- pedido de examen -------------------------------------------------

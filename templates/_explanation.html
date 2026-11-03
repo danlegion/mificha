@@ -115,6 +115,24 @@
   </details>
   {% endif %}
 
+  {% if exp.vaccines %}
+  <details class="detail-section">
+    <summary>{{ _t('expl.vaccines_count', n=exp.vaccines|length) }}</summary>
+    <div class="detail-body">
+      {% for v in exp.vaccines %}
+      <article class="bio-card">
+        <h3>{{ v.name }}</h3>
+        {% if v.date_administered %}<p>{{ _t('expl.vaccine_date') }} {{ v.date_administered }}</p>{% endif %}
+        {% if v.dose %}<p>{{ _t('expl.vaccine_dose') }} {{ v.dose }}</p>{% endif %}
+        {% if v.lot %}<p>{{ _t('expl.vaccine_lot') }} {{ v.lot }}</p>{% endif %}
+        {% if v.manufacturer %}<p>{{ _t('expl.vaccine_manufacturer') }} {{ v.manufacturer }}</p>{% endif %}
+        {% if v.provider %}<p>{{ _t('expl.vaccine_provider') }} {{ v.provider }}</p>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
   {% if exp.ordered_tests %}
   <details class="detail-section">
     <summary>{{ _t('expl.ordered_count', n=exp.ordered_tests|length) }}</summary>

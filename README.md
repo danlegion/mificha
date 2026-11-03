@@ -65,6 +65,17 @@ assigns each upload to a member:
 Each self-hosted instance has its own account holder and its own
 members; there is no central family registry.
 
+## Vaccine registry
+
+Upload a vaccination record and MiFicha treats it as its own document
+type (`vaccine_record`): it extracts each vaccine already received —
+name, date administered, dose, lot, manufacturer, and provider — but
+only as the document states them. The registry at `/vacunas` aggregates
+those entries per family member, deduped by name + date + dose and
+sorted newest first, with a link back to the source document for each
+entry. It never computes next doses and never recommends vaccines: it
+is only a record of what was already received.
+
 License: GNU Affero General Public License v3.0, see `LICENSE`.
 
 ## Requirements

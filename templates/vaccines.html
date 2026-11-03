@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}{{ _t('vaccines.h1') }}{% endblock %}
+
+{% block content %}
+<section class="hero card">
+  <h1>{{ _t('vaccines.h1') }}</h1>
+  <p>{{ _t('vaccines.p') }}</p>
+  <a class="btn btn-primary" href="/ficha">{{ _t('vault.h1') }}</a>
+</section>
+
+<section class="card">
+  <p>
+    <a href="/vacunas" {% if not selected_member %}aria-current="page"{% endif %}>{{ _t('vault.member_all') }}</a>
+    {% for m in members %}
+    · <a href="/vacunas?miembro={{ m.id }}" {% if selected_member == m.id %}aria-current="page"{% endif %}>{{ m.name }}</a>
+    {% endfor %}
+  </p>
+</section>
+
+{% set total = namespace(n=0) %}
+{% for group in groups %}{% set total.n = total.n + group.vaccines|length %}{% endfor %}
+{% if total.n == 0 %}
+<section class="card empty-state">
+  <h2>{{ _t('vaccines.h1') }}</h2>
+  <p>{{ _t('vaccines.empty') }}</p>
+  <a class="btn btn-primary" href="/#explicar">{{ _t('vault.first') }}</a>
+</section>
+{% else %}
+  {% for group in groups %}
+    {% if group.vaccines %}
+    <section aria-label="{{ group.member_name or _t('vault.member_unassigned') }}">
+      <h2>{{ group.member_name or _t('vault.member_unassigned') }}</h2>
+      <div class="doc-grid">
+        {% for v in group.vaccines %}
+        <article class="card">
+          <h3>{{ v.name }}</h3>
+          {% if v.date_administered %}<p>{{ _t('expl.vaccine_date') }} {{ v.date_administered }}</p>{% endif %}
+          {% if v.dose %}<p>{{ _t('expl.vaccine_dose') }} {{ v.dose }}</p>{% endif %}
+          {% if v.lot %}<p>{{ _t('expl.vaccine_lot') }} {{ v.lot }}</p>{% endif %}
+          {% if v.manufacturer %}<p>{{ _t('expl.vaccine_manufacturer') }} {{ v.manufacturer }}</p>{% endif %}
+          {% if v.provider %}<p>{{ _t('expl.vaccine_provider') }} {{ v.provider }}</p>{% endif %}
+          <p><a href="/ficha/{{ v.source_doc_id }}">{{ _t('vaccines.view_doc') }}</a></p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+{% endblock %}
