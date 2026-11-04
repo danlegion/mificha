@@ -30,6 +30,29 @@ STATIC_DIR = os.path.join(config.BASE_DIR, "static")
 
 app = FastAPI(title="MiFicha", version="0.1")
 
+# Puerta de acceso único (auto-hospedaje): cuando APP_PASSWORD está puesto
+# y no hay Supabase, toda la app exige la sesión del usuario único, salvo
+# la página de acceso, los estáticos, el cambio de idioma, salir, y los
+# enlaces de compartir (/s/) — esos son de solo lectura, con token propio,
+# 7 días y revocables, y el titular los creó a propósito. Sin puerta no
+# hace nada: el demo público y el flujo de invitado siguen intactos.
+# Se registra primero para que corra después de idioma/log: la redirección
+# a /acceso sale con idioma, log y cabeceras correctas.
+_GATE_EXEMPT_PREFIXES = ("/static", "/acceso", "/s/", "/idioma")
+_GATE_EXEMPT_EXACT = {"/manifest.json", "/sw.js", "/salir", "/favicon.ico"}
+
+
+@app.middleware("http")
+async def acceso_unico(request: Request, call_next):
+    if auth.single_gate_enabled():
+        path = request.url.path
+        exempt = path in _GATE_EXEMPT_EXACT or any(
+            path.startswith(p) for p in _GATE_EXEMPT_PREFIXES)
+        if not exempt and not auth.is_single_session(request):
+            return RedirectResponse("/acceso", status_code=303)
+    return await call_next(request)
+
+
 # Log de requests SIN contenido clínico: método, ruta (sin query), estado.
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

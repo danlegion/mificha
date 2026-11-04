@@ -13,6 +13,7 @@ NUNCA presentar el modo desarrollo como autenticación real: las plantillas
 reciben `dev_auth: True` y muestran el banner de demostración.
 """
 
+import hmac
 import logging
 
 from itsdangerous import BadSignature, URLSafeSerializer
@@ -51,6 +52,50 @@ def get_current_user(request) -> dict | None:
     if not uid:
         return None
     return dal.get_user_by_id(uid)
+
+
+# --- Puerta de acceso único (auto-hospedaje) ------------------------------
+# Activa solo con APP_USERNAME + APP_PASSWORD puestos y sin Supabase: en
+# ese modo el login por correo sin contraseña del modo desarrollo no es
+# autenticación real, así que la única entrada es esta credencial.
+def single_gate_enabled() -> bool:
+    return bool(config.APP_USERNAME.strip() and config.APP_PASSWORD) \
+        and not config.USE_SUPABASE
+
+
+def verify_single_credentials(username: str | None,
+                              password: str | None) -> bool:
+    """Comparación en tiempo constante contra la credencial de .env."""
+    if not single_gate_enabled():
+        return False
+    ok_user = hmac.compare_digest((username or "").strip(),
+                                  config.APP_USERNAME.strip())
+    ok_pass = hmac.compare_digest(password or "", config.APP_PASSWORD)
+    return ok_user and ok_pass
+
+
+def single_user_email() -> str:
+    """Email interno del usuario único (la tabla users exige un email)."""
+    u = config.APP_USERNAME.strip()
+    return u if "@" in u else f"{u}@mificha.local"
+
+
+def get_or_create_single_user() -> dict:
+    """El usuario único dueño de la instancia (miembros, ficha, registro)."""
+    email = single_user_email()
+    user = dal.get_user_by_email(email)
+    return user or dal.create_user(email=email)
+
+
+def is_single_session(request) -> bool:
+    """True si la sesión actual es la del usuario único de la instancia."""
+    if not single_gate_enabled():
+        return False
+    user = get_current_user(request)
+    if not user:
+        return False
+    single = dal.get_user_by_email(single_user_email())
+    return single is not None and user["id"] == single["id"]
 
 
 def register_dev(email: str, telefono: str) -> dict:

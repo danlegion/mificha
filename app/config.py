@@ -11,6 +11,17 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 # --- Seguridad / sesiones -------------------------------------------------
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-cambiar-en-produccion")
 
+# --- Acceso único (solo auto-hospedaje, sin Supabase) ---------------------
+# Cuando APP_PASSWORD está puesto, la app exige iniciar sesión con este
+# único usuario/contraseña antes de cualquier página (salvo /acceso,
+# estáticos y enlaces de compartir /s/). Sin APP_PASSWORD no hay puerta:
+# el demo público y el flujo de invitado siguen como antes. La contraseña
+# vive solo en .env (nunca en git ni en el código) y se compara en tiempo
+# constante. No cifra datos en reposo: es un cerrojo de acceso, no
+# cifrado, y va encima de Tailscale, no en su lugar.
+APP_USERNAME = os.getenv("APP_USERNAME", "")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+
 # --- LLM ------------------------------------------------------------------
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "claude-sonnet-4-5-20250929")

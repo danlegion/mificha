@@ -65,6 +65,23 @@ assigns each upload to a member:
 Each self-hosted instance has its own account holder and its own
 members; there is no central family registry.
 
+## Single-password gate (self-hosting)
+
+A self-hosted instance is reachable by anyone on the network that can
+reach its port, and the no-Supabase login is email-only with no
+password — not real authentication. Set `APP_USERNAME` and
+`APP_PASSWORD` in `.env` and the whole instance locks behind that one
+credential: every page except `/acceso`, statics, the language switch,
+and `/s/` share links (read-only snapshots the owner created on
+purpose) requires the single-user session, and guest upload is off.
+The single login creates the one owner account, so members, the vault,
+and the vaccine registry work unchanged. Leave `APP_PASSWORD` empty
+and there is no gate: the public demo and guest flow work as before.
+The password lives only in `.env` (git-ignored, kept out of the image)
+and is compared in constant time; login attempts are rate-limited
+(10 per 15 minutes per IP). This is an access lock, not encryption at
+rest, and it sits on top of Tailscale rather than replacing it.
+
 ## Vaccine registry
 
 Upload a vaccination record and MiFicha treats it as its own document

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}{{ _t('single.title') }}{% endblock %}
+
+{% block content %}
+<section class="card register-card">
+  <h1>{{ _t('single.h1') }}</h1>
+  <p>{{ _t('single.p') }}</p>
+
+  {% if error %}
+  <div class="error-box" role="alert">
+    <p>{{ error }}</p>
+  </div>
+  {% endif %}
+
+  <form action="/acceso" method="post">
+    <label class="field">
+      <span>{{ _t('single.username') }}</span>
+      <input type="text" name="usuario" required autocomplete="username" value="{{ usuario }}">
+    </label>
+    <label class="field">
+      <span>{{ _t('single.password') }}</span>
+      <input type="password" name="clave" required autocomplete="current-password">
+    </label>
+    <button class="btn btn-primary btn-large" type="submit">{{ _t('single.submit') }}</button>
+  </form>
+</section>
+{% endblock %}

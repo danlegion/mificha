@@ -7,7 +7,7 @@ import time
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from app import auth, config
+from app import auth, config, ratelimit
 from app.db import dal
 from app.i18n import t as _t
 from app.routers import (can_view_intake, guest_token_valid, page_lang,
@@ -256,6 +256,9 @@ def _ctx_entrar(request: Request, error=None, step="form", email="",
 
 @router.get("/entrar")
 def entrar_form(request: Request):
+    if auth.single_gate_enabled():
+        # Con puerta única, el login por correo no existe: va a /acceso.
+        return RedirectResponse("/acceso", status_code=303)
     if auth.get_current_user(request):
         return RedirectResponse("/ficha", status_code=303)
     return templates.TemplateResponse(request, "signin.html",
@@ -264,6 +267,8 @@ def entrar_form(request: Request):
 
 @router.post("/entrar")
 def entrar(request: Request, email: str = Form(...)):
+    if auth.single_gate_enabled():
+        return RedirectResponse("/acceso", status_code=303)
     email = (email or "").strip().lower()
     if not _RE_EMAIL.match(email):
         return templates.TemplateResponse(
@@ -342,3 +347,50 @@ def reenviar(
              email=email, telefono=telefono,
              notice=_t("auth.new_link", email=email)),
     )
+
+
+# --- Acceso único (auto-hospedaje) ---------------------------------------
+# Solo existe cuando la puerta está activa (APP_PASSWORD + sin Supabase).
+# Sin puerta, /acceso no hace nada útil: redirige a la página principal.
+def _ctx_acceso(request: Request, error=None, usuario=""):
+    return {
+        "request": request, "lang": page_lang(request),
+        "error": error, "usuario": usuario,
+        "demo_mode": DEMO_MODE, "dev_auth": auth.DEV_AUTH,
+        "user": auth.get_current_user(request),
+    }
+
+
+@router.get("/acceso")
+def acceso_form(request: Request):
+    if auth.is_single_session(request):
+        return RedirectResponse("/ficha", status_code=303)
+    if not auth.single_gate_enabled():
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(request, "login_single.html",
+                                      _ctx_acceso(request))
+
+
+@router.post("/acceso")
+def acceso(request: Request, usuario: str = Form(default=""),
+           clave: str = Form(default="")):
+    if auth.is_single_session(request):
+        return RedirectResponse("/ficha", status_code=303)
+    if not auth.single_gate_enabled():
+        return RedirectResponse("/", status_code=303)
+    ip = request.client.host if request.client else "?"
+    if not ratelimit.check(f"acceso:{ip}", 10, window_s=900):
+        return templates.TemplateResponse(
+            request, "login_single.html",
+            _ctx_acceso(request, error=_t("single.rate_limited"),
+                        usuario=usuario),
+            status_code=429)
+    if not auth.verify_single_credentials(usuario, clave):
+        log.warning("Acceso único fallido desde %s", ip)
+        return templates.TemplateResponse(
+            request, "login_single.html",
+            _ctx_acceso(request, error=_t("single.error"), usuario=usuario),
+            status_code=401)
+    user = auth.get_or_create_single_user()
+    return _con_sesion(RedirectResponse("/ficha", status_code=303),
+                       user["id"])
