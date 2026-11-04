@@ -77,12 +77,12 @@ def owner():
 
 
 def test_create_list_get_member(owner):
-    member = dal.create_member(owner, "  Heather  ")
-    assert member["name"] == "Heather"
+    member = dal.create_member(owner, "  Ana  ")
+    assert member["name"] == "Ana"
     assert member["owner_user_id"] == owner
-    assert dal.get_member(member["id"])["name"] == "Heather"
+    assert dal.get_member(member["id"])["name"] == "Ana"
     names = [m["name"] for m in dal.list_members(owner)]
-    assert "Heather" in names
+    assert "Ana" in names
     _clean([member["id"]])
 
 
@@ -92,8 +92,8 @@ def test_create_member_rejects_blank_name(owner):
 
 
 def test_documents_filter_by_member(owner):
-    m1 = dal.create_member(owner, "Heather")
-    m2 = dal.create_member(owner, "Oliver")
+    m1 = dal.create_member(owner, "Ana")
+    m2 = dal.create_member(owner, "Luis")
     d1 = "m-" + uuid.uuid4().hex[:12]
     d2 = "m-" + uuid.uuid4().hex[:12]
     d3 = "m-" + uuid.uuid4().hex[:12]
@@ -113,22 +113,22 @@ def test_documents_filter_by_member(owner):
 
 
 def test_create_member_via_vault(client, owner):
-    r = client.post("/ficha/miembros", data={"nombre": "Eleanor"},
+    r = client.post("/ficha/miembros", data={"nombre": "Marta"},
                     cookies=_cookies(owner), follow_redirects=False)
     assert r.status_code in (303, 307), r.status_code
     try:
-        assert "Eleanor" in [m["name"] for m in dal.list_members(owner)]
+        assert "Marta" in [m["name"] for m in dal.list_members(owner)]
         r2 = client.get("/ficha", cookies=_cookies(owner))
         assert r2.status_code == 200
-        assert "Eleanor" in r2.text
+        assert "Marta" in r2.text
     finally:
         for m in dal.list_members(owner):
             _clean([m["id"]])
 
 
 def test_vault_groups_by_member_and_filters(client, owner):
-    m1 = dal.create_member(owner, "Heather")
-    m2 = dal.create_member(owner, "Oliver")
+    m1 = dal.create_member(owner, "Ana")
+    m2 = dal.create_member(owner, "Luis")
     d1 = "m-" + uuid.uuid4().hex[:12]
     d2 = "m-" + uuid.uuid4().hex[:12]
     dal.save_document({"id": d1, "user_id": owner, "intake_id": d1,
@@ -138,7 +138,7 @@ def test_vault_groups_by_member_and_filters(client, owner):
     try:
         r = client.get("/ficha", cookies=_cookies(owner))
         assert r.status_code == 200
-        assert "Heather" in r.text and "Oliver" in r.text
+        assert "Ana" in r.text and "Luis" in r.text
         assert d1 in r.text and d2 in r.text
         r = client.get(f"/ficha?miembro={m1['id']}",
                        cookies=_cookies(owner))
@@ -155,7 +155,7 @@ def test_upload_with_new_member_assigns_intake(client, owner, monkeypatch):
     r = client.post(
         "/subir",
         files={"archivo": ("examen.pdf", _pdf(), "application/pdf")},
-        data={"nuevo_miembro": "Heather"},
+        data={"nuevo_miembro": "Ana"},
         cookies=_cookies(owner),
         follow_redirects=False,
     )
@@ -168,7 +168,7 @@ def test_upload_with_new_member_assigns_intake(client, owner, monkeypatch):
         member_id = intake.get("member_id")
         assert member_id
         member = dal.get_member(member_id)
-        assert member["name"] == "Heather"
+        assert member["name"] == "Ana"
         assert member["owner_user_id"] == owner
     finally:
         _clean([iid])
@@ -193,7 +193,7 @@ def test_upload_with_foreign_member_is_rejected(client, owner):
 
 
 def test_reassign_document_to_member(client, owner):
-    member = dal.create_member(owner, "Heather")
+    member = dal.create_member(owner, "Ana")
     did = "m-" + uuid.uuid4().hex[:12]
     dal.save_document({"id": did, "user_id": owner, "intake_id": did,
                        "explanation": _exp()})
@@ -205,7 +205,7 @@ def test_reassign_document_to_member(client, owner):
         assert dal.get_document(did)["member_id"] == member["id"]
         r2 = client.get(f"/ficha/{did}", cookies=_cookies(owner))
         assert r2.status_code == 200
-        assert "Heather" in r2.text
+        assert "Ana" in r2.text
     finally:
         _clean([did, member["id"]])
 
@@ -214,7 +214,7 @@ def test_pipeline_saves_document_with_member(owner, monkeypatch):
     from app.routers import ingest as ingest_router
     from app.storage import quarantine_path
     import os
-    member = dal.create_member(owner, "Heather")
+    member = dal.create_member(owner, "Ana")
     iid = "m-" + uuid.uuid4().hex[:12]
     dal.save_intake({"id": iid, "status": "processing",
                      "owner_user_id": owner, "member_id": member["id"]})

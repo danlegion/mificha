@@ -124,8 +124,8 @@ def test_demo_explainer_does_not_invent_vaccines_without_date():
 
 
 def test_collect_vaccines_dedupes_and_sorts(owner):
-    m1 = dal.create_member(owner, "Heather")
-    m2 = dal.create_member(owner, "Oliver")
+    m1 = dal.create_member(owner, "Ana")
+    m2 = dal.create_member(owner, "Luis")
     d1 = "v-" + uuid.uuid4().hex[:12]
     d2 = "v-" + uuid.uuid4().hex[:12]
     d3 = "v-" + uuid.uuid4().hex[:12]
@@ -154,16 +154,16 @@ def test_collect_vaccines_dedupes_and_sorts(owner):
         # Newest first.
         assert entries[0]["name"] == "Hepatitis B"
         groups = group_vaccines_by_member(docs, dal.list_members(owner))
-        heather = [g for g in groups if g["member_id"] == m1["id"]][0]
-        assert len(heather["vaccines"]) == 2
-        oliver = [g for g in groups if g["member_id"] == m2["id"]][0]
-        assert len(oliver["vaccines"]) == 1
+        ana = [g for g in groups if g["member_id"] == m1["id"]][0]
+        assert len(ana["vaccines"]) == 2
+        luis = [g for g in groups if g["member_id"] == m2["id"]][0]
+        assert len(luis["vaccines"]) == 1
     finally:
         _clean([d1, d2, d3, m1["id"], m2["id"]])
 
 
 def test_registry_page_groups_by_member(client, owner):
-    member = dal.create_member(owner, "Heather")
+    member = dal.create_member(owner, "Ana")
     did = "v-" + uuid.uuid4().hex[:12]
     dal.save_document({"id": did, "user_id": owner, "intake_id": did,
                        "explanation": _exp([
@@ -174,7 +174,7 @@ def test_registry_page_groups_by_member(client, owner):
     try:
         r = client.get("/vacunas", cookies=_cookies(owner))
         assert r.status_code == 200
-        assert "Heather" in r.text
+        assert "Ana" in r.text
         assert "Influenza" in r.text
         assert "2024-10-15" in r.text
         assert did in r.text  # link back to the source document

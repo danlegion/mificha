@@ -1117,7 +1117,7 @@ class DemoExplainer(LLMProvider):
 def get_llm_provider() -> LLMProvider:
     """Fábrica: Gemini si hay API key, si no Anthropic; si no, DemoExplainer.
 
-    El orden refleja la llave que Daniel conectó para el prototipo.
+    The order reflects which key is configured for the prototype.
     DemoExplainer es SOLO para desarrollo sin llave (modo demo).
     """
     if os.getenv("GEMINI_API_KEY", "").strip():
