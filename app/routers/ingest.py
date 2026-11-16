@@ -11,7 +11,7 @@ from app import auth, config
 from app import ratelimit
 from app.db import dal
 from app.i18n import t as _t
-from app.routers import (hash_token, new_guest_token, page_lang, templates)
+from app.routers import page_lang, templates
 from app.services.pipeline import UnprocessableDocument, process_intake
 from app.storage import quarantine_path, store_original
 
@@ -148,45 +148,45 @@ async def subir(
             status_code=400,
         )
 
-    # Signed-in uploads may be assigned to a family member: either pick
-    # an existing member or create one inline. A member id that does not
-    # belong to this account is rejected, never silently reassigned.
+    # Subir exige sesión: no hay subidas anónimas ni enlaces de invitado.
+    # Sin sesión, a /entrar (con puerta única, /entrar redirige a /acceso).
     user = auth.get_current_user(request)
+    if not user:
+        return RedirectResponse("/entrar", status_code=303)
+
+    # La subida puede asignarse a un miembro de la familia: elegir uno
+    # existente o crear uno inline. Un id que no pertenece a esta cuenta
+    # se rechaza, nunca se reasigna en silencio.
     member_id = None
-    if user:
-        if (nuevo_miembro or "").strip():
-            member_id = dal.create_member(
-                user["id"], nuevo_miembro.strip())["id"]
-        elif (miembro or "").strip():
-            member = dal.get_member(miembro.strip())
-            if not member or member.get("owner_user_id") != user["id"]:
-                return templates.TemplateResponse(
-                    request,
-                    "error.html",
-                    {"request": request, "lang": page_lang(request),
-                     "message": _t("member.invalid"), "detail": None,
-                     "dev_auth": False, "demo_mode": False},
-                    status_code=400,
-                )
-            member_id = member["id"]
+    if (nuevo_miembro or "").strip():
+        member_id = dal.create_member(
+            user["id"], nuevo_miembro.strip())["id"]
+    elif (miembro or "").strip():
+        member = dal.get_member(miembro.strip())
+        if not member or member.get("owner_user_id") != user["id"]:
+            return templates.TemplateResponse(
+                request,
+                "error.html",
+                {"request": request, "lang": page_lang(request),
+                 "message": _t("member.invalid"), "detail": None,
+                 "dev_auth": False, "demo_mode": False},
+                status_code=400,
+            )
+        member_id = member["id"]
 
     intake_id = uuid.uuid4().hex
-    guest_token = new_guest_token()
     with open(quarantine_path(intake_id), "wb") as f:
         f.write(contenido)
 
-    # Si hay sesión iniciada, el intake nace con dueño: al terminar el
-    # procesamiento el documento se guarda solo en su ficha.
-    # (El PDF original se sube a Storage en segundo plano, sin bloquear
-    # la redirección a la página de "procesando".)
+    # El intake nace con dueño: al terminar el procesamiento el documento
+    # se guarda solo en su ficha. (El PDF original se sube a Storage en
+    # segundo plano, sin bloquear la redirección a "procesando".)
     nuevo_intake = {
         "id": intake_id,
-        "guest_token_hash": hash_token(guest_token),
         "status": "processing",
         "doc_type_hint": (tipo_doc or "").strip() or None,
+        "owner_user_id": user["id"],
     }
-    if user:
-        nuevo_intake["owner_user_id"] = user["id"]
     if member_id:
         nuevo_intake["member_id"] = member_id
     dal.save_intake(nuevo_intake)
@@ -194,6 +194,4 @@ async def subir(
     log.info("Nuevo intake %s (%d bytes, hint=%s)",
              intake_id, len(contenido), tipo_doc or "-")
     background.add_task(_run_pipeline, intake_id, page_lang(request))
-    return RedirectResponse(
-        f"/procesando/{intake_id}?t={guest_token}", status_code=303
-    )
+    return RedirectResponse(f"/procesando/{intake_id}", status_code=303)

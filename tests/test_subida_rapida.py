@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.config as config
+from app import auth
 from app.db import dal
 from app.routers import ingest as ingest_router
 from app.storage import quarantine_path
@@ -61,9 +62,11 @@ def test_subir_no_guarda_original_antes_del_redirect(client, monkeypatch):
         ingest_router, "store_original",
         lambda iid, pdf: subidas.append(iid) or "no-deberia-llamarse.pdf",
     )
+    uid = dal.create_user(f"s-{uuid.uuid4().hex[:8]}@x.test")["id"]
     r = client.post(
         "/subir",
         files={"archivo": ("examen.pdf", _pdf_valido(), "application/pdf")},
+        cookies={auth.SESSION_COOKIE: auth.create_session(uid)},
         follow_redirects=False,
     )
     assert r.status_code in (303, 307), r.status_code
@@ -72,7 +75,7 @@ def test_subir_no_guarda_original_antes_del_redirect(client, monkeypatch):
         assert subidas == [], "store_original no debe correr antes del redirect"
         assert dal.get_intake(iid).get("original_key") is None
     finally:
-        _clean([iid])
+        _clean([iid, uid])
 
 
 def test_set_intake_original_key_no_toca_otros_campos():

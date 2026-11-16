@@ -9,8 +9,8 @@
   <h2>{{ _t('result.original_h2') }}</h2>
   <p>{{ _t('result.original_p') }}</p>
   <div class="btn-row">
-    <a class="btn btn-primary" href="/resultado/{{ intake_id }}/original{% if guest_token %}?t={{ guest_token }}{% endif %}" target="_blank" rel="noopener">{{ _t('result.view_original') }}</a>
-    <a class="btn btn-secondary" href="/resultado/{{ intake_id }}/original?descargar=1{% if guest_token %}&t={{ guest_token }}{% endif %}">{{ _t('result.download') }}</a>
+    <a class="btn btn-primary" href="/resultado/{{ intake_id }}/original" target="_blank" rel="noopener">{{ _t('result.view_original') }}</a>
+    <a class="btn btn-secondary" href="/resultado/{{ intake_id }}/original?descargar=1">{{ _t('result.download') }}</a>
   </div>
 </section>
 
@@ -18,7 +18,6 @@
 <section class="card correct-card" id="corregir" aria-label="{{ _t('result.correct_h2') }}">
   <h2>{{ _t('result.correct_h2') }}</h2>
   <form action="/resultado/{{ intake_id }}/corregir" method="post">
-    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
     {% for field in exp.uncertain_fields %}
     <label class="field">
       <span>{{ field.label }} <span class="flag flag-uncertain">{{ _t('flag.uncertain') }}</span></span>
@@ -28,20 +27,6 @@
     {% endfor %}
     <button class="btn btn-primary" type="submit">{{ _t('result.save') }}</button>
   </form>
-</section>
-{% endif %}
-
-{% if not is_saved and not user %}
-<section class="card save-cta" aria-label="{{ _t('result.save_h2') }}">
-  <p class="save-cta-eyebrow">{{ _t('result.eyebrow') }}</p>
-  <h2>{{ _t('result.save_h2') }}</h2>
-  <ul class="check-list">
-    <li>{{ _t('result.save_li1') }}</li>
-    <li>{{ _t('result.save_li2') }}</li>
-    <li>{{ _t('result.save_li3') }}</li>
-    <li>{{ _t('result.save_li4') }}</li>
-  </ul>
-  <a class="btn btn-light btn-large" href="/guardar/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">{{ _t('result.save_btn') }}</a>
 </section>
 {% endif %}
 
@@ -67,13 +52,11 @@
       <button class="btn btn-ghost copy-btn" type="button" data-copy="{{ share.url }}" data-copied-text="{{ _t('result.copied') }}">{{ _t('result.copy') }}</button>
     </div>
     <form action="/compartir/{{ intake_id }}/revocar" method="post">
-      {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
       <button class="btn btn-danger" type="submit">{{ _t('result.revoke') }}</button>
     </form>
   </div>
   {% else %}
   <form action="/compartir/{{ intake_id }}" method="post">
-    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
     <fieldset class="share-options">
       <legend>{{ _t('result.include_legend') }}</legend>
       <label class="checkbox-row">
@@ -93,7 +76,7 @@
 <section class="card" aria-label="{{ _t('result.delete_h2') }}">
   <h2>{{ _t('result.delete_h2') }}</h2>
   <p>{{ _t('result.delete_p') }}</p>
-  <form method="post" action="/resultado/{{ intake_id }}/eliminar{% if guest_token %}?t={{ guest_token }}{% endif %}"
+  <form method="post" action="/resultado/{{ intake_id }}/eliminar"
         data-confirm-dialog="delete-dialog"
         data-confirm-text="{{ _t('result.delete_confirm') }}">
     <button class="btn btn-danger" type="submit">{{ _t('result.delete_btn') }}</button>

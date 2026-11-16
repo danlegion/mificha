@@ -18,7 +18,6 @@ from fastapi.testclient import TestClient
 import app.config as config
 from app import auth, storage
 from app.db import dal
-from app.routers import hash_token, new_guest_token
 
 
 @pytest.fixture(scope="module")
@@ -70,20 +69,6 @@ def intake_dueno():
     _clean([uid, iid])
 
 
-@pytest.fixture()
-def intake_invitado():
-    """Intake de invitado (sin dueño) con token de acceso."""
-    iid = "g-" + uuid.uuid4().hex[:12]
-    token = new_guest_token()
-    key = storage.store_original(iid, b"%PDF-1.4 invitado")
-    dal.save_intake({"id": iid, "status": "ready", "explanation": _exp(),
-                     "original_key": key,
-                     "guest_token_hash": hash_token(token)})
-    data = {"iid": iid, "token": token, "key": key}
-    yield data
-    _clean([iid])
-
-
 def _cookies(uid):
     return {auth.SESSION_COOKIE: auth.create_session(uid)}
 
@@ -128,20 +113,11 @@ def test_resultado_eliminar_borra_todo_y_redirige_a_ficha(client, intake_dueno):
     assert storage.get_original_path(key) is None
 
 
-def test_resultado_eliminar_invitado_redirige_a_home(client, intake_invitado):
-    iid = intake_invitado["iid"]
-    token = intake_invitado["token"]
-    r = client.post(f"/resultado/{iid}/eliminar?t={token}",
-                    follow_redirects=False)
-    assert r.status_code == 303
-    assert r.headers["location"] == "/"
-    assert dal.get_intake(iid) is None
-
-
-def test_resultado_eliminar_sin_acceso_403(client, intake_invitado):
-    r = client.post(f"/resultado/{intake_invitado['iid']}/eliminar",
+def test_resultado_eliminar_sin_acceso_403(client, intake_dueno):
+    r = client.post(f"/resultado/{intake_dueno['iid']}/eliminar",
                     follow_redirects=False)
     assert r.status_code == 403
+    assert dal.get_intake(intake_dueno["iid"]) is not None
 
 
 def test_detalle_guardado_muestra_compartir_con_doctor(client, intake_dueno):

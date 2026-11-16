@@ -24,13 +24,13 @@
   <div class="error-box" id="processing-manual" hidden>
     <h2>{{ _t('proc.manual_h2') }}</h2>
     <p>{{ _t('proc.manual_p') }}</p>
-    <a class="btn btn-primary" id="processing-manual-link" href="/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">{{ _t('proc.manual_link') }}</a>
+    <a class="btn btn-primary" id="processing-manual-link" href="/resultado/{{ intake_id }}">{{ _t('proc.manual_link') }}</a>
   </div>
 
   <noscript>
     <div class="error-box">
       <p>{{ _t('proc.noscript') }}
-      <a href="/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}">{{ _t('proc.noscript_link') }}</a></p>
+      <a href="/resultado/{{ intake_id }}">{{ _t('proc.noscript_link') }}</a></p>
     </div>
   </noscript>
 </section>
@@ -39,8 +39,8 @@
 {% block scripts %}
 <script>
   window.MIFicha = window.MIFicha || {};
-  window.MIFicha.estadoUrl = "/api/v1/estado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}";
-  window.MIFicha.resultadoUrl = "/resultado/{{ intake_id }}{% if guest_token %}?t={{ guest_token }}{% endif %}";
+  window.MIFicha.estadoUrl = "/api/v1/estado/{{ intake_id }}";
+  window.MIFicha.resultadoUrl = "/resultado/{{ intake_id }}";
   function arrancarPolling() {
     if (window.MIFicha.startPolling) { window.MIFicha.startPolling(); return true; }
     return false;

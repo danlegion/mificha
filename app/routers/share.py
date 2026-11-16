@@ -9,8 +9,8 @@ from fastapi.responses import RedirectResponse
 from app import auth, config
 from app.db import dal
 from app.i18n import t as _t
-from app.routers import (can_view_intake, guest_token_valid, page_lang,
-                         templates, urgency_css_key)
+from app.routers import (can_view_intake, page_lang, templates,
+                         urgency_css_key)
 from app.services import share as share_svc
 
 log = logging.getLogger("mificha.share")
@@ -20,16 +20,14 @@ router = APIRouter()
 DEMO_MODE = not bool(config.ANTHROPIC_API_KEY)
 
 
-def _resolver_acceso(intake_id: str, request: Request, token: str | None = None):
-    token = token if token is not None else request.query_params.get("t")
+def _resolver_acceso(intake_id: str, request: Request):
     intake = dal.get_intake(intake_id)
     if not intake:
         raise HTTPException(status_code=404, detail="No encontrado")
     user = auth.get_current_user(request)
-    if not can_view_intake(intake, token, user):
+    if not can_view_intake(intake, user):
         raise HTTPException(status_code=403, detail="Sin acceso")
-    raw = token if guest_token_valid(intake, token) else None
-    return intake, user, raw
+    return intake, user
 
 
 @router.post("/compartir/{intake_id}")
@@ -38,9 +36,8 @@ async def crear_share(
     request: Request,
     incluir_resumen: str = Form(default=""),
     incluir_urgencia: str = Form(default=""),
-    t: str = Form(default=""),
 ):
-    intake, _, raw = _resolver_acceso(intake_id, request, t or None)
+    intake, _ = _resolver_acceso(intake_id, request)
     if intake["status"] != "ready" or not intake.get("explanation"):
         raise HTTPException(status_code=409, detail="El documento aún no está listo")
 
@@ -65,21 +62,15 @@ async def crear_share(
     log.info("Share creado para intake %s (expira en %d días)",
              intake_id, config.SHARE_TTL_DAYS)
 
-    destino = f"/resultado/{intake_id}"
-    if raw:
-        destino += f"?t={raw}"
-    return RedirectResponse(destino, status_code=303)
+    return RedirectResponse(f"/resultado/{intake_id}", status_code=303)
 
 
 @router.post("/compartir/{intake_id}/revocar")
-async def revocar_share(intake_id: str, request: Request, t: str = Form(default="")):
-    _intake, _, raw = _resolver_acceso(intake_id, request, t or None)
+async def revocar_share(intake_id: str, request: Request):
+    _intake, _ = _resolver_acceso(intake_id, request)
     n = dal.revoke_shares_for_intake(intake_id)
     log.info("Shares revocados para intake %s: %d", intake_id, n)
-    destino = f"/resultado/{intake_id}"
-    if raw:
-        destino += f"?t={raw}"
-    return RedirectResponse(destino, status_code=303)
+    return RedirectResponse(f"/resultado/{intake_id}", status_code=303)
 
 
 @router.get("/s/{token}")

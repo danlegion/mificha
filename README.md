@@ -47,6 +47,13 @@ no cloud provider is needed to read the files (they are PDFs, SQLite
 and, in the future, JSON/CSV per person). Without a Gemini key, the app
 runs in local demo mode, with no network calls.
 
+## Accounts
+
+There is no guest access: uploading requires signing in, and every
+upload is saved to that account's vault automatically. Sign-in is a
+magic link by email (`/entrar`); entering for the first time creates
+the account. There is no password, and no separate sign-up page.
+
 ## Family members
 
 The private/family version has no guest accounts. The account holder
@@ -73,10 +80,9 @@ password — not real authentication. Set `APP_USERNAME` and
 `APP_PASSWORD` in `.env` and the whole instance locks behind that one
 credential: every page except `/acceso`, statics, the language switch,
 and `/s/` share links (read-only snapshots the owner created on
-purpose) requires the single-user session, and guest upload is off.
-The single login creates the one owner account, so members, the vault,
-and the vaccine registry work unchanged. Leave `APP_PASSWORD` empty
-and there is no gate: the public demo and guest flow work as before.
+purpose) requires the single-user session. The single login creates
+the one owner account, so members, the vault, and the vaccine registry
+work unchanged. Leave `APP_PASSWORD` empty and there is no gate.
 The password lives only in `.env` (git-ignored, kept out of the image)
 and is compared in constant time; login attempts are rate-limited
 (10 per 15 minutes per IP). This is an access lock, not encryption at

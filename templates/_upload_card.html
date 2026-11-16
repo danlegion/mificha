@@ -5,7 +5,6 @@
          data-upload-error="{{ _t('upload.error') }}">
   <h2>{{ titulo }}</h2>
   <form action="/subir" method="post" enctype="multipart/form-data">
-    {% if guest_token %}<input type="hidden" name="t" value="{{ guest_token }}">{% endif %}
     <label class="file-drop" for="archivo">
       <span class="file-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -29,7 +28,7 @@
     <input type="text" name="nuevo_miembro" placeholder="{{ _t('upload.member_new') }}" aria-label="{{ _t('upload.member_new') }}">
     {% endif %}
     <button class="btn btn-primary btn-large" type="submit" data-upload-btn>{{ _t('upload.submit') }}</button>
-    {% if not user %}<p class="micro-note">{{ _t('upload.no_account') }}</p>{% endif %}
+    {% if not user %}<p class="micro-note">{{ _t('upload.signin_required') }}</p>{% endif %}
   </form>
   <div class="upload-progress" hidden>
     <div class="upload-progress-track"><div class="upload-progress-bar"></div></div>

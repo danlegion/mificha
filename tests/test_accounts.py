@@ -1,8 +1,8 @@
-"""Tests del registro de cuenta: flujo OTP por correo (Supabase) y dev local.
+"""Tests de cuenta: entrar con enlace mágico (Supabase) y dev local.
 
-- Modo Supabase: POST /guardar/{id} envía el código y muestra el paso 2;
-  POST /guardar/{id}/verificar valida el código y crea la sesión.
-- Modo desarrollo (sin Supabase): el registro directo reclama el intake.
+No hay flujo de invitado: subir exige sesión, y entrar por primera vez
+con el enlace mágico crea la cuenta (registro e inicio de sesión son el
+mismo paso). En modo desarrollo (sin Supabase) la sesión es directa.
 """
 import sqlite3
 import uuid
@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 import app.config as config
 from app import auth
 from app.db import dal
-from app.routers import accounts, hash_token
+from app.routers import accounts
 
 
 @pytest.fixture(scope="module")
@@ -37,51 +37,28 @@ def _clean(ids):
     con.close()
 
 
-@pytest.fixture()
-def intake_lista():
-    """Intake listo con token de invitado válido."""
-    iid = "t-" + uuid.uuid4().hex[:12]
-    raw_token = "tok-" + uuid.uuid4().hex[:8]
-    dal.save_intake({
-        "id": iid,
-        "guest_token_hash": hash_token(raw_token),
-        "status": "ready",
-        "explanation": {"summary_simple": "Prueba"},
-    })
-    yield {"id": iid, "token": raw_token}
-    _clean([iid])
-
-
 # ---------------------------------------------------------------- desarrollo
 
-def test_dev_register_reclama_y_abre_ficha(client, intake_lista):
-    iid = intake_lista["id"]
-    r = client.get(f"/guardar/{iid}?t={intake_lista['token']}")
-    assert r.status_code == 200
-    assert "Enviarme el enlace" in r.text
-
-    r = client.post(f"/guardar/{iid}",
-                    data={"email": "dev-test@example.com",
-                          "telefono": "+593991234567",
-                          "t": intake_lista["token"]},
+def test_dev_entrar_crea_cuenta_si_no_existe(client):
+    email = f"nuevo-{uuid.uuid4().hex[:8]}@example.com"
+    r = client.post("/entrar", data={"email": email},
                     follow_redirects=False)
     assert r.status_code == 303
     assert r.headers["location"] == "/ficha"
     assert auth.SESSION_COOKIE in r.cookies
+    try:
+        assert dal.get_user_by_email(email) is not None
+        r = client.get("/ficha", cookies={auth.SESSION_COOKIE:
+                                          r.cookies[auth.SESSION_COOKIE]})
+        assert r.status_code == 200
+    finally:
+        user = dal.get_user_by_email(email)
+        if user:
+            _clean([user["id"]])
 
-    # La cookie de sesión abre la ficha (get_current_user funciona).
-    r = client.get("/ficha", cookies={auth.SESSION_COOKIE:
-                                      r.cookies[auth.SESSION_COOKIE]})
-    assert r.status_code == 200
 
-    _clean([iid])
-
-
-def test_dev_register_email_invalido(client, intake_lista):
-    iid = intake_lista["id"]
-    r = client.post(f"/guardar/{iid}",
-                    data={"email": "no-es-correo", "telefono": "+59399111",
-                          "t": intake_lista["token"]})
+def test_dev_entrar_email_invalido(client):
+    r = client.post("/entrar", data={"email": "no-es-correo"})
     assert r.status_code == 400
     assert "no parece válido" in r.text
 
@@ -89,18 +66,8 @@ def test_dev_register_email_invalido(client, intake_lista):
 # ------------------------------------------------------------------ Supabase
 
 class FakeDAL:
-    def __init__(self, intake):
-        self.intake = intake
+    def __init__(self):
         self.users = {}
-        self.claimed = {}
-
-    def get_intake(self, intake_id):
-        return self.intake if self.intake["id"] == intake_id else None
-
-    def create_user(self, email, telefono=None):
-        uid = "u-" + uuid.uuid4().hex[:12]
-        self.users[uid] = {"id": uid, "email": email, "telefono": telefono}
-        return self.users[uid]
 
     def get_user_by_email(self, email):
         for u in self.users.values():
@@ -108,24 +75,16 @@ class FakeDAL:
                 return u
         return None
 
-    def claim_intake(self, intake_id, user_id):
-        self.claimed[intake_id] = user_id
-        self.intake["owner_user_id"] = user_id
-
-    def save_document(self, doc):
-        self.doc = doc
-        return doc
+    def create_user(self, email, telefono=None):
+        uid = "u-" + uuid.uuid4().hex[:12]
+        self.users[uid] = {"id": uid, "email": email, "telefono": telefono}
+        return self.users[uid]
 
 
 @pytest.fixture()
 def sb(monkeypatch):
     """Modo Supabase con DAL y Auth falsos (sin red)."""
-    intake = {"id": "sb-" + uuid.uuid4().hex[:8],
-              "guest_token_hash": hash_token("tok-sb"),
-              "status": "ready",
-              "explanation": {"summary_simple": "Prueba"},
-              "original_key": None}
-    fake = FakeDAL(intake)
+    fake = FakeDAL()
     monkeypatch.setattr("app.config.USE_SUPABASE", True)
     monkeypatch.setattr(accounts, "dal", fake)
     enviados = {}
@@ -139,18 +98,13 @@ def sb(monkeypatch):
     return fake
 
 
-def test_sb_guardar_envia_enlace_y_muestra_paso(client, sb):
-    iid = sb.intake["id"]
-    r = client.post(f"/guardar/{iid}",
-                    data={"email": "  Test@Example.com ",
-                          "telefono": "+593992223333", "t": "tok-sb"})
+def test_sb_entrar_envia_enlace(client, sb):
+    r = client.post("/entrar", data={"email": "  Login@Example.com "})
     assert r.status_code == 200
     assert "Revisa tu correo" in r.text
-    assert "test@example.com" in r.text  # normalizado a minúsculas
-    assert "enlace seguro" in r.text
-    assert sb.enviados["email"] == "test@example.com"
+    assert "login@example.com" in r.text
+    assert sb.enviados["email"] == "login@example.com"
     assert sb.enviados["redirect_to"].endswith("/cuenta/activar")
-    assert "test@example.com" in accounts._PENDIENTE
 
 
 def test_sb_activar_enlace_ok_crea_sesion(client, sb, monkeypatch):
@@ -158,16 +112,14 @@ def test_sb_activar_enlace_ok_crea_sesion(client, sb, monkeypatch):
         auth, "complete_magic_link",
         lambda access_token="", token_hash="": {"id": "sb-auth-1",
                                                 "email": "activa@example.com"})
-    accounts._pendiente_guardar("activa@example.com", "+593993334444",
-                                sb.intake["id"], "tok-sb")
     r = client.post("/cuenta/activar", json={"access_token": "tok-bueno"})
     assert r.status_code == 200
     data = r.json()
     assert data["ok"] is True
     assert data["redirect"] == "/ficha"
     assert auth.SESSION_COOKIE in r.cookies
-    assert sb.claimed[sb.intake["id"]]  # intake reclamado
-    assert "activa@example.com" not in accounts._PENDIENTE  # un solo uso
+    # Primera vez: el enlace crea la cuenta.
+    assert sb.get_user_by_email("activa@example.com") is not None
 
 
 def test_sb_activar_enlace_malo_muestra_error(client, sb, monkeypatch):
@@ -177,16 +129,6 @@ def test_sb_activar_enlace_malo_muestra_error(client, sb, monkeypatch):
     r = client.post("/cuenta/activar", json={"access_token": "tok-malo"})
     assert r.status_code == 400
     assert "no es válido" in r.json()["message"]
-
-
-def test_sb_reenviar_enlace(client, sb):
-    iid = sb.intake["id"]
-    r = client.post(f"/guardar/{iid}/reenviar",
-                    data={"email": "reenvio@example.com",
-                          "telefono": "+593992223333", "t": "tok-sb"})
-    assert r.status_code == 200
-    assert "enlace nuevo" in r.text
-    assert sb.enviados["email"] == "reenvio@example.com"
 
 
 def test_sb_activar_pagina_carga(client):
@@ -242,17 +184,6 @@ def test_complete_magic_link_mapea_error_amable(monkeypatch):
 
 # ------------------------------------------------- inicio / cierre de sesión
 
-def test_sb_entrar_envia_enlace(client, sb):
-    r = client.post("/entrar", data={"email": "  Login@Example.com "})
-    assert r.status_code == 200
-    assert "Revisa tu correo" in r.text
-    assert "login@example.com" in r.text
-    assert sb.enviados["email"] == "login@example.com"
-    assert sb.enviados["redirect_to"].endswith("/cuenta/activar")
-    # entrar no crea registro pendiente: es solo inicio de sesión
-    assert "login@example.com" not in accounts._PENDIENTE
-
-
 def test_entrar_con_sesion_redirige_a_ficha(client):
     user = dal.create_user(email="ya-dentro@example.com", telefono=None)
     try:
@@ -279,16 +210,6 @@ def test_sb_activar_sin_pendiente_inicia_sesion(client, sb, monkeypatch):
     assert auth.SESSION_COOKIE in r.cookies
 
 
-def test_sb_activar_sin_pendiente_ni_cuenta_da_404(client, sb, monkeypatch):
-    monkeypatch.setattr(
-        auth, "complete_magic_link",
-        lambda access_token="", token_hash="": {"id": "sb-y",
-                                                "email": "nadie@example.com"})
-    r = client.post("/cuenta/activar", json={"access_token": "tok-ok"})
-    assert r.status_code == 404
-    assert "No encontramos una cuenta" in r.json()["message"]
-
-
 def test_salir_borra_cookie_y_redirige(client):
     client.cookies.set(auth.SESSION_COOKIE, "valor-falso")
     try:
@@ -300,29 +221,19 @@ def test_salir_borra_cookie_y_redirige(client):
         client.cookies.clear()
 
 
-def test_result_oculta_tarjeta_con_sesion():
-    """La tarjeta 'Crear mi cuenta gratis' no sale si ya hay sesión."""
-    from app.main import app
+def test_resultado_anonimo_es_403_y_sin_tarjeta_guardar(client):
+    """Sin sesión no hay resultado que ver: 403, y nunca la tarjeta
+    'Crear mi cuenta gratis' (el flujo de invitado ya no existe)."""
     iid = "r-" + uuid.uuid4().hex[:12]
-    raw_token = "tok-" + uuid.uuid4().hex[:12]
     dal.save_intake({
         "id": iid,
-        "guest_token_hash": hash_token(raw_token),
         "status": "ready",
         "explanation": {"summary_simple": "Prueba"},
     })
-    user = dal.create_user(email="ficha-test@example.com", telefono=None)
     try:
-        with TestClient(app, headers={"Accept-Language": "es"}) as c:
-            anon = c.get(f"/resultado/{iid}?t={raw_token}")
-            assert anon.status_code == 200
-            assert "Crear mi cuenta gratis" in anon.text
-            assert ">Entrar</a>" in anon.text
-            c.cookies.set(auth.SESSION_COOKIE,
-                          auth.create_session(user["id"]))
-            logueado = c.get(f"/resultado/{iid}?t={raw_token}")
-            assert logueado.status_code == 200
-            assert "Crear mi cuenta gratis" not in logueado.text
-            assert ">Salir</a>" in logueado.text
+        client.cookies.clear()  # el cliente de módulo puede traer sesión
+        r = client.get(f"/resultado/{iid}")
+        assert r.status_code == 403
+        assert "Crear mi cuenta gratis" not in r.text
     finally:
-        _clean([iid, user["id"]])
+        _clean([iid])

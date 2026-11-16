@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 from app import auth, config, storage
 from app.db import dal
 from app.main import app
-from app.routers import hash_token, new_guest_token
 
 
 @pytest.fixture()
@@ -46,16 +45,16 @@ def _exp():
 
 
 @pytest.fixture()
-def intake_invitado():
+def intake_dueno():
+    email = f"del-{uuid.uuid4().hex[:8]}@x.test"
+    uid = dal.create_user(email)["id"]
     iid = "g-" + uuid.uuid4().hex[:12]
-    token = new_guest_token()
-    key = storage.store_original(iid, b"%PDF-1.4 invitado")
+    key = storage.store_original(iid, b"%PDF-1.4 prueba")
     dal.save_intake({"id": iid, "status": "ready", "explanation": _exp(),
-                     "original_key": key,
-                     "guest_token_hash": hash_token(token)})
-    data = {"iid": iid, "token": token, "key": key}
+                     "original_key": key, "owner_user_id": uid})
+    data = {"uid": uid, "iid": iid, "key": key}
     yield data
-    _clean([iid])
+    _clean([uid, iid])
 
 
 @pytest.fixture()
@@ -77,8 +76,9 @@ def _cookies(uid):
     return {auth.SESSION_COOKIE: auth.create_session(uid)}
 
 
-def test_resultado_usa_dialogo_no_confirm_nativo(client, intake_invitado):
-    r = client.get(f"/resultado/{intake_invitado['iid']}?t={intake_invitado['token']}")
+def test_resultado_usa_dialogo_no_confirm_nativo(client, intake_dueno):
+    r = client.get(f"/resultado/{intake_dueno['iid']}",
+                   cookies=_cookies(intake_dueno["uid"]))
     assert r.status_code == 200
     assert 'data-confirm-dialog="delete-dialog"' in r.text
     assert '<dialog class="confirm-dialog" id="delete-dialog"' in r.text

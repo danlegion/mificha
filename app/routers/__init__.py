@@ -17,11 +17,8 @@ frontend builder):
 """
 
 import copy
-import hashlib
-import hmac
 import os
 import re
-import secrets
 from datetime import datetime
 
 from fastapi.templating import Jinja2Templates
@@ -210,31 +207,14 @@ def render_explanation(exp: dict) -> dict:
     return e
 
 
-# --- tokens de invitado -----------------------------------------------------
+def can_view_intake(intake: dict | None, user: dict | None) -> bool:
+    """Acceso a un intake: solo su dueño en sesión.
 
-def new_guest_token() -> str:
-    return secrets.token_urlsafe(32)
-
-
-def hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-
-def guest_token_valid(intake: dict | None, token: str | None) -> bool:
-    if not intake or not token:
-        return False
-    esperado = intake.get("guest_token_hash")
-    if not esperado:
-        return False
-    return hmac.compare_digest(esperado, hash_token(token))
-
-
-def can_view_intake(intake: dict | None, token: str | None, user: dict | None) -> bool:
-    """Acceso a un intake: token de invitado válido o dueño en sesión."""
+    No hay acceso de invitado: subir exige sesión, así que cada intake
+    nace con dueño (ver POST /subir).
+    """
     if not intake:
         return False
-    if guest_token_valid(intake, token):
-        return True
     if user and intake.get("owner_user_id") == user["id"]:
         return True
     return False

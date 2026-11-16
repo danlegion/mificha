@@ -88,7 +88,7 @@ async def no_cache_html(request: Request, call_next):
     return resp
 
 
-# Seguridad: los tokens de share/invitado viajan en la URL (?t=...).
+# Seguridad: los tokens de share viajan en la URL (/s/...).
 # Esta cabecera impide que el navegador los envíe a terceros en Referer.
 @app.middleware("http")
 async def referrer_policy(request: Request, call_next):
@@ -239,7 +239,6 @@ def index(request: Request):
             "recent_docs": recent_docs,
             "total_docs": total_docs,
             "members": dal.list_members(user["id"]) if user else [],
-            "guest_token": None,
             "demo_mode": not bool(config.ANTHROPIC_API_KEY),
             "dev_auth": auth.DEV_AUTH,
         },

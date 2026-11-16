@@ -7,7 +7,6 @@
 
 create table if not exists intakes (
   id               text primary key,
-  guest_token_hash text,
   status           text default 'processing',
   detail           text,
   doc_type_hint    text,

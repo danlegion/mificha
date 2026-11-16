@@ -2,15 +2,12 @@
 
 El bug (2026-09-27): un usuario con sesión que subía un examen nunca veía
 el documento en su ficha — el intake nacía sin dueño y ningún camino lo
-reclamaba (la tarjeta de cuenta se ocultó para sesiones en el commit de
-sign in/out). Estos tests cubren:
+reclamaba. Estos tests cubren:
 
 - POST /subir con sesión asigna owner_user_id al intake.
-- POST /subir anónimo no asigna dueño (comportamiento anterior intacto).
+- POST /subir sin sesión redirige a /entrar (no hay subida anónima).
 - _run_pipeline guarda el documento cuando el intake tiene dueño.
-- _run_pipeline no crea documento para intakes anónimos.
-- GET /resultado con token reclama y guarda un intake listo sin dueño
-  cuando hay sesión (red de seguridad, p. ej. subido antes de entrar).
+- _run_pipeline no crea documento para intakes sin dueño.
 """
 
 import os
@@ -21,9 +18,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.config as config
-from app import auth, storage
+from app import auth
 from app.db import dal
-from app.routers import hash_token, new_guest_token
 from app.routers import ingest as ingest_router
 from app.storage import quarantine_path
 
@@ -82,7 +78,7 @@ def usuario():
 
 
 def _intake_id_de_redirect(respuesta):
-    # /procesando/{iid}?t=...
+    # /procesando/{iid}
     loc = respuesta.headers["location"]
     return loc.split("/procesando/")[1].split("?")[0]
 
@@ -105,7 +101,7 @@ def test_subir_con_sesion_asigna_dueno(client, usuario, monkeypatch):
         _clean([iid])
 
 
-def test_subir_anonimo_no_asigna_dueno(client, monkeypatch):
+def test_subir_anonimo_redirige_a_entrar(client, monkeypatch):
     monkeypatch.setattr(ingest_router, "_run_pipeline", lambda iid, lang="es": None)
     r = client.post(
         "/subir",
@@ -113,13 +109,7 @@ def test_subir_anonimo_no_asigna_dueno(client, monkeypatch):
         follow_redirects=False,
     )
     assert r.status_code in (303, 307), r.status_code
-    iid = _intake_id_de_redirect(r)
-    try:
-        intake = dal.get_intake(iid)
-        assert intake is not None
-        assert intake.get("owner_user_id") is None
-    finally:
-        _clean([iid])
+    assert r.headers["location"] == "/entrar"
 
 
 def test_pipeline_guarda_documento_cuando_hay_dueno(usuario, monkeypatch):
@@ -163,26 +153,14 @@ def test_pipeline_no_crea_documento_sin_dueno(monkeypatch):
             pass
 
 
-def test_resultado_reclama_intake_sin_dueno_con_token(client, usuario):
+def test_resultado_de_otro_usuario_es_403(client, usuario):
+    """Un intake con dueño no lo puede ver otro usuario con sesión."""
+    otro = dal.create_user(email=f"o-{uuid.uuid4().hex[:8]}@x.test")["id"]
     iid = "g-" + uuid.uuid4().hex[:12]
-    token = new_guest_token()
-    key = storage.store_original(iid, b"%PDF-1.4 rescate")
     dal.save_intake({"id": iid, "status": "ready", "explanation": _exp(),
-                     "original_key": key,
-                     "guest_token_hash": hash_token(token)})
+                     "owner_user_id": otro})
     try:
-        r = client.get(f"/resultado/{iid}?t={token}",
-                       cookies=_cookies(usuario))
-        assert r.status_code == 200, r.status_code
-        intake = dal.get_intake(iid)
-        assert intake.get("owner_user_id") == usuario
-        doc = dal.get_document(iid)
-        assert doc is not None
-        assert doc.get("user_id") == usuario
-        # El documento ya es visible en la ficha del usuario.
-        r2 = client.get("/ficha", cookies=_cookies(usuario))
-        assert r2.status_code == 200
-        assert iid in r2.text
+        r = client.get(f"/resultado/{iid}", cookies=_cookies(usuario))
+        assert r.status_code == 403, r.status_code
     finally:
-        storage.delete_original(key)
-        _clean([iid])
+        _clean([iid, otro])

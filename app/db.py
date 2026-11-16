@@ -55,7 +55,6 @@ def _sqlite_dal():
     class Intake(Base):
         __tablename__ = "intakes"
         id = Column(String, primary_key=True)
-        guest_token_hash = Column(String, nullable=True)
         status = Column(String, default="processing")
         detail = Column(String, nullable=True)
         doc_type_hint = Column(String, nullable=True)
@@ -117,7 +116,6 @@ def _sqlite_dal():
     def _intake_d(i: Intake) -> dict:
         return {
             "id": i.id,
-            "guest_token_hash": i.guest_token_hash,
             "status": i.status,
             "detail": i.detail,
             "doc_type_hint": i.doc_type_hint,
@@ -165,7 +163,6 @@ def _sqlite_dal():
                 if obj is None:
                     obj = Intake(id=intake["id"])
                     s.add(obj)
-                obj.guest_token_hash = intake.get("guest_token_hash")
                 obj.status = intake.get("status", "processing")
                 obj.detail = intake.get("detail")
                 obj.doc_type_hint = intake.get("doc_type_hint")
@@ -235,16 +232,6 @@ def _sqlite_dal():
                         f"{_now().strftime('%d/%m/%Y')}; esta explicación los tiene en cuenta."
                     )
                     obj.explanation_json = json.dumps(exp, ensure_ascii=False)
-                s.commit()
-                return _intake_d(obj)
-
-        def claim_intake(self, intake_id, user_id):
-            with Session() as s:
-                obj = s.get(Intake, intake_id)
-                if not obj:
-                    return None
-                obj.owner_user_id = user_id
-                obj.guest_token_hash = None  # el token de invitado queda revocado
                 s.commit()
                 return _intake_d(obj)
 
@@ -408,7 +395,6 @@ def _supabase_dal():
             return None
         return {
             "id": r["id"],
-            "guest_token_hash": r.get("guest_token_hash"),
             "status": r.get("status", "processing"),
             "detail": r.get("detail"),
             "doc_type_hint": r.get("doc_type_hint"),
@@ -459,7 +445,6 @@ def _supabase_dal():
         def save_intake(self, intake: dict) -> dict:
             row = {
                 "id": intake["id"],
-                "guest_token_hash": intake.get("guest_token_hash"),
                 "status": intake.get("status", "processing"),
                 "detail": intake.get("detail"),
                 "doc_type_hint": intake.get("doc_type_hint"),
@@ -490,12 +475,6 @@ def _supabase_dal():
 
         def update_intake_corrections(self, intake_id, corrections):
             row = {"corrections_json": json.dumps(corrections or []),
-                   "updated_at": _now().isoformat()}
-            _one(client.table("intakes").update(row).eq("id", intake_id).execute())
-            return self.get_intake(intake_id)
-
-        def claim_intake(self, intake_id, user_id):
-            row = {"owner_user_id": user_id, "guest_token_hash": None,
                    "updated_at": _now().isoformat()}
             _one(client.table("intakes").update(row).eq("id", intake_id).execute())
             return self.get_intake(intake_id)
