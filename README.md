@@ -1,23 +1,28 @@
 # MiFicha
 
-Getting a lab result you can't understand is a lonely feeling. The
-numbers are there, the words are technical, and the one person who can
-explain them is the doctor you won't see for days.
+Your medical records are scattered — a lab result in your email, a
+vaccine card in a drawer, a scan on a portal you can't log into
+anymore. When you need one, you can't find it.
 
-MiFicha reads that document for you and explains it in plain language:
-what each value means, which ones are out of range and by how much,
-what that could mean for your health, and how soon it's worth bringing
-up with a doctor. It also keeps your family's exams and vaccines in
-one place, so the paper trail stops living in drawers and inboxes.
+MiFicha keeps them all in one place, saved over time, and owned only
+by you. Your lab results, your vaccine record, your scans — on your
+own machine, in plain files you can read even without this app. So
+when you need to check when your last tetanus booster was, or how
+your cholesterol has moved over the last three years, the answer is
+there.
+
+And when a result comes back in words you don't understand, MiFicha
+explains it in plain language: what each value means, which ones are
+out of range and by how much, and how soon it's worth bringing up
+with a doctor.
 
 It never diagnoses, never prescribes, and never pretends to be a
 doctor. It's a translator, not a clinician — and it says so on every
 explanation.
 
-You run it yourself, at home, on a small computer. Your documents
-stay in a plain folder on your machine, not in someone else's cloud,
-and the code is open for anyone to read. This is an early version,
-built for one family's real use and shared in case it helps yours.
+You run it yourself, at home, on a small computer. The code is open
+for anyone to read. This is an early version, built for one family's
+real use and shared in case it helps yours.
 
 ## Self-hosting with Docker: code and data separate
 
