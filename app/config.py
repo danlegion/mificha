@@ -30,9 +30,10 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "auto")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 # Model for Claude. The old LLM_MODEL name still works as a fallback.
+# (Sonnet 4.5 retired Nov 30, 2026; the default is now Sonnet 5.5.)
 ANTHROPIC_MODEL = os.getenv(
     "ANTHROPIC_MODEL",
-    os.getenv("LLM_MODEL", "claude-sonnet-4-5-20250929"),
+    os.getenv("LLM_MODEL", "claude-sonnet-5-5"),
 )
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")

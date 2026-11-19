@@ -134,7 +134,7 @@ The app is then at http://localhost:18473.
 | `GEMINI_API_KEY` | No | demo mode | Gemini key (AI Studio). |
 | `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Gemini model (verified on the free tier). |
 | `ANTHROPIC_API_KEY` | No | demo mode | Anthropic key (Claude). |
-| `ANTHROPIC_MODEL` | No | `claude-sonnet-4-5-20250929` | Claude model. (The old `LLM_MODEL` name still works.) |
+| `ANTHROPIC_MODEL` | No | `claude-sonnet-5-5` | Claude model. (The old `LLM_MODEL` name still works.) |
 | `OPENAI_API_KEY` | No | demo mode | OpenAI key (ChatGPT API — a platform key, not the ChatGPT login). With no key at all, the explanation is local and deterministic, with no network calls. |
 | `OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model. |
 | `SUPABASE_URL` | No | local SQLite | Supabase project URL (production). |
@@ -186,6 +186,43 @@ yet — today a garbled scanned page is rejected as unscannable. Setup
 
 Pricing: first 1,000 pages/month free, then $1.50 per 1,000 pages;
 failed calls are not billed.
+
+## Costs
+
+All prices in USD, checked November 19, 2026 against the providers'
+own pricing pages. They change often — check the provider's page
+before budgeting.
+
+### Explaining one exam (LLM)
+
+Each upload sends one request: the system prompt plus the document
+text (up to 12,000 characters), and gets back the explanation JSON
+(up to 6,000 tokens). A typical exam is roughly 6,000 input tokens
+and 2,500 output tokens, so:
+
+| Provider (default model) | Input / 1M tokens | Output / 1M tokens | Rough cost per exam |
+|---|---|---|---|
+| Gemini (`gemini-3.5-flash-lite`) | $0.30 | $2.50 | ~$0.01 |
+| Claude (`claude-sonnet-5-5`) | $2.00 | $10.00 | ~$0.04 |
+| OpenAI (`gpt-5-mini`) | $0.25 | $2.00 | ~$0.01 |
+
+So 100 exams cost about $1 on Gemini or OpenAI, about $4 on Claude.
+Retries after a 429/503 error cost extra; the demo mode (no key)
+costs nothing. Gemini also has a free tier with rate limits — this
+deployment uses the paid key.
+
+Model retirements to watch: Claude Sonnet 4.5 retired November 30,
+2026, so the default is now Sonnet 5.5 (which is also cheaper).
+OpenAI retires `gpt-5-mini` on December 11, 2026 — after that, set
+`OPENAI_MODEL=gpt-5.6-terra` ($2.00 / $12.00 per 1M tokens).
+
+### Reading a scanned page (OCR)
+
+- Local Tesseract (the default): free, runs inside the container.
+- Google Document AI (only the rescue path for pages Tesseract can't
+  read): first 1,000 pages/month free, then $1.50 per 1,000 pages. A
+  typical exam is a few pages, so even beyond the free tier it is a
+  fraction of a cent per exam. Failed calls are not billed.
 
 ## How to run the tests
 
