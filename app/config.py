@@ -29,7 +29,11 @@ APP_PASSWORD = os.getenv("APP_PASSWORD", "")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "auto")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "claude-sonnet-4-5-20250929")
+# Model for Claude. The old LLM_MODEL name still works as a fallback.
+ANTHROPIC_MODEL = os.getenv(
+    "ANTHROPIC_MODEL",
+    os.getenv("LLM_MODEL", "claude-sonnet-4-5-20250929"),
+)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 

@@ -181,6 +181,24 @@ def test_openai_sin_key_falla():
         OpenAIProvider(api_key="").explain({"full_text": "t"})
 
 
+def test_anthropic_model_usa_anthropic_model(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_MODEL", "claude-nuevo")
+    monkeypatch.setenv("LLM_MODEL", "claude-viejo")
+    assert AnthropicProvider(api_key="K").model == "claude-nuevo"
+
+
+def test_anthropic_model_acepta_llm_model_legacy(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    monkeypatch.setenv("LLM_MODEL", "claude-viejo")
+    assert AnthropicProvider(api_key="K").model == "claude-viejo"
+
+
+def test_anthropic_model_default_sin_variables(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    assert AnthropicProvider(api_key="K").model == "claude-sonnet-4-5-20250929"
+
+
 def test_fabrica_elige_gemini_antes_que_anthropic(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "auto")
     monkeypatch.setenv("GEMINI_API_KEY", "gk")

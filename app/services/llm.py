@@ -10,7 +10,8 @@ Contrato:
     GeminiProvider: usa GEMINI_API_KEY y el modelo de la variable
     GEMINI_MODEL (default "gemini-3.5-flash-lite", verificado en free tier).
     AnthropicProvider: usa ANTHROPIC_API_KEY y el modelo de la variable
-    LLM_MODEL (default "claude-sonnet-4-5-20250929").
+    ANTHROPIC_MODEL (default "claude-sonnet-4-5-20250929"; la vieja
+    LLM_MODEL sigue funcionando como alternativa).
     OpenAIProvider: usa OPENAI_API_KEY y el modelo de la variable
     OPENAI_MODEL (default "gpt-5-mini").
     DemoExplainer: alternativa determinista basada en reglas; se usa SOLO
@@ -197,7 +198,8 @@ class AnthropicProvider(LLMProvider):
 
     def __init__(self, model: str = None, api_key: str = None):
         self.model = model or os.getenv(
-            "LLM_MODEL", "claude-sonnet-4-5-20250929"
+            "ANTHROPIC_MODEL",
+            os.getenv("LLM_MODEL", "claude-sonnet-4-5-20250929"),
         )
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
 

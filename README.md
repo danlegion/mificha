@@ -134,7 +134,7 @@ The app is then at http://localhost:18473.
 | `GEMINI_API_KEY` | No | demo mode | Gemini key (AI Studio). |
 | `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Gemini model (verified on the free tier). |
 | `ANTHROPIC_API_KEY` | No | demo mode | Anthropic key (Claude). |
-| `LLM_MODEL` | No | backend default | LLM model for Anthropic. |
+| `ANTHROPIC_MODEL` | No | `claude-sonnet-4-5-20250929` | Claude model. (The old `LLM_MODEL` name still works.) |
 | `OPENAI_API_KEY` | No | demo mode | OpenAI key (ChatGPT API — a platform key, not the ChatGPT login). With no key at all, the explanation is local and deterministic, with no network calls. |
 | `OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model. |
 | `SUPABASE_URL` | No | local SQLite | Supabase project URL (production). |
@@ -158,7 +158,7 @@ The app is then at http://localhost:18473.
 ## For production, connect
 
 1. **Supabase**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` (and `DATABASE_URL` if you use Postgres directly).
-2. **Explanation provider**: pick one with `LLM_PROVIDER` (`gemini`, `anthropic`, or `openai`) and set its key — `GEMINI_API_KEY` (+ `GEMINI_MODEL` to pin the model), `ANTHROPIC_API_KEY` + `LLM_MODEL`, or `OPENAI_API_KEY` + `OPENAI_MODEL`. With `auto` (default) the app uses the first provider that has a key, in that order.
+2. **Explanation provider**: pick one with `LLM_PROVIDER` (`gemini`, `anthropic`, or `openai`) and set its key — `GEMINI_API_KEY` (+ `GEMINI_MODEL` to pin the model), `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`, or `OPENAI_API_KEY` + `OPENAI_MODEL`. With `auto` (default) the app uses the first provider that has a key, in that order.
 3. **OCR**: local Tesseract by default, with a garbled-text quality gate (`app/services/ocr_quality.py`): text that is clearly garbled is not saved as document text — it goes to the Google Document AI fallback instead, and if the fallback is also garbled (or not configured) the page stays marked as scanned/uncertain. The gate is character-level only and conservative: numbers, units, abbreviations, and dates all count as clean.
 
 ## How to run the tests
