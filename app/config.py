@@ -23,8 +23,15 @@ APP_USERNAME = os.getenv("APP_USERNAME", "")
 APP_PASSWORD = os.getenv("APP_PASSWORD", "")
 
 # --- LLM ------------------------------------------------------------------
+# Proveedor de explicación: "gemini" | "anthropic" | "openai" | "demo" |
+# "auto" (default: el primero con llave, en ese orden). Un proveedor
+# explícito sin su llave cae al siguiente con llave, con un warning.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "auto")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "claude-sonnet-4-5-20250929")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 
 # --- OCR ------------------------------------------------------------------
 OCR_PROVIDER = os.getenv("OCR_PROVIDER", "null")  # "null" = sin proveedor

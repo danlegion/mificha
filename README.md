@@ -130,10 +130,13 @@ The app is then at http://localhost:18473.
 
 | Variable | Required | Default (if empty) | Description |
 |---|---|---|---|
-| `GEMINI_API_KEY` | No | demo mode | Gemini key (AI Studio). First option if present. |
+| `LLM_PROVIDER` | No | `auto` | Which provider explains the exams: `gemini` \| `anthropic` \| `openai` \| `demo` \| `auto` (first one with a key, in that order). An explicit provider without its key falls through to the next one with a key, with a warning in the logs. |
+| `GEMINI_API_KEY` | No | demo mode | Gemini key (AI Studio). |
 | `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Gemini model (verified on the free tier). |
-| `ANTHROPIC_API_KEY` | No | demo mode | Anthropic key (alternative). With both empty, the explanation is local and deterministic, with no network calls. |
+| `ANTHROPIC_API_KEY` | No | demo mode | Anthropic key (Claude). |
 | `LLM_MODEL` | No | backend default | LLM model for Anthropic. |
+| `OPENAI_API_KEY` | No | demo mode | OpenAI key (ChatGPT API — a platform key, not the ChatGPT login). With no key at all, the explanation is local and deterministic, with no network calls. |
+| `OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model. |
 | `SUPABASE_URL` | No | local SQLite | Supabase project URL (production). |
 | `SUPABASE_ANON_KEY` | No | — | Anonymous key: only for Supabase Auth (magic links). With RLS enabled it no longer accesses the tables. |
 | `SUPABASE_SERVICE_KEY` | Yes, with RLS enabled | — | service_role key (server only, never to the browser): data and Storage access. Required since RLS was enabled. |
@@ -155,7 +158,7 @@ The app is then at http://localhost:18473.
 ## For production, connect
 
 1. **Supabase**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` (and `DATABASE_URL` if you use Postgres directly).
-2. **Gemini (or Anthropic)**: `GEMINI_API_KEY` (and `GEMINI_MODEL` if you want to pin the model) for the natural-language explanation. Alternative: `ANTHROPIC_API_KEY` + `LLM_MODEL`.
+2. **Explanation provider**: pick one with `LLM_PROVIDER` (`gemini`, `anthropic`, or `openai`) and set its key — `GEMINI_API_KEY` (+ `GEMINI_MODEL` to pin the model), `ANTHROPIC_API_KEY` + `LLM_MODEL`, or `OPENAI_API_KEY` + `OPENAI_MODEL`. With `auto` (default) the app uses the first provider that has a key, in that order.
 3. **OCR**: local Tesseract by default, with a garbled-text quality gate (`app/services/ocr_quality.py`): text that is clearly garbled is not saved as document text — it goes to the Google Document AI fallback instead, and if the fallback is also garbled (or not configured) the page stays marked as scanned/uncertain. The gate is character-level only and conservative: numbers, units, abbreviations, and dates all count as clean.
 
 ## How to run the tests

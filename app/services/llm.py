@@ -11,8 +11,15 @@ Contrato:
     GEMINI_MODEL (default "gemini-3.5-flash-lite", verificado en free tier).
     AnthropicProvider: usa ANTHROPIC_API_KEY y el modelo de la variable
     LLM_MODEL (default "claude-sonnet-4-5-20250929").
+    OpenAIProvider: usa OPENAI_API_KEY y el modelo de la variable
+    OPENAI_MODEL (default "gpt-5-mini").
     DemoExplainer: alternativa determinista basada en reglas; se usa SOLO
     cuando no hay API key. Pone "demo_mode": True.
+
+    El proveedor se elige con LLM_PROVIDER ("gemini" | "anthropic" |
+    "openai" | "demo" | "auto", default "auto": el primero con llave, en
+    ese orden). Un proveedor explícito sin su llave no tumba la app: se
+    registra un warning y se usa el siguiente con llave.
 
 Reglas duras (prompt del sistema Y post-validación en pipeline.py):
 - Rangos de referencia SOLO del documento: si el modelo devuelve un rango
@@ -266,6 +273,34 @@ def _extraer_json(texto: str) -> str:
     return t
 
 
+def _prompt_para(extracted: dict) -> tuple:
+    """Devuelve (system_prompt, user_message) según el idioma del documento."""
+    texto = (extracted.get("full_text") or "")[:12000]
+    hint = extracted.get("doc_type_hint")
+    lang = extracted.get("lang", "en")
+    if lang not in ("es", "en"):
+        lang = "en"
+    if lang == "en":
+        pista = (
+            f"\nThe user indicated the document type is: {hint}."
+            if hint
+            else ""
+        )
+        return SYSTEM_PROMPT_EN, (
+            "Explain this medical document in simple English. "
+            f"Return only the JSON.{pista}\n\nDOCUMENT TEXT:\n{texto}"
+        )
+    pista = (
+        f"\nEl usuario indicó que el tipo de documento es: {hint}."
+        if hint
+        else ""
+    )
+    return SYSTEM_PROMPT, (
+        "Explica este documento médico en español simple. "
+        f"Devuelve solo el JSON.{pista}\n\nTEXTO DEL DOCUMENTO:\n{texto}"
+    )
+
+
 class GeminiProvider(LLMProvider):
     """Explicación con el API de Gemini (AI Studio).
 
@@ -372,6 +407,76 @@ class GeminiProvider(LLMProvider):
                     "Respuesta inesperada de Gemini"
                 ) from exc
         raise RuntimeError(f"Gemini no respondió: {ultimo_error}")
+
+
+class OpenAIProvider(LLMProvider):
+    """Explicación con el API de OpenAI (Chat Completions, JSON mode).
+
+    Sin SDK: urllib directo contra https://api.openai.com/v1/chat/completions,
+    con Bearer key y response_format json_object. Reintenta 429/503 con
+    backoff, como Gemini. No envía temperature: los modelos GPT-5 la
+    ignoran y los próximos modelos la rechazan.
+    """
+
+    is_demo = False
+    endpoint = "https://api.openai.com/v1/chat/completions"
+
+    def __init__(self, model: str = None, api_key: str = None):
+        self.model = model or os.getenv("OPENAI_MODEL", "gpt-5-mini")
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
+
+    def explain(self, extracted: dict) -> dict:
+        if not self.api_key:
+            raise RuntimeError("OPENAI_API_KEY no está configurada.")
+        system, user_msg = _prompt_para(extracted)
+        cuerpo = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_msg},
+            ],
+            "response_format": {"type": "json_object"},
+            "max_completion_tokens": 6000,
+        }
+        crudo = self._post(cuerpo)
+        data = json.loads(_extraer_json(crudo))
+        data["demo_mode"] = False
+        return data
+
+    def _post(self, cuerpo: dict) -> str:
+        payload = json.dumps(cuerpo, ensure_ascii=False).encode("utf-8")
+        ultimo_error = None
+        for intento in range(4):
+            req = urllib.request.Request(
+                self.endpoint,
+                data=payload,
+                headers={
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Authorization": "Bearer " + self.api_key,
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    data = json.load(resp)
+                return data["choices"][0]["message"]["content"]
+            except urllib.error.HTTPError as exc:
+                ultimo_error = exc
+                if exc.code in (429, 503) and intento < 3:
+                    espera = 2 ** (intento + 1)
+                    log.warning(
+                        "OpenAI HTTP %s, reintentando en %ss", exc.code, espera
+                    )
+                    time.sleep(espera)
+                    continue
+                raise RuntimeError(
+                    f"OpenAI devolvió HTTP {exc.code}"
+                ) from exc
+            except (KeyError, IndexError, TypeError) as exc:
+                raise RuntimeError(
+                    "Respuesta inesperada de OpenAI"
+                ) from exc
+        raise RuntimeError(f"OpenAI no respondió: {ultimo_error}")
 
 
 # ---------------------------------------------------------------------------
@@ -1115,16 +1220,40 @@ class DemoExplainer(LLMProvider):
 
 
 def get_llm_provider() -> LLMProvider:
-    """Fábrica: Gemini si hay API key, si no Anthropic; si no, DemoExplainer.
+    """Fábrica: el proveedor lo elige LLM_PROVIDER.
 
-    The order reflects which key is configured for the prototype.
+    Valores: "gemini" | "anthropic" | "openai" | "demo" | "auto"
+    (default "auto": Gemini si hay llave, si no Anthropic, si no OpenAI,
+    si no DemoExplainer). Un proveedor explícito sin su llave no tumba la
+    app: se registra un warning y se usa el siguiente con llave.
     DemoExplainer es SOLO para desarrollo sin llave (modo demo).
     """
-    if os.getenv("GEMINI_API_KEY", "").strip():
-        log.info("Proveedor LLM: Gemini")
-        return GeminiProvider()
-    if os.getenv("ANTHROPIC_API_KEY", "").strip():
-        log.info("Proveedor LLM: Anthropic")
-        return AnthropicProvider()
+    wanted = os.getenv("LLM_PROVIDER", "auto").strip().lower()
+    if wanted == "demo":
+        log.info("Proveedor LLM: demo (LLM_PROVIDER=demo)")
+        return DemoExplainer()
+    orden = {
+        "gemini": ("GEMINI_API_KEY", GeminiProvider),
+        "anthropic": ("ANTHROPIC_API_KEY", AnthropicProvider),
+        "openai": ("OPENAI_API_KEY", OpenAIProvider),
+    }
+    if wanted in orden:
+        preferencia = [wanted] + [p for p in orden if p != wanted]
+    else:
+        if wanted not in ("", "auto"):
+            log.warning("LLM_PROVIDER %r desconocido; usando auto", wanted)
+        preferencia = list(orden)
+    for nombre in preferencia:
+        llave, clase = orden[nombre]
+        if os.getenv(llave, "").strip():
+            log.info("Proveedor LLM: %s", nombre)
+            return clase()
+        if nombre == wanted:
+            log.warning(
+                "LLM_PROVIDER=%s pero %s no está configurada; probando "
+                "el siguiente proveedor con llave",
+                wanted,
+                llave,
+            )
     log.info("Sin API key de LLM: usando DemoExplainer (modo demo)")
     return DemoExplainer()
