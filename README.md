@@ -238,7 +238,7 @@ have the current numbers.
 Model retirements to watch: Claude Sonnet 4.5 retired November 30,
 2026, so the default is now Sonnet 5.5 (which is also cheaper).
 OpenAI retires `gpt-5-mini` on December 11, 2026 — after that, set
-`OPENAI_MODEL=gpt-5.6-terra`.
+`OPENAI_MODEL=gpt-6.1-terra`.
 
 ### Reading a scanned page (OCR)
 
