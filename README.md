@@ -1,6 +1,23 @@
-# MiFicha v0.1 — prototype
+# MiFicha
 
-MiFicha is a health app prototype that explains medical documents in plain language: lab results, narrative reports (for example a PET scan), and exam orders. For each document it says what each value means, how far out of range it is, what effect it could have on your health, and how urgently you should seek medical attention — without giving diagnoses.
+Getting a lab result you can't understand is a lonely feeling. The
+numbers are there, the words are technical, and the one person who can
+explain them is the doctor you won't see for days.
+
+MiFicha reads that document for you and explains it in plain language:
+what each value means, which ones are out of range and by how much,
+what that could mean for your health, and how soon it's worth bringing
+up with a doctor. It also keeps your family's exams and vaccines in
+one place, so the paper trail stops living in drawers and inboxes.
+
+It never diagnoses, never prescribes, and never pretends to be a
+doctor. It's a translator, not a clinician — and it says so on every
+explanation.
+
+You run it yourself, at home, on a small computer. Your documents
+stay in a plain folder on your machine, not in someone else's cloud,
+and the code is open for anyone to read. This is an early version,
+built for one family's real use and shared in case it helps yours.
 
 ## Self-hosting with Docker: code and data separate
 
@@ -195,26 +212,28 @@ before budgeting.
 
 ### Explaining one exam (LLM)
 
-Each upload sends one request: the system prompt plus the document
-text (up to 12,000 characters), and gets back the explanation JSON
-(up to 6,000 tokens). A typical exam is roughly 6,000 input tokens
-and 2,500 output tokens, so:
+Each upload is one request to the provider you choose. What it costs
+depends on how long the document is, but in general:
 
-| Provider (default model) | Input / 1M tokens | Output / 1M tokens | Rough cost per exam |
-|---|---|---|---|
-| Gemini (`gemini-3.5-flash-lite`) | $0.30 | $2.50 | ~$0.01 |
-| Claude (`claude-sonnet-5-5`) | $2.00 | $10.00 | ~$0.04 |
-| OpenAI (`gpt-5-mini`) | $0.25 | $2.00 | ~$0.01 |
+| Provider | Rough cost per exam |
+|---|---|
+| Gemini | Less than 2 cents |
+| Claude | 2 to 7 cents |
+| OpenAI (ChatGPT) | Less than 2 cents |
 
-So 100 exams cost about $1 on Gemini or OpenAI, about $4 on Claude.
-Retries after a 429/503 error cost extra; the demo mode (no key)
-costs nothing. Gemini also has a free tier with rate limits — this
-deployment uses the paid key.
+So explaining 100 exams costs roughly $1–$2 on Gemini or OpenAI, and
+roughly $2–$7 on Claude. Longer documents cost a bit more, and if a
+request has to retry, that retry costs extra too. With no API key the
+app runs in demo mode, which costs nothing. Gemini also has a free
+tier with rate limits.
+
+Exact per-token rates change often — the providers' own pricing pages
+have the current numbers.
 
 Model retirements to watch: Claude Sonnet 4.5 retired November 30,
 2026, so the default is now Sonnet 5.5 (which is also cheaper).
 OpenAI retires `gpt-5-mini` on December 11, 2026 — after that, set
-`OPENAI_MODEL=gpt-5.6-terra` ($2.00 / $12.00 per 1M tokens).
+`OPENAI_MODEL=gpt-5.6-terra`.
 
 ### Reading a scanned page (OCR)
 
