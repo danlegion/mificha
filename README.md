@@ -161,6 +161,32 @@ The app is then at http://localhost:18473.
 2. **Explanation provider**: pick one with `LLM_PROVIDER` (`gemini`, `anthropic`, or `openai`) and set its key — `GEMINI_API_KEY` (+ `GEMINI_MODEL` to pin the model), `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`, or `OPENAI_API_KEY` + `OPENAI_MODEL`. With `auto` (default) the app uses the first provider that has a key, in that order.
 3. **OCR**: local Tesseract by default, with a garbled-text quality gate (`app/services/ocr_quality.py`): text that is clearly garbled is not saved as document text — it goes to the Google Document AI fallback instead, and if the fallback is also garbled (or not configured) the page stays marked as scanned/uncertain. The gate is character-level only and conservative: numbers, units, abbreviations, and dates all count as clean.
 
+### Cloud OCR (Google Document AI, optional fallback)
+
+Tesseract handles most scans. Document AI is only the rescue path for
+pages Tesseract can't read or reads as garbled. It is **not** configured
+yet — today a garbled scanned page is rejected as unscannable. Setup
+(only you can do this; never paste credentials in chat or git):
+
+1. In Google Cloud Console, pick or create a project and enable the
+   **Document AI API**.
+2. Document AI → Create processor, type **Document OCR**, location
+   **`us`**. Copy the processor resource name:
+   `projects/<project>/locations/us/processors/<id>`.
+3. IAM → Service Accounts → create one with the **Document AI API User**
+   role → Keys → Add key (JSON) → download it.
+4. Set the two variables, on Render (Dashboard → mificha → Environment)
+   or in the mini-PC `.env`:
+   - `DOCAI_PROCESSOR=projects/<project>/locations/us/processors/<id>`
+   - `DOCAI_CREDENTIALS_JSON=<the whole JSON on one line>`
+     (collapse it with `jq -c . key.json`).
+5. Redeploy (Render) or restart the container (mini PC). To verify,
+   upload a scanned page Tesseract can't read: it should come back
+   explained instead of unscannable.
+
+Pricing: first 1,000 pages/month free, then $1.50 per 1,000 pages;
+failed calls are not billed.
+
 ## How to run the tests
 
 ```bash
