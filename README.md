@@ -24,6 +24,77 @@ You run it yourself, at home, on a small computer. The code is open
 for anyone to read. This is an early version, built for one family's
 real use and shared in case it helps yours.
 
+## How it works
+
+1. **You sign in and upload.** Sign-in is a magic link by email;
+   the first time creates your account. There is no guest upload —
+   everything you upload is saved to your vault automatically. You
+   pick which family member the document belongs to, or add a new
+   one on the spot.
+2. **The app reads the document.** It pulls the text straight out
+   of the PDF. If a page is a scan with no readable text, it tries
+   to read it with OCR — Tesseract on the machine first, then
+   Google Document AI if you've set it up. If a page still can't
+   be read, it's marked as uncertain, never guessed at.
+3. **An AI explains it in plain language.** The text goes to the
+   provider you chose (Gemini, Claude, or OpenAI) — or to the
+   built-in demo explainer if you have no key. It comes back as a
+   structured explanation: what each value means, which ones are
+   out of range and by how much, and how soon it's worth bringing
+   up with a doctor.
+4. **The explanation is checked before you see it.** It has to
+   match the app's fixed format, and a set of hard rules runs over
+   it — no invented reference ranges, no made-up dates, no
+   diagnosis. Anything the app isn't sure about is flagged as
+   uncertain, in the open.
+5. **It lands in your vault, under the right person.** Documents
+   group by family member, biomarkers build a history per person,
+   and vaccine records feed the vaccine registry. You can reassign
+   a document, download the original PDF, or share a read-only
+   link that expires in 7 days.
+
+### Where your data lives
+
+Self-hosted, everything is one folder on your machine,
+`./mificha-data` (movable with `MIFICHA_DATA_DIR`):
+
+```
+mificha-data/
+  mificha.db         # the index: accounts, members, documents, shares —
+                     # explanations and biomarker history live here as data
+  originales/*.pdf   # your original PDFs, untouched, one file per upload
+  quarantine/*.pdf   # uploads held aside while they're being processed
+```
+
+The originals are plain PDFs — readable without this app, forever.
+The rest is a single SQLite database, a standard format you can
+open with any SQLite tool; nothing is locked in a proprietary
+store. (A future version will also write the explanations out as
+plain JSON and CSV files per person; today they live inside that
+one database file.)
+
+The container holds no data: delete it, rebuild it, move it to
+another machine — as long as you keep the folder, you keep
+everything.
+
+**Backing up** is copying that one folder. A plain copy works, or
+sync it offsite:
+
+```bash
+cp -r ./mificha-data /path/to/backup/
+# or to a bucket / Drive folder, e.g.:
+rclone sync ./mificha-data remote:mificha-backup
+```
+
+where `remote` is any rclone destination — Google Drive, S3,
+another machine. To restore, copy the folder back and start the
+container. No cloud provider is needed to read your files back.
+
+On the hosted deployment (Render + Supabase) the same split
+applies, just in the cloud: originals in the Supabase `originales`
+bucket, everything else in the Supabase database — back that up
+with Supabase's own backups or exports, not with rclone.
+
 ## Self-hosting with Docker: code and data separate
 
 This is the recommended setup for personal/family use, and the one the
@@ -43,31 +114,12 @@ docker compose up -d --build
 Open the app at `http://<your-machine>:18473`, or only over Tailscale in a
 private deployment. Do not port-forward your router to this port.
 
-The data folder (by default `./mificha-data`, configurable with
-`MIFICHA_DATA_DIR`) is the source of truth and is never committed to git
-(it is in `.gitignore` and `.dockerignore`):
-
-```
-mificha-data/
-  mificha.db         # SQLite index: users, documents, intakes, shares
-  originales/*.pdf   # original uploaded PDFs, untouched
-  quarantine/*.pdf   # uploads held aside during processing
-```
-
-The container is disposable: you can delete it and recreate it without
-losing data, as long as you do not delete the data folder. Back up that
-folder, not the container:
-
-```bash
-cp -r ./mificha-data /path/to/backup/
-# or a plain sync to a bucket / Drive folder, e.g.:
-rclone sync ./mificha-data remote:mificha-backup
-```
-
-Restoring is copying the folder back. The app can be rebuilt from it;
-no cloud provider is needed to read the files (they are PDFs, SQLite
-and, in the future, JSON/CSV per person). Without a Gemini key, the app
-runs in local demo mode, with no network calls.
+Your data lives in `./mificha-data` (see "Where your data lives"
+above) and is never committed to git (it is in `.gitignore` and
+`.dockerignore`). The container is disposable: you can delete it and
+recreate it without losing data, as long as you do not delete the
+data folder. Back up that folder, not the container. Without an LLM
+key, the app runs in local demo mode, with no network calls.
 
 ## Accounts
 
