@@ -126,7 +126,7 @@ License: GNU Affero General Public License v3.0, see `LICENSE`.
 ## Requirements
 
 - Python 3.11 or later
-- (Optional) API keys for real mode: Anthropic, Supabase, OCR provider
+- (Optional) One API key for an explanation provider (Gemini, Claude, or OpenAI) — without one, the app runs in demo mode
 
 ## Installation
 
@@ -150,25 +150,62 @@ The app is then at http://localhost:18473.
 
 ## Environment variables
 
-| Variable | Required | Default (if empty) | Description |
-|---|---|---|---|
-| `LLM_PROVIDER` | No | `auto` | Which provider explains the exams: `gemini` \| `anthropic` \| `openai` \| `demo` \| `auto` (first one with a key, in that order). An explicit provider without its key falls through to the next one with a key, with a warning in the logs. |
-| `GEMINI_API_KEY` | No | demo mode | Gemini key (AI Studio). |
-| `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Gemini model (verified on the free tier). |
-| `ANTHROPIC_API_KEY` | No | demo mode | Anthropic key (Claude). |
-| `ANTHROPIC_MODEL` | No | `claude-sonnet-5-5` | Claude model. (The old `LLM_MODEL` name still works.) |
-| `OPENAI_API_KEY` | No | demo mode | OpenAI key (ChatGPT API — a platform key, not the ChatGPT login). With no key at all, the explanation is local and deterministic, with no network calls. |
-| `OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model. |
-| `SUPABASE_URL` | No | local SQLite | Supabase project URL (production). |
-| `SUPABASE_ANON_KEY` | No | — | Anonymous key: only for Supabase Auth (magic links). With RLS enabled it no longer accesses the tables. |
-| `SUPABASE_SERVICE_KEY` | Yes, with RLS enabled | — | service_role key (server only, never to the browser): data and Storage access. Required since RLS was enabled. |
-| `OCR_PROVIDER` | No | `tesseract` | Local Tesseract (Spanish + English, inside the Docker image). |
-| `DOCAI_PROCESSOR` | Fallback only | — | Google Document AI processor (`projects/.../processors/...`); only used if Tesseract extracts no useful text or clearly garbled text. |
-| `DOCAI_CREDENTIALS_JSON` | Fallback only | — | Document AI service-account JSON. |
-| `SECRET_KEY` | Yes | — | Session/token signing key. **Change it in production.** |
-| `DATABASE_URL` / `STORAGE_DIR` | — | — | No longer read by the current code: SQLite lives in the data folder (`./data/mificha.db` locally, `./mificha-data/mificha.db` with Docker) and PDFs in `originales/` inside that same folder. |
-| `PORT` | No | `18473` | Server port. |
-| `BASE_URL` | No | `http://localhost:18473` | Public URL; builds the WhatsApp links. In production use your domain. |
+Most setups only need a few of these. They're grouped by what
+they're for — skip any group that doesn't apply to you. Anything
+with a default works if you leave it out.
+
+### Everyone
+
+| Variable | What it does | Default |
+|---|---|---|
+| `SECRET_KEY` | Signs sessions. **Required in production** — generate a random one, e.g. `python3 -c "import secrets; print(secrets.token_hex(32))"`. Never use the code's built-in default. | — |
+| `BASE_URL` | Your app's address, used to build share links. On a home machine, your Tailscale address, e.g. `http://mini-pc:18473`. | `http://localhost:18473` |
+| `PORT` | The port the server listens on. | `18473` |
+
+### Explaining exams — pick one provider
+
+| Variable | What it does | Default |
+|---|---|---|
+| `LLM_PROVIDER` | Which provider explains the exams: `gemini`, `anthropic`, `openai`, `demo`, or `auto`. `auto` uses the first one that has a key, in that order. If the provider you pick has no key, the app falls through to the next one with a key and logs a warning — uploads never break. | `auto` |
+| `GEMINI_API_KEY` | Gemini key (AI Studio). | demo mode |
+| `GEMINI_MODEL` | Gemini model. | `gemini-3.5-flash-lite` |
+| `ANTHROPIC_API_KEY` | Claude key (console.anthropic.com). | demo mode |
+| `ANTHROPIC_MODEL` | Claude model. The old name `LLM_MODEL` still works. | `claude-sonnet-5-5` |
+| `OPENAI_API_KEY` | OpenAI key — a platform key from platform.openai.com, not the ChatGPT login. | demo mode |
+| `OPENAI_MODEL` | OpenAI model. | `gpt-5-mini` |
+
+With no key at all, the app runs in demo mode: a local,
+deterministic explanation with no network calls.
+
+### Cloud OCR fallback — optional
+
+Only for pages Tesseract can't read; see "Cloud OCR" below.
+Tesseract is the main OCR and needs no setup (`OCR_PROVIDER`
+defaults to `tesseract`).
+
+| Variable | What it does | Default |
+|---|---|---|
+| `DOCAI_PROCESSOR` | Google Document AI processor (`projects/.../processors/...`). | — |
+| `DOCAI_CREDENTIALS_JSON` | Document AI service-account JSON, on one line. | — |
+
+### Hosted deployment only (Render) — skip if self-hosting
+
+These connect a cloud deployment to Supabase (database, storage,
+and magic-link sign-in). A self-hosted instance leaves them empty
+and uses local SQLite instead.
+
+| Variable | What it does |
+|---|---|
+| `SUPABASE_URL` | Your Supabase project URL. |
+| `SUPABASE_ANON_KEY` | Anonymous key, used only for Supabase Auth (magic links). |
+| `SUPABASE_SERVICE_KEY` | Server-only key for data and storage. Never expose it to the browser. |
+
+### Single-password gate — self-hosting only
+
+| Variable | What it does |
+|---|---|
+| `APP_USERNAME` | Together with `APP_PASSWORD`, locks the whole instance behind one login. |
+| `APP_PASSWORD` | Leave empty and there is no gate. Only works when Supabase is not set. |
 
 ## What works without keys (demo mode)
 
@@ -179,9 +216,9 @@ The app is then at http://localhost:18473.
 
 ## For production, connect
 
-1. **Supabase**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` (and `DATABASE_URL` if you use Postgres directly).
-2. **Explanation provider**: pick one with `LLM_PROVIDER` (`gemini`, `anthropic`, or `openai`) and set its key — `GEMINI_API_KEY` (+ `GEMINI_MODEL` to pin the model), `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`, or `OPENAI_API_KEY` + `OPENAI_MODEL`. With `auto` (default) the app uses the first provider that has a key, in that order.
-3. **OCR**: local Tesseract by default, with a garbled-text quality gate (`app/services/ocr_quality.py`): text that is clearly garbled is not saved as document text — it goes to the Google Document AI fallback instead, and if the fallback is also garbled (or not configured) the page stays marked as scanned/uncertain. The gate is character-level only and conservative: numbers, units, abbreviations, and dates all count as clean.
+1. **Explanation provider**: pick one with `LLM_PROVIDER` (`gemini`, `anthropic`, or `openai`) and set its key — `GEMINI_API_KEY` (+ `GEMINI_MODEL` to pin the model), `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`, or `OPENAI_API_KEY` + `OPENAI_MODEL`. With `auto` (default) the app uses the first provider that has a key, in that order.
+2. **OCR**: local Tesseract by default, with a garbled-text quality gate (`app/services/ocr_quality.py`): text that is clearly garbled is not saved as document text — it goes to the Google Document AI fallback instead, and if the fallback is also garbled (or not configured) the page stays marked as scanned/uncertain. The gate is character-level only and conservative: numbers, units, abbreviations, and dates all count as clean.
+3. **Hosted deployment only**: if you're deploying to Render (or another cloud host) instead of self-hosting, add the three Supabase variables — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`. A self-hosted instance doesn't need them at all.
 
 ### Cloud OCR (Google Document AI, optional fallback)
 
