@@ -183,3 +183,24 @@ def test_registry_page_groups_by_member(client, owner):
         assert "Influenza" in r2.text
     finally:
         _clean([did, member["id"]])
+
+
+def test_vault_pages_share_one_tab_nav(client, owner):
+    """The vault has one navigation between its two views, not a button
+    beside the upload action: /ficha and /vacunas both render the same
+    tab nav, with the current view marked, and the hero carries no
+    cross-link button."""
+    r = client.get("/ficha", cookies=_cookies(owner))
+    assert r.status_code == 200
+    assert 'class="vault-tabs"' in r.text
+    assert '<a href="/ficha" aria-current="page">Exams</a>' in r.text
+    assert '<a href="/vacunas">Vaccines</a>' in r.text
+    # The vaccines page is linked once, as a tab — not as a button
+    # beside the upload action in the hero.
+    assert r.text.count('href="/vacunas"') == 1
+    assert 'href="/#explicar"' in r.text  # the one hero action: upload
+    r2 = client.get("/vacunas", cookies=_cookies(owner))
+    assert r2.status_code == 200
+    assert 'class="vault-tabs"' in r2.text
+    assert '<a href="/ficha">Exams</a>' in r2.text
+    assert '<a href="/vacunas" aria-current="page">Vaccines</a>' in r2.text

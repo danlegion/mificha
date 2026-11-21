@@ -6,8 +6,12 @@
 <section class="hero card">
   <h1>{{ _t('vaccines.h1') }}</h1>
   <p>{{ _t('vaccines.p') }}</p>
-  <a class="btn btn-primary" href="/ficha">{{ _t('vault.h1') }}</a>
 </section>
+
+<nav class="vault-tabs" aria-label="{{ _t('vault.tabs_label') }}">
+  <a href="/ficha">{{ _t('vault.tab_exams') }}</a>
+  <a href="/vacunas" aria-current="page">{{ _t('vault.tab_vaccines') }}</a>
+</nav>
 
 <section class="card">
   <p>

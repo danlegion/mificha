@@ -7,8 +7,12 @@
   <h1>{{ _t('vault.h1') }}</h1>
   <p>{{ _t('vault.p') }}</p>
   <a class="btn btn-primary" href="/#explicar">{{ _t('vault.another') }}</a>
-  <a class="btn btn-secondary" href="/vacunas">{{ _t('vaccines.h1') }}</a>
 </section>
+
+<nav class="vault-tabs" aria-label="{{ _t('vault.tabs_label') }}">
+  <a href="/ficha" aria-current="page">{{ _t('vault.tab_exams') }}</a>
+  <a href="/vacunas">{{ _t('vault.tab_vaccines') }}</a>
+</nav>
 
 <section class="card">
   <h2>{{ _t('vault.members_h2') }}</h2>
