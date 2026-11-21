@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 
-from app import auth, config, schemas
+from app import auth, config, file_store, schemas
 from app.db import dal
 from app.i18n import MESES_CORTO, get_current_lang, t as _t
 from app.routers import (nombre_examen_corto, normalize_flag_key,
@@ -171,7 +171,8 @@ def crear_miembro(request: Request, nombre: str = Form(default="")):
     except HTTPException:
         return RedirectResponse("/", status_code=303)
     if (nombre or "").strip():
-        dal.create_member(user["id"], nombre.strip())
+        member = dal.create_member(user["id"], nombre.strip())
+        file_store.save_member_file(member, owner_email=user.get("email"))
     return RedirectResponse("/ficha", status_code=303)
 
 
@@ -190,7 +191,11 @@ def cambiar_miembro(doc_id: str, request: Request,
         member = dal.get_member(member_id)
         if not member or member.get("owner_user_id") != user["id"]:
             raise HTTPException(status_code=404, detail="No encontrado")
+    old_member_id = doc.get("member_id")
     dal.save_document({**doc, "member_id": member_id})
+    # La carpeta del documento se mueve con él: los archivos siguen a la
+    # persona, y el CSV de biomarcadores de ambas se reconstruye.
+    file_store.move_document(doc_id, old_member_id, member_id)
     return RedirectResponse(f"/ficha/{doc_id}", status_code=303)
 
 
@@ -341,6 +346,7 @@ def ficha_eliminar(doc_id: str, request: Request):
     if not doc or doc.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="No encontrado")
     intake_id = doc.get("intake_id") or doc_id
+    file_store.delete_document_files(doc.get("member_id"), doc_id)
     delete_original(doc.get("original_key") or "")
     dal.revoke_shares_for_intake(intake_id)
     dal.delete_document(doc_id)

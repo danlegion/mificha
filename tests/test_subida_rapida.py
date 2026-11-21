@@ -94,23 +94,33 @@ def test_set_intake_original_key_no_toca_otros_campos():
 
 
 def test_pipeline_sube_original_en_segundo_plano(monkeypatch):
-    """_run_pipeline sube el original y lo deja en intake y documento."""
+    """_run_pipeline sube el original y lo deja en intake y documento.
+
+    En modo local el original va a la carpeta por persona
+    (members/unassigned/documents/<id>/original.pdf), no al directorio
+    plano de antes.
+    """
+    import shutil
+
+    from app import file_store
+
     iid = "p-" + uuid.uuid4().hex[:12]
     uid = dal.create_user(f"s-{uuid.uuid4().hex[:8]}@x.test")["id"]
     dal.save_intake({"id": iid, "status": "processing", "owner_user_id": uid})
     with open(quarantine_path(iid), "wb") as f:
         f.write(_pdf_valido())
     monkeypatch.setattr(
-        ingest_router, "store_original", lambda _iid, _pdf: f"{_iid}.pdf")
-    monkeypatch.setattr(
         ingest_router, "process_intake",
         lambda _iid, _pdf, _hint, lang="es": {"urgency": {"level": "ok"}})
     try:
         ingest_router._run_pipeline(iid)
-        assert dal.get_intake(iid)["original_key"] == f"{iid}.pdf"
-        assert dal.get_document(iid)["original_key"] == f"{iid}.pdf"
+        key = f"members/unassigned/documents/{iid}/original.pdf"
+        assert dal.get_intake(iid)["original_key"] == key
+        assert dal.get_document(iid)["original_key"] == key
+        assert os.path.exists(os.path.join(config.DATA_DIR, key))
     finally:
         _clean([iid, uid])
+        shutil.rmtree(file_store.document_dir(None, iid), ignore_errors=True)
         try:
             os.remove(quarantine_path(iid))
         except OSError:

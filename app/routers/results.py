@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
-from app import auth, config
+from app import auth, config, file_store
 from app.db import dal
 from app.i18n import t as _t
 from app.routers import (can_view_intake, page_lang, render_explanation,
@@ -172,5 +172,14 @@ async def corregir(intake_id: str, request: Request):
         previas = intake.get("corrections") or []
         dal.update_intake_corrections(intake_id, previas + nuevas)
         log.info("Intake %s: %d correcciones guardadas", intake_id, len(nuevas))
+        # Si el intake ya es un documento guardado, la corrección también
+        # llega al documento y a su explanation.json, para que el archivo,
+        # la ficha y el intake digan lo mismo.
+        actualizado = dal.get_intake(intake_id) or {}
+        doc = dal.get_document(intake_id)
+        if doc and actualizado.get("explanation") is not None:
+            dal.save_document({**doc, "explanation": actualizado["explanation"]})
+            file_store.write_explanation(
+                doc.get("member_id"), intake_id, actualizado["explanation"])
 
     return RedirectResponse(f"/resultado/{intake_id}", status_code=303)

@@ -56,22 +56,41 @@ real use and shared in case it helps yours.
 ### Where your data lives
 
 Self-hosted, everything is one folder on your machine,
-`./mificha-data` (movable with `MIFICHA_DATA_DIR`):
+`./mificha-data` (movable with `MIFICHA_DATA_DIR`). The files are
+the source of truth, organized per person — deleting the app or
+the container never destroys your content:
 
 ```
 mificha-data/
-  mificha.db         # the index: accounts, members, documents, shares —
-                     # explanations and biomarker history live here as data
-  originales/*.pdf   # your original PDFs, untouched, one file per upload
-  quarantine/*.pdf   # uploads held aside while they're being processed
+  mificha.db                     # the index only — see below
+  members/
+    <member-id>/
+      member.json                # who this person is
+      biomarkers.csv             # this person's biomarker history
+      documents/
+        <document-id>/
+          original.pdf           # your uploaded PDF, untouched
+          explanation.json       # the plain-language explanation
+          meta.json              # ids and dates, for the index
+    unassigned/
+      documents/<document-id>/...  # uploads with no member yet
+  quarantine/*.pdf               # uploads held aside while they're
+                                 # being processed
 ```
 
-The originals are plain PDFs — readable without this app, forever.
-The rest is a single SQLite database, a standard format you can
-open with any SQLite tool; nothing is locked in a proprietary
-store. (A future version will also write the explanations out as
-plain JSON and CSV files per person; today they live inside that
-one database file.)
+The originals are plain PDFs and the explanations are plain JSON —
+readable without this app, forever. Each person's biomarker
+history is a CSV you can open in any spreadsheet. The SQLite
+database is only an index over those files: if it is ever lost,
+rebuild it with `python -m app.file_store rebuild` and the vault
+comes back. (Share links are the one exception: they are
+short-lived and live only in the database.)
+
+If you are upgrading from an older version, the old flat layout
+(`originales/<id>.pdf` with everything in the database) migrates
+itself: run `python -m app.file_store migrate` once and your
+documents move into their members' folders, with the index
+updated to point at the new locations.
 
 The container holds no data: delete it, rebuild it, move it to
 another machine — as long as you keep the folder, you keep
@@ -93,7 +112,9 @@ container. No cloud provider is needed to read your files back.
 On the hosted deployment (Render + Supabase) the same split
 applies, just in the cloud: originals in the Supabase `originales`
 bucket, everything else in the Supabase database — back that up
-with Supabase's own backups or exports, not with rclone.
+with Supabase's own backups or exports, not with rclone. The
+per-person file layout is a self-hosting feature; the hosted
+deployment keeps its bucket storage unchanged.
 
 ## Self-hosting with Docker: code and data separate
 

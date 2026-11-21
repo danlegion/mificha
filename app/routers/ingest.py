@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, BackgroundTasks, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 
-from app import auth, config
+from app import auth, config, file_store
 from app import ratelimit
 from app.db import dal
 from app.i18n import t as _t
@@ -69,11 +69,15 @@ def _run_pipeline(intake_id: str, lang: str = "es"):
         dal.set_intake_ready(intake_id, status="failed",
                              detail=_t("ingest.unreadable", lang=lang))
         return
-    # El original se sube a Storage aquí, en segundo plano: ya no retrasa
-    # la redirección a la página de "procesando".
+    # El original se guarda aquí, en segundo plano: ya no retrasa la
+    # redirección a la página de "procesando". En modo local va a la
+    # carpeta por persona (file-first); con Supabase, al bucket.
     try:
-        dal.set_intake_original_key(
-            intake_id, store_original(intake_id, pdf_bytes))
+        key = file_store.save_original(
+            intake.get("member_id"), intake_id, pdf_bytes)
+        if key is None:
+            key = store_original(intake_id, pdf_bytes)
+        dal.set_intake_original_key(intake_id, key)
     except Exception:  # noqa: BLE001 - el original es opcional
         log.exception("No se pudo guardar el original de %s; sigue sin él.",
                       intake_id)
@@ -91,6 +95,12 @@ def _run_pipeline(intake_id: str, lang: str = "es"):
             detail=_t("ingest.processing_error", lang=lang),
         )
         return
+    # La explicación también se escribe a archivo (meta.json +
+    # explanation.json en la carpeta de la persona): los archivos son la
+    # fuente de verdad y la base de datos solo el índice.
+    file_store.save_explanation(
+        intake.get("owner_user_id"), intake.get("member_id"), intake_id,
+        exp, created_at=intake.get("created_at"))
     dal.set_intake_ready(intake_id, explanation=exp, status="ready")
     # Si el intake tiene dueño (subida con sesión iniciada), el documento
     # queda guardado en su ficha automáticamente. Se relee el intake porque
@@ -159,8 +169,9 @@ async def subir(
     # se rechaza, nunca se reasigna en silencio.
     member_id = None
     if (nuevo_miembro or "").strip():
-        member_id = dal.create_member(
-            user["id"], nuevo_miembro.strip())["id"]
+        member = dal.create_member(user["id"], nuevo_miembro.strip())
+        file_store.save_member_file(member, owner_email=user.get("email"))
+        member_id = member["id"]
     elif (miembro or "").strip():
         member = dal.get_member(miembro.strip())
         if not member or member.get("owner_user_id") != user["id"]:

@@ -67,14 +67,27 @@ def get_original_path(key: str) -> str | None:
 
             sb = create_client(config.SUPABASE_URL, config.supabase_data_key())
             data = sb.storage.from_(BUCKET).download(key)
-            path = os.path.join(_local_dir(), key)
+            path = _resolve_key(key)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "wb") as f:
                 f.write(data)
             return path
         except Exception as exc:  # noqa: BLE001
             log.warning("No se pudo descargar %s de Supabase: %s", key, exc)
-    path = os.path.join(_local_dir(), key)
+    path = _resolve_key(key)
     return path if os.path.exists(path) else None
+
+
+def _resolve_key(key: str) -> str:
+    """Local path for an original_key.
+
+    File-first keys look like ``members/<member>/documents/<id>/original.pdf``
+    and live under DATA_DIR; legacy keys are bare filenames under
+    DATA_DIR/originales/.
+    """
+    if key.startswith("members/"):
+        return os.path.join(config.DATA_DIR, key)
+    return os.path.join(_local_dir(), key)
 
 
 def original_exists(key: str) -> bool:
@@ -96,7 +109,7 @@ def original_exists(key: str) -> bool:
                 return True
         except Exception as exc:  # noqa: BLE001
             log.warning("No se pudo verificar %s en Supabase: %s", key, exc)
-    return os.path.exists(os.path.join(_local_dir(), key))
+    return os.path.exists(_resolve_key(key))
 
 
 def delete_original(key: str) -> None:
@@ -111,7 +124,7 @@ def delete_original(key: str) -> None:
             sb.storage.from_(BUCKET).remove([key])
         except Exception as exc:  # noqa: BLE001
             log.warning("No se pudo borrar %s de Supabase: %s", key, exc)
-    path = os.path.join(_local_dir(), key)
+    path = _resolve_key(key)
     try:
         os.remove(path)
     except FileNotFoundError:
