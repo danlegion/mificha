@@ -204,3 +204,17 @@ def test_vault_pages_share_one_tab_nav(client, owner):
     assert 'class="vault-tabs"' in r2.text
     assert '<a href="/ficha">Exams</a>' in r2.text
     assert '<a href="/vacunas" aria-current="page">Vaccines</a>' in r2.text
+
+
+def test_vault_tabs_swap_without_reload(client):
+    """The tab switch is wired in JS: clicks on .vault-tabs are
+    intercepted, the other view is fetched and only <main> is swapped,
+    with pushState keeping the URL in sync. (The browser behavior
+    itself can't run in TestClient; this locks the wiring in place.)"""
+    r = client.get("/static/app.js")
+    assert r.status_code == 200
+    assert "initVaultTabs" in r.text
+    assert ".vault-tabs a" in r.text
+    assert "main.container" in r.text
+    assert "pushState" in r.text
+    assert "popstate" in r.text

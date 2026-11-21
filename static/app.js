@@ -101,8 +101,70 @@
     });
   };
 
+  /* ---------- Vault tabs: switch Exams / Vaccines without a full reload ----
+     The two vault pages are views of the same file. Clicking a tab fetches
+     the other page, swaps only <main>, and updates the URL — no white
+     flash, no fresh document. Without JS (or on any failure) the links
+     work as plain navigation. */
+  window.MIFicha.initVaultTabs = function () {
+    var main = document.querySelector("main.container");
+    if (!main) return;
+    var current = 0; /* guards against out-of-order responses */
+
+    function isVaultPage(url) {
+      var path = new URL(url, window.location.origin).pathname;
+      return path === "/ficha" || path === "/vacunas";
+    }
+
+    function swap(url, push) {
+      var n = ++current;
+      main.setAttribute("aria-busy", "true");
+      fetch(url, { credentials: "same-origin", cache: "no-store" })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error("status " + resp.status);
+          return resp.text();
+        })
+        .then(function (html) {
+          if (n !== current) return; /* a newer tab click already won */
+          var doc = new DOMParser().parseFromString(html, "text/html");
+          var next = doc.querySelector("main.container");
+          if (!next) throw new Error("no main in response");
+          main.innerHTML = next.innerHTML;
+          document.title = doc.title || document.title;
+          if (push) history.pushState(null, "", url);
+          window.scrollTo(0, 0);
+        })
+        .catch(function () {
+          if (n !== current) return;
+          window.location.href = url; /* fall back to a real navigation */
+        })
+        .finally(function () {
+          if (n === current) main.removeAttribute("aria-busy");
+        });
+    }
+
+    /* Delegated: the tabs are replaced on every swap, the listener stays. */
+    document.addEventListener("click", function (e) {
+      var link = e.target.closest(".vault-tabs a");
+      if (!link) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      var url = new URL(link.getAttribute("href"), window.location.origin);
+      /* Keep the member filter when switching views. */
+      var member = new URLSearchParams(window.location.search).get("miembro");
+      if (member) url.searchParams.set("miembro", member);
+      if (url.href === window.location.href) return;
+      e.preventDefault();
+      swap(url.href, true);
+    });
+
+    window.addEventListener("popstate", function () {
+      if (isVaultPage(window.location.href)) swap(window.location.href, false);
+    });
+  };
+
   document.addEventListener("DOMContentLoaded", function () {
     window.MIFicha.initConfirmDialogs();
+    window.MIFicha.initVaultTabs();
   });
 
   /* ---------- File input: show chosen filename ---------- */
