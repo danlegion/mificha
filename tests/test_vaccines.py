@@ -206,6 +206,16 @@ def test_vault_pages_share_one_tab_nav(client, owner):
     assert '<a href="/vacunas" aria-current="page">Vaccines</a>' in r2.text
 
 
+def test_vaccines_empty_state_asks_for_a_vaccine_record(client, owner):
+    """The empty registry must not reuse the vault's 'Explain your
+    first exam' button: the user may already have exams, just no
+    vaccine records yet."""
+    r = client.get("/vacunas", cookies=_cookies(owner))
+    assert r.status_code == 200
+    assert "Upload a vaccine record" in r.text
+    assert "Explain your first exam" not in r.text
+
+
 def test_vault_tabs_swap_without_reload(client):
     """The tab switch is wired in JS: clicks on .vault-tabs are
     intercepted, the other view is fetched and only <main> is swapped,
