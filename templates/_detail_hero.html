@@ -1,0 +1,31 @@
+{# Cabecera oscura del detalle: migas, título, meta, qué significa, valores clave.
+   Espera `crumbs`, `hero_title`, `hero_meta`, `hero_summary`, `key_values`
+   y `hero_original_url` (o vacío). #}
+<section class="detail-hero">
+  {% include "_breadcrumbs.html" %}
+  <h1>{{ hero_title }}</h1>
+  {% if hero_meta %}<p class="detail-meta">{{ hero_meta }}</p>{% endif %}
+  <div class="detail-grid">
+    <div class="detail-plain">
+      <h2>{{ _t('detail.what_means') }}</h2>
+      {% if hero_summary %}<p>{{ hero_summary }}</p>{% endif %}
+    </div>
+    <div class="detail-keys">
+      <h2>{{ _t('detail.key_values') }}</h2>
+      {% for kv in key_values %}
+      <div class="kv-row">
+        <div class="kv-top"><span>{{ kv.name }}</span><strong>{{ kv.value }}</strong></div>
+        {% if kv.position is not none %}
+        <div class="kv-track"><span class="kv-marker" style="left: {{ kv.position }}%"></span></div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="detail-actions">
+    {% if hero_original_url %}
+    <a class="btn" href="{{ hero_original_url }}" target="_blank" rel="noopener">{{ _t('detail.view_original') }}</a>
+    {% endif %}
+    <a class="btn btn-outline" href="#compartir">{{ _t('detail.share') }}</a>
+  </div>
+</section>

@@ -3,53 +3,74 @@
 {% block title %}{{ _t('vaccines.h1') }}{% endblock %}
 
 {% block content %}
-<section class="hero card">
-  <h1>{{ _t('vaccines.h1') }}</h1>
-  <p>{{ _t('vaccines.p') }}</p>
-</section>
+<section class="vault-panel" aria-label="{{ _t('vaccines.h1') }}">
+  <div class="vault-head">
+    <div>
+      <h2>{{ _t('vaccines.h1') }}</h2>
+      <p>{{ _t('vaccines.p') }}</p>
+    </div>
+    <a class="btn btn-primary" href="/#explicar">{{ _t('vaccines.upload_record') }}</a>
+  </div>
 
-<nav class="vault-tabs" aria-label="{{ _t('vault.tabs_label') }}">
-  <a href="/ficha">{{ _t('vault.tab_exams') }}</a>
-  <a href="/vacunas" aria-current="page">{{ _t('vault.tab_vaccines') }}</a>
-</nav>
+  <nav class="vault-tabs" aria-label="{{ _t('vault.tabs_label') }}">
+    <a href="/ficha">{{ _t('vault.tab_exams') }} <span class="tab-count">{{ exams_count }}</span></a>
+    <a href="/vacunas" aria-current="page">{{ _t('vault.tab_vaccines') }} <span class="tab-count">{{ vaccines_count }}</span></a>
+  </nav>
 
-<section class="card">
-  <p>
-    <a href="/vacunas" {% if not selected_member %}aria-current="page"{% endif %}>{{ _t('vault.member_all') }}</a>
+  <div class="vault-filters">
+    <span class="filter-label">{{ _t('vault.filter_label') }}</span>
+    <a class="member-pill" href="/vacunas"{% if not selected_member %} aria-current="page"{% endif %}>{{ _t('vault.member_all') }}</a>
     {% for m in members %}
-    · <a href="/vacunas?miembro={{ m.id }}" {% if selected_member == m.id %}aria-current="page"{% endif %}>{{ m.name }}</a>
+    <a class="member-pill" href="/vacunas?miembro={{ m.id }}"{% if selected_member == m.id %} aria-current="page"{% endif %}>{{ m.name }}</a>
     {% endfor %}
-  </p>
-</section>
+    <div class="vault-search">
+      <input type="search" data-vault-search placeholder="{{ _t('vault.search_ph') }}" aria-label="{{ _t('vault.search_ph') }}">
+    </div>
+  </div>
 
-{% set total = namespace(n=0) %}
-{% for group in groups %}{% set total.n = total.n + group.vaccines|length %}{% endfor %}
-{% if total.n == 0 %}
-<section class="card empty-state">
-  <h2>{{ _t('vaccines.h1') }}</h2>
-  <p>{{ _t('vaccines.empty') }}</p>
-  <a class="btn btn-primary" href="/#explicar">{{ _t('vaccines.upload_record') }}</a>
-</section>
-{% else %}
-  {% for group in groups %}
-    {% if group.vaccines %}
-    <section aria-label="{{ group.member_name or _t('vault.member_unassigned') }}">
-      <h2>{{ group.member_name or _t('vault.member_unassigned') }}</h2>
-      <div class="doc-grid">
+  {% set total = namespace(n=0) %}
+  {% for group in groups %}{% set total.n = total.n + group.vaccines|length %}{% endfor %}
+  {% if total.n == 0 %}
+  <div class="vault-empty">
+    <h2>{{ _t('vaccines.h1') }}</h2>
+    <p>{{ _t('vaccines.empty') }}</p>
+    <a class="btn btn-primary" href="/#explicar">{{ _t('vaccines.upload_record') }}</a>
+  </div>
+  {% else %}
+    {% for group in groups %}
+      {% if group.vaccines %}
+      <section class="vax-group" data-vax-group aria-label="{{ group.member_name or _t('vault.member_unassigned') }}">
+        <div class="vax-group-head">
+          <span class="initials-tile" style="width: 36px; height: 36px; border-radius: 10px; background: {{ group.color_bg }}; color: {{ group.color_fg }}">{{ (group.member_name or "?")[:1] }}</span>
+          <h2>{{ group.member_name or _t('vault.member_unassigned') }}</h2>
+        </div>
         {% for v in group.vaccines %}
-        <article class="card">
-          <h3>{{ v.name }}</h3>
-          {% if v.date_administered %}<p>{{ _t('expl.vaccine_date') }} {{ v.date_administered }}</p>{% endif %}
-          {% if v.dose %}<p>{{ _t('expl.vaccine_dose') }} {{ v.dose }}</p>{% endif %}
-          {% if v.lot %}<p>{{ _t('expl.vaccine_lot') }} {{ v.lot }}</p>{% endif %}
-          {% if v.manufacturer %}<p>{{ _t('expl.vaccine_manufacturer') }} {{ v.manufacturer }}</p>{% endif %}
-          {% if v.provider %}<p>{{ _t('expl.vaccine_provider') }} {{ v.provider }}</p>{% endif %}
-          <p><a href="/ficha/{{ v.source_doc_id }}">{{ _t('vaccines.view_doc') }}</a></p>
-        </article>
+        <div class="vax-row" data-search="{{ v.name }} {{ v.manufacturer or '' }} {{ v.date_administered or '' }}">
+          <span class="vax-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+          </span>
+          <div class="vax-main">
+            <strong>{{ v.name }}</strong>
+            <span>
+              {%- if v.dose %}{{ _t('expl.vaccine_dose') }} {{ v.dose }}{% endif -%}
+              {%- if v.manufacturer %}{% if v.dose %} · {% endif %}{{ v.manufacturer }}{% endif -%}
+              {%- if v.lot %}{% if v.dose or v.manufacturer %} · {% endif %}{{ _t('expl.vaccine_lot') }} {{ v.lot }}{% endif -%}
+              {%- if v.provider %}{% if v.dose or v.manufacturer or v.lot %} · {% endif %}{{ v.provider }}{% endif -%}
+            </span>
+            <span class="vax-doc-link"><a href="/ficha/{{ v.source_doc_id }}">{{ _t('vaccines.view_doc') }}</a></span>
+          </div>
+          <div class="vax-done">
+            <span class="vax-badge">{{ _t('vaccines.done') }}</span>
+            {% if v.date_administered %}<span class="vax-date">{{ v.date_administered }}</span>{% endif %}
+          </div>
+        </div>
         {% endfor %}
-      </div>
-    </section>
-    {% endif %}
-  {% endfor %}
-{% endif %}
+      </section>
+      {% endif %}
+    {% endfor %}
+  <div class="vault-empty" data-vault-empty hidden>
+    <h2>{{ _t('vault.empty_search') }}</h2>
+  </div>
+  {% endif %}
+</section>
 {% endblock %}

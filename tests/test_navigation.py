@@ -1,9 +1,9 @@
 """Site navigation: one hierarchy, and a way back to where you were.
 
-Structure: Home (/) -> My file (/ficha, with Exams | Vaccines tabs)
+Structure: Home (/) -> Vault (/ficha, with Exams | Vaccines tabs)
 -> one document (/ficha/<id>). The header marks the current section,
 and the two deep pages (vault detail, fresh result) carry breadcrumbs
-whose "My file" link keeps the member filter, so going back returns
+whose "Vault" link keeps the member filter, so going back returns
 to the filtered list you came from.
 """
 
@@ -76,11 +76,11 @@ def test_header_nav_marks_current_section(client, owner):
     r = client.get("/", cookies=_cookies(owner))
     assert r.status_code == 200
     assert '<a href="/" aria-current="page">Home</a>' in r.text
-    assert '<a href="/ficha">My file</a>' in r.text
+    assert '<a href="/ficha">Vault</a>' in r.text
 
     r = client.get("/ficha", cookies=_cookies(owner))
     assert r.status_code == 200
-    assert '<a href="/ficha" aria-current="page">My file</a>' in r.text
+    assert '<a href="/ficha" aria-current="page">Vault</a>' in r.text
     assert '<a href="/">Home</a>' in r.text
 
 

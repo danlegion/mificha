@@ -9,8 +9,9 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from app import auth, config, file_store
 from app.db import dal
 from app.i18n import t as _t
-from app.routers import (can_view_intake, nombre_examen_corto, page_lang,
-                         render_explanation, share_ctx, templates)
+from app.routers import (can_view_intake, key_values_with_position,
+                         nombre_examen_corto, page_lang, render_explanation,
+                         share_ctx, templates)
 from app.storage import delete_original, get_original_path
 
 log = logging.getLogger("mificha.results")
@@ -101,6 +102,11 @@ def resultado(intake_id: str, request: Request):
             status_code=422,
         )
     share_row = dal.get_active_share_for_intake(intake_id)
+    member_name = ""
+    if user and intake.get("member_id"):
+        member_name = next(
+            (m["name"] for m in dal.list_members(user["id"])
+             if m["id"] == intake.get("member_id")), "")
     return templates.TemplateResponse(
         request,
         "result.html",
@@ -109,7 +115,11 @@ def resultado(intake_id: str, request: Request):
             "exp": render_explanation(intake["explanation"]),
             "intake_id": intake_id,
             "exam_name": nombre_examen_corto(intake.get("explanation") or {}),
+            "key_values": key_values_with_position(intake.get("explanation") or {}),
             "member_id": intake.get("member_id"),
+            "member_name": member_name,
+            "laboratorio": (intake.get("explanation") or {}).get("laboratorio") or "",
+            "original_available": bool(intake.get("original_key")),
             "is_saved": bool(intake.get("owner_user_id")),
             "share": share_ctx(share_row),
             "demo_mode": bool(intake["explanation"].get("demo_mode", DEMO_MODE)),

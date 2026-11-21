@@ -30,6 +30,13 @@
     <button class="btn btn-primary btn-large" type="submit" data-upload-btn>{{ _t('upload.submit') }}</button>
     {% if not user %}<p class="micro-note">{{ _t('upload.signin_required') }}</p>{% endif %}
   </form>
+  {% if hero_variant|default(false) %}
+  <div class="upload-chips">
+    <span>{{ _t('hero.chip_pdf') }}</span>
+    <span>{{ _t('hero.chip_lang') }}</span>
+    <span>{{ _t('hero.chip_private') }}</span>
+  </div>
+  {% endif %}
   <div class="upload-progress" hidden>
     <div class="upload-progress-track"><div class="upload-progress-bar"></div></div>
     <p class="upload-progress-text">{{ _t('upload.uploading') }}</p>

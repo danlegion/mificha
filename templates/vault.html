@@ -3,56 +3,67 @@
 {% block title %}{{ _t('vault.h1') }}{% endblock %}
 
 {% block content %}
-<section class="hero card">
-  <h1>{{ _t('vault.h1') }}</h1>
-  <p>{{ _t('vault.p') }}</p>
-  <a class="btn btn-primary" href="/#explicar">{{ _t('vault.another') }}</a>
-</section>
+<section class="vault-panel" aria-label="{{ _t('vault.h1') }}">
+  <div class="vault-head">
+    <div>
+      <h2>{{ _t('vault.h1') }}</h2>
+      <p>{{ _t('vault.panel_sub') }}</p>
+    </div>
+    <a class="btn btn-primary" href="/#explicar">{{ _t('vault.upload') }}</a>
+  </div>
 
-<nav class="vault-tabs" aria-label="{{ _t('vault.tabs_label') }}">
-  <a href="/ficha" aria-current="page">{{ _t('vault.tab_exams') }}</a>
-  <a href="/vacunas">{{ _t('vault.tab_vaccines') }}</a>
-</nav>
+  <nav class="vault-tabs" aria-label="{{ _t('vault.tabs_label') }}">
+    <a href="/ficha" aria-current="page">{{ _t('vault.tab_exams') }} <span class="tab-count">{{ exams_count }}</span></a>
+    <a href="/vacunas">{{ _t('vault.tab_vaccines') }} <span class="tab-count">{{ vaccines_count }}</span></a>
+  </nav>
 
-<section class="card">
-  <h2>{{ _t('vault.members_h2') }}</h2>
-  <p>
-    <a href="/ficha" {% if not selected_member %}aria-current="page"{% endif %}>{{ _t('vault.member_all') }}</a>
+  <div class="vault-filters">
+    <span class="filter-label">{{ _t('vault.filter_label') }}</span>
+    <a class="member-pill" href="/ficha"{% if not selected_member %} aria-current="page"{% endif %}>{{ _t('vault.member_all') }}</a>
     {% for m in members %}
-    · <a href="/ficha?miembro={{ m.id }}" {% if selected_member == m.id %}aria-current="page"{% endif %}>{{ m.name }}</a>
+    <a class="member-pill" href="/ficha?miembro={{ m.id }}"{% if selected_member == m.id %} aria-current="page"{% endif %}>{{ m.name }}</a>
     {% endfor %}
-  </p>
-  <form action="/ficha/miembros" method="post">
-    <input type="text" name="nombre" placeholder="{{ _t('vault.member_name_ph') }}" aria-label="{{ _t('vault.member_name_ph') }}" required>
-    <button class="btn btn-secondary" type="submit">{{ _t('vault.member_add') }}</button>
-  </form>
-</section>
+    <div class="vault-search">
+      <input type="search" data-vault-search placeholder="{{ _t('vault.search_ph') }}" aria-label="{{ _t('vault.search_ph') }}">
+    </div>
+  </div>
 
-{% if docs %}
-  {% for group in groups %}
-    {% if group.docs %}
-    <section aria-label="{{ group.member_name or _t('vault.member_unassigned') }}">
-      <h2>{{ group.member_name or _t('vault.member_unassigned') }}</h2>
-      <div class="doc-grid">
-        {% for doc in group.docs %}
-        <a class="card doc-card" href="/ficha/{{ doc.id }}">
-          <div class="doc-card-top">
-            <p class="doc-date">{{ doc.date_label }}</p>
-            <p class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</p>
-          </div>
-          <h3 class="doc-about">{{ doc.exam_about }}</h3>
-          <p class="doc-cta">{{ _t('vault.view_detail') }} <span aria-hidden="true">→</span></p>
-        </a>
-        {% endfor %}
+  <form class="vault-add-member" action="/ficha/miembros" method="post">
+    <input type="text" name="nombre" placeholder="{{ _t('vault.member_name_ph') }}" aria-label="{{ _t('vault.member_name_ph') }}" required>
+    <button class="btn btn-ghost" type="submit">{{ _t('vault.member_add') }}</button>
+  </form>
+
+  {% if docs %}
+  <div class="doc-grid">
+    {% for doc in docs %}
+    <a class="card doc-card" href="/ficha/{{ doc.id }}" data-search="{{ doc.exam_about }} {{ doc.laboratorio }} {{ doc.date_label }} {{ doc.member_name }}">
+      <div class="doc-card-head">
+        <span class="doc-icon">{% set doc_type = doc.doc_type %}{% include "_doc_icon.html" %}</span>
+        <p class="doc-source"><strong>{{ doc.date_label }}</strong>{% if doc.laboratorio %}{{ doc.laboratorio }}{% endif %}</p>
       </div>
-    </section>
-    {% endif %}
-  {% endfor %}
-{% else %}
-<section class="card empty-state">
-  <h2>{{ _t('vault.empty_h2') }}</h2>
-  <p>{{ _t('vault.empty_p') }}</p>
-  <a class="btn btn-primary" href="/#explicar">{{ _t('vault.first') }}</a>
+      <h3 class="doc-about">{{ doc.exam_about }}</h3>
+      <p class="doc-who"><span class="who-dot" style="--dot: {{ doc.member_color.dot or '#0E594A' }}"></span>{{ doc.member_name or _t('doc.who_unassigned') }} · {{ _t('doc.who_explained') }}</p>
+      {% if doc.summary %}<p class="doc-summary">{{ doc.summary }}</p>{% endif %}
+      <p class="doc-tags">
+        {% if doc.urgency_label %}<span class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</span>{% endif %}
+        {% if doc.fuera %}<span class="tag tag-warn">{{ _t('doc.out_of_range', n=doc.fuera) }}</span>{% endif %}
+        {% if doc.por_confirmar %}<span class="tag">{{ _t('home.unconfirmed') }}</span>{% endif %}
+      </p>
+      {% if doc.key_metric %}
+      <p class="doc-foot"><span>{{ doc.key_metric.name }}</span><strong>{{ doc.key_metric.value }} →</strong></p>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  <div class="vault-empty" data-vault-empty hidden>
+    <h2>{{ _t('vault.empty_search') }}</h2>
+  </div>
+  {% else %}
+  <div class="vault-empty">
+    <h2>{{ _t('vault.empty_h2') }}</h2>
+    <p>{{ _t('vault.empty_p') }}</p>
+    <a class="btn btn-primary" href="/#explicar">{{ _t('vault.first') }}</a>
+  </div>
+  {% endif %}
 </section>
-{% endif %}
 {% endblock %}

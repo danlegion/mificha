@@ -9,10 +9,11 @@ from fastapi.responses import FileResponse, RedirectResponse
 from app import auth, config, file_store, schemas
 from app.db import dal
 from app.i18n import MESES_CORTO, get_current_lang, t as _t
-from app.routers import (nombre_examen_corto, normalize_flag_key,
-                         page_lang, render_explanation, share_ctx, templates,
+from app.routers import (key_values_with_position, member_color,
+                         nombre_examen_corto, normalize_flag_key, page_lang,
+                         render_explanation, share_ctx, templates,
                          urgency_css_key)
-from app.services.vaccines import group_vaccines_by_member
+from app.services.vaccines import collect_vaccines, group_vaccines_by_member
 from app.storage import delete_original, get_original_path, original_exists
 
 router = APIRouter()
@@ -111,20 +112,46 @@ def ficha(request: Request, miembro: str = ""):
         )[1] or datetime.min.replace(tzinfo=timezone.utc),
         reverse=True,
     )
+    color_by_member = {}
+    for i, m in enumerate(members):
+        bg, fg = member_color(i)
+        color_by_member[m["id"]] = {"bg": bg, "fg": fg, "dot": fg}
     for d in crudos:
         exp = d.get("explanation") or {}
         urg = exp.get("urgency") or {}
         fecha_iso, _fecha_dt = _fecha_efectiva(exp, d.get("created_at") or "")
+        bios = exp.get("biomarkers", [])
+        fuera = sum(
+            1 for b in bios
+            if normalize_flag_key(b.get("flag")) in ("alto", "bajo")
+        )
+        por_confirmar = bool(exp.get("uncertain_fields")) or any(
+            normalize_flag_key(b.get("flag")) == "uncertain" for b in bios
+        )
+        key_metric = None
+        if bios:
+            b0 = bios[0]
+            key_metric = {
+                "name": b0.get("name") or "Valor",
+                "value": f"{b0.get('value', '')} {(b0.get('unit') or '').strip()}".strip(),
+            }
         # Título corto: qué examen es (no el resultado ni el tipo genérico).
         docs.append(
             {
                 "id": d["id"],
                 "date_label": _fecha_corta(fecha_iso),
                 "exam_about": nombre_examen_corto(exp),
+                "laboratorio": exp.get("laboratorio") or "",
+                "summary": exp.get("summary_simple") or "",
+                "doc_type": exp.get("document_type") or "",
                 "urgency_label": urg.get("label", ""),
                 "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
+                "fuera": fuera,
+                "por_confirmar": por_confirmar,
+                "key_metric": key_metric,
                 "member_id": d.get("member_id"),
                 "member_name": by_id.get(d.get("member_id") or ""),
+                "member_color": color_by_member.get(d.get("member_id") or "", {}),
             }
         )
     # Group by member, members first in creation order, unassigned last.
@@ -138,11 +165,16 @@ def ficha(request: Request, miembro: str = ""):
     if not selected:
         groups.append({"member_id": "", "member_name": "",
                        "docs": unassigned})
+    exams_total = len(docs)
+    if selected:
+        docs = [d for d in docs if d["member_id"] == selected]
     return templates.TemplateResponse(
         request,
         "vault.html",
         {**_base_ctx(request, user), "docs": docs, "groups": groups,
-         "members": members, "selected_member": selected})
+         "members": members, "selected_member": selected,
+         "exams_count": exams_total,
+         "vaccines_count": len(collect_vaccines(crudos))})
 
 
 @router.get("/vacunas")
@@ -154,14 +186,21 @@ def vacunas(request: Request, miembro: str = ""):
     members = dal.list_members(user["id"])
     by_id = {m["id"]: m["name"] for m in members}
     selected = miembro.strip() if miembro.strip() in by_id else ""
-    groups = group_vaccines_by_member(dal.list_documents(user["id"]), members)
+    all_docs = dal.list_documents(user["id"])
+    groups = group_vaccines_by_member(all_docs, members)
+    for i, g in enumerate(groups):
+        bg, fg = member_color(i)
+        g["color_bg"] = bg
+        g["color_fg"] = fg
     if selected:
         groups = [g for g in groups if g["member_id"] == selected]
     return templates.TemplateResponse(
         request,
         "vaccines.html",
         {**_base_ctx(request, user), "groups": groups,
-         "members": members, "selected_member": selected})
+         "members": members, "selected_member": selected,
+         "exams_count": len(all_docs),
+         "vaccines_count": len(collect_vaccines(all_docs))})
 
 
 @router.post("/ficha/miembros")
@@ -220,6 +259,7 @@ def ficha_detalle(doc_id: str, request: Request):
             **_base_ctx(request, user),
             "exp": exp,
             "exam_name": nombre_examen_corto(doc.get("explanation") or {}),
+            "key_values": key_values_with_position(doc.get("explanation") or {}),
             "doc": {
                 "id": doc["id"],
                 "original_url": f"/ficha/{doc['id']}/original",
@@ -227,6 +267,10 @@ def ficha_detalle(doc_id: str, request: Request):
                 "original_available": original_exists(doc.get("original_key") or ""),
                 "member_id": doc.get("member_id"),
                 "member_name": by_id.get(doc.get("member_id") or ""),
+                "date_label": _fecha_corta(
+                    _fecha_efectiva(doc.get("explanation") or {},
+                                    doc.get("created_at") or "")[0]),
+                "laboratorio": (doc.get("explanation") or {}).get("laboratorio") or "",
             },
             "members": members,
             "history": _historial(user["id"], doc_id,

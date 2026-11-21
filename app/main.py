@@ -14,8 +14,9 @@ from app import auth, config
 from app.db import dal
 from app.i18n import (LANG_COOKIE, SUPPORTED, get_lang, set_current_lang,
                       t as _t)
-from app.routers import (nombre_examen_corto, normalize_flag_key,
-                         page_lang, templates, urgency_css_key)
+from app.routers import (initials, member_color, nombre_examen_corto,
+                         normalize_flag_key, page_lang, templates,
+                         urgency_css_key)
 from app.routers import accounts, ingest, results, share, vault
 from app.routers.vault import _fecha_corta, _fecha_efectiva
 from app.services.llm import _parse_rango
@@ -182,6 +183,12 @@ def index(request: Request):
     user = auth.get_current_user(request)
     recent_docs = []
     total_docs = 0
+    family = []
+    # Revisión pendiente: todavía no hay un sistema de estados de
+    # revisión (paso 2 del rediseño); el héroe muestra "Todo al día"
+    # hasta que los criterios de "requiere acción" existan con datos
+    # reales. Nunca se inventa un número aquí.
+    to_review = 0
     if user:
         limite = datetime.now(timezone.utc) - timedelta(days=180)
         all_docs = dal.list_documents(user["id"])
@@ -229,6 +236,26 @@ def index(request: Request):
             )
             if len(recent_docs) >= 10:
                 break
+        # Familia de un vistazo: un dato real por familiar (cuántos
+        # documentos y el último examen), sin estados inventados.
+        members = dal.list_members(user["id"])
+        for i, m in enumerate(members):
+            mdocs = [d for d in all_docs if d.get("member_id") == m["id"]]
+            last = ""
+            if mdocs:
+                exp0 = mdocs[0].get("explanation") or {}
+                iso0, _ = _fecha_efectiva(exp0, mdocs[0].get("created_at") or "")
+                last = _fecha_corta(iso0)
+            bg, fg = member_color(i)
+            family.append({
+                "id": m["id"],
+                "name": m["name"],
+                "initials": initials(m["name"]),
+                "color_bg": bg,
+                "color_fg": fg,
+                "docs_count": len(mdocs),
+                "last_exam": last,
+            })
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -238,6 +265,9 @@ def index(request: Request):
             "user": user,
             "recent_docs": recent_docs,
             "total_docs": total_docs,
+            "family": family,
+            "to_review": to_review,
+            "last_explained": recent_docs[0] if recent_docs else None,
             "members": dal.list_members(user["id"]) if user else [],
             "demo_mode": not bool(config.ANTHROPIC_API_KEY),
             "dev_auth": auth.DEV_AUTH,

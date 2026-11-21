@@ -6,7 +6,8 @@
 - Las tarjetas se ordenan por fecha del examen, más reciente primero.
 - El título es corto: prefiere nombre_examen del LLM; sin ese campo,
   trunca resumen_que_es a ~60 caracteres; sin ambos, cae a type_label.
-  La tarjeta no muestra el resumen del resultado.
+- La tarjeta muestra el resumen corto (summary_simple) a 2 líneas y, si
+  hay biomarcadores, el primero como métrica clave al pie.
 """
 
 import sqlite3
@@ -46,11 +47,11 @@ def _clean(ids):
 
 def _exp(fecha_doc=None, resumen_rapido=None, summary_simple="resumen viejo",
          tipo="Resultado de laboratorio", urgencia="Agenda una cita",
-         que_es=None, nombre_examen=None):
+         que_es=None, nombre_examen=None, biomarkers=None):
     exp = {
         "type_label": tipo,
         "summary_simple": summary_simple,
-        "biomarkers": [],
+        "biomarkers": biomarkers if biomarkers is not None else [],
         "urgency": {"level": "agendar_cita", "label": urgencia,
                     "action": "a", "timeframe": "t", "reason": "r"},
     }
@@ -110,12 +111,14 @@ def test_tarjetas_ordenadas_por_fecha_del_examen(client, usuario_docs):
     assert pos_nuevo < pos_viejo
 
 
-def test_tarjeta_muestra_que_es_no_resumen(client, usuario_docs):
+def test_tarjeta_muestra_resumen_corto_no_resumen_rapido(client, usuario_docs):
+    """El rediseño muestra el resumen corto (summary_simple) en la tarjeta,
+    recortado a 2 líneas por CSS; el resumen_rapido largo no se muestra."""
     r = client.get("/ficha", cookies=_cookies(usuario_docs["uid"]))
     assert "Examen nuevo" in r.text            # tipo como respaldo
     assert "Agenda una cita" in r.text          # urgencia
-    assert "Todo salió bien" not in r.text     # resumen_rapido ya no se muestra
-    assert "resumen viejo" not in r.text       # summary_simple tampoco
+    assert "Todo salió bien" not in r.text     # resumen_rapido no se muestra
+    assert "resumen viejo" in r.text           # summary_simple sí, recortado
 
 
 def test_tarjeta_prefiere_nombre_examen(client):
@@ -244,10 +247,31 @@ def test_historial_usa_fecha_del_examen_y_ordena(client):
 def test_tarjeta_estructura_legible(client, usuario_docs):
     r = client.get("/ficha", cookies=_cookies(usuario_docs["uid"]))
     assert r.status_code == 200
-    assert "doc-card-top" in r.text       # fila fecha + urgencia
+    assert "doc-card-head" in r.text      # fila icono + fecha/fuente
     assert '<h3 class="doc-about">' in r.text  # qué es el examen, como título
-    assert "doc-summary" not in r.text     # sin resumen del resultado
-    assert "Ver detalle" in r.text
+    assert "doc-summary" in r.text        # resumen corto, a 2 líneas
+
+
+def test_tarjeta_muestra_metrica_clave_al_pie(client):
+    """Con biomarcadores, el pie de la tarjeta muestra el primero
+    (nombre + valor + unidad) como métrica clave."""
+    email = f"f-{uuid.uuid4().hex[:8]}@x.test"
+    uid = dal.create_user(email)["id"]
+    iid = "f-" + uuid.uuid4().hex[:12]
+    dal.save_document({"id": iid, "user_id": uid, "intake_id": iid,
+                       "explanation": _exp(
+                           nombre_examen="Hemograma completo",
+                           biomarkers=[{"name": "Hemoglobina", "value": "14.8",
+                                        "unit": "g/dL", "flag": "normal",
+                                        "ref_range": "13.5 - 17.5 g/dL"}])})
+    try:
+        r = client.get("/ficha", cookies=_cookies(uid))
+        assert r.status_code == 200
+        assert "doc-foot" in r.text
+        assert "Hemoglobina" in r.text
+        assert "14.8 g/dL" in r.text
+    finally:
+        _clean([uid, iid])
 
 
 def test_tarjeta_css_uniforme_y_sin_desborde():
@@ -257,5 +281,5 @@ def test_tarjeta_css_uniforme_y_sin_desborde():
     bloque = css.split(".doc-about {", 1)[1].split("}", 1)[0]
     assert "-webkit-line-clamp: 2" in bloque   # título a 2 líneas
     assert "min-height:" in bloque             # reserva el espacio
-    chip = css.split(".doc-card-top .urgency-chip {", 1)[1].split("}", 1)[0]
+    chip = css.split(".doc-tags .urgency-chip {", 1)[1].split("}", 1)[0]
     assert "text-overflow: ellipsis" in chip   # el chip nunca se sale

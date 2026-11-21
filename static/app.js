@@ -101,6 +101,38 @@
     });
   };
 
+  /* ---------- Vault search: filter cards/rows in place, no reload ----
+     The member pills are server links (real navigation); the search box
+     filters the visible panel client-side. The query is kept across tab
+     swaps so the filter survives switching Exams / Vaccines. */
+  window.MIFicha.initVaultSearch = function () {
+    var input = document.querySelector("[data-vault-search]");
+    if (!input) return;
+    function apply() {
+      var q = input.value.trim().toLowerCase();
+      window.MIFicha._vaultQuery = q;
+      var panel = input.closest(".vault-panel");
+      if (!panel) return;
+      var visible = 0;
+      panel.querySelectorAll("[data-search]").forEach(function (el) {
+        var hit = !q || (el.getAttribute("data-search") || "").toLowerCase().indexOf(q) !== -1;
+        el.style.display = hit ? "" : "none";
+        if (hit) visible++;
+      });
+      panel.querySelectorAll("[data-vax-group]").forEach(function (group) {
+        var any = Array.prototype.some.call(
+          group.querySelectorAll("[data-search]"),
+          function (row) { return row.style.display !== "none"; });
+        group.style.display = any ? "" : "none";
+      });
+      var empty = panel.querySelector("[data-vault-empty]");
+      if (empty) empty.hidden = visible !== 0;
+    }
+    input.addEventListener("input", apply);
+    var saved = window.MIFicha._vaultQuery;
+    if (saved) { input.value = saved; apply(); }
+  };
+
   /* ---------- Vault tabs: switch Exams / Vaccines without a full reload ----
      The two vault pages are views of the same file. Clicking a tab fetches
      the other page, swaps only <main>, and updates the URL — no white
@@ -131,6 +163,7 @@
           if (!next) throw new Error("no main in response");
           main.innerHTML = next.innerHTML;
           document.title = doc.title || document.title;
+          window.MIFicha.initVaultSearch();
           if (push) history.pushState(null, "", url);
           window.scrollTo(0, 0);
         })
@@ -165,6 +198,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     window.MIFicha.initConfirmDialogs();
     window.MIFicha.initVaultTabs();
+    window.MIFicha.initVaultSearch();
   });
 
   /* ---------- File input: show chosen filename ---------- */

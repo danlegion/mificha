@@ -193,17 +193,17 @@ def test_vault_pages_share_one_tab_nav(client, owner):
     r = client.get("/ficha", cookies=_cookies(owner))
     assert r.status_code == 200
     assert 'class="vault-tabs"' in r.text
-    assert '<a href="/ficha" aria-current="page">Exams</a>' in r.text
-    assert '<a href="/vacunas">Vaccines</a>' in r.text
+    assert '<a href="/ficha" aria-current="page">Exams <span class="tab-count">0</span></a>' in r.text
+    assert '<a href="/vacunas">Vaccines <span class="tab-count">0</span></a>' in r.text
     # The vaccines page is linked once, as a tab — not as a button
-    # beside the upload action in the hero.
+    # beside the upload action in the panel head.
     assert r.text.count('href="/vacunas"') == 1
-    assert 'href="/#explicar"' in r.text  # the one hero action: upload
+    assert 'href="/#explicar"' in r.text  # the one panel action: upload
     r2 = client.get("/vacunas", cookies=_cookies(owner))
     assert r2.status_code == 200
     assert 'class="vault-tabs"' in r2.text
-    assert '<a href="/ficha">Exams</a>' in r2.text
-    assert '<a href="/vacunas" aria-current="page">Vaccines</a>' in r2.text
+    assert '<a href="/ficha">Exams <span class="tab-count">0</span></a>' in r2.text
+    assert '<a href="/vacunas" aria-current="page">Vaccines <span class="tab-count">0</span></a>' in r2.text
 
 
 def test_vaccines_empty_state_asks_for_a_vaccine_record(client, owner):

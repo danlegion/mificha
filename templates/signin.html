@@ -2,6 +2,8 @@
 
 {% block title %}{{ _t('auth.signin_title') }}{% endblock %}
 
+{% block body_class %}narrow{% endblock %}
+
 {% block content %}
 {% if step == "link" %}
 <section class="card register-card">

@@ -4,9 +4,18 @@
 
 {% block content %}
 {% set back_href = '/ficha?miembro=' + member_id if member_id else '/ficha' %}
-{% set crumbs = [{'label': _t('nav.my_file'), 'href': back_href}, {'label': exam_name}] %}
-{% include "_breadcrumbs.html" %}
+{% set crumbs = [{'label': _t('nav.vault'), 'href': back_href}, {'label': exam_name}] %}
+{% set hero_title = exam_name %}
+{% set _meta = [] %}
+{% if member_name %}{% set _ = _meta.append(member_name) %}{% endif %}
+{% if laboratorio %}{% set _ = _meta.append(laboratorio) %}{% endif %}
+{% if original_available %}{% set _ = _meta.append(_t('detail.meta_original')) %}{% endif %}
+{% set hero_meta = " · ".join(_meta) %}
+{% set hero_summary = exp.summary_simple %}
+{% set hero_original_url = '/resultado/' + intake_id + '/original' if original_available else "" %}
+{% include "_detail_hero.html" %}
 
+<div class="detail-narrow">
 {% include "_explanation.html" %}
 
 <section class="card original-card" aria-label="{{ _t('result.original_h2') }}">
@@ -86,6 +95,7 @@
     <button class="btn btn-danger" type="submit">{{ _t('result.delete_btn') }}</button>
   </form>
 </section>
+</div>
 
 <dialog class="confirm-dialog" id="delete-dialog" aria-labelledby="delete-dialog-title">
   <h2 id="delete-dialog-title">{{ _t('result.delete_h2') }}</h2>

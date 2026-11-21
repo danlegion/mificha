@@ -125,6 +125,68 @@ def nombre_examen_corto(exp: dict) -> str:
     return str((exp or {}).get("type_label") or "Documento").strip() or "Documento"
 
 
+MEMBER_COLORS = [
+    ("#DDEEE6", "#0E594A"),
+    ("#FDE8D7", "#9A4A12"),
+    ("#E0E7FF", "#3730A3"),
+    ("#FCE7F3", "#9D174D"),
+]
+
+
+def member_color(index: int) -> tuple:
+    """Color de un familiar por su orden (pino, melocotón, índigo, rosa)."""
+    return MEMBER_COLORS[index % len(MEMBER_COLORS)]
+
+
+def initials(name: str) -> str:
+    """Iniciales para la tarjeta de un familiar: 'Ana Ruiz' -> 'AR'."""
+    parts = [p for p in str(name or "").split() if p]
+    if not parts:
+        return "?"
+    if len(parts) == 1:
+        return parts[0][0].upper()
+    return (parts[0][0] + parts[-1][0]).upper()
+
+
+def range_position(value, ref_range) -> float | None:
+    """Posición 0-100 de un valor dentro de su rango de referencia.
+
+    Solo cuando el valor y el rango son numéricos y el rango tiene
+    mínimo y máximo distintos. Si no se puede calcular, None (la
+    plantilla muestra el valor sin barra).
+    """
+    try:
+        v = float(str(value).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+    nums = re.findall(r"-?\d+(?:[.,]\d+)?", str(ref_range or ""))
+    if len(nums) < 2:
+        return None
+    try:
+        low = float(nums[0].replace(",", "."))
+        high = float(nums[1].replace(",", "."))
+    except ValueError:
+        return None
+    if not (high > low):
+        return None
+    return max(0.0, min(100.0, (v - low) / (high - low) * 100.0))
+
+
+def key_values_with_position(exp: dict, limit: int = 4) -> list:
+    """Primeros biomarcadores con su posición en el rango, para la
+    cabecera oscura del detalle."""
+    out = []
+    for b in (exp or {}).get("biomarkers", [])[:limit]:
+        value = b.get("value", "")
+        unit = (b.get("unit") or "").strip()
+        out.append({
+            "name": b.get("name") or "Valor",
+            "value": f"{value} {unit}".strip(),
+            "position": range_position(value, b.get("ref_range")),
+        })
+    return out
+
+
 def _humanize_field(field: str) -> str:
     f = field or ""
     m = re.match(r"pages\[(\d+)\]\.text", f)
