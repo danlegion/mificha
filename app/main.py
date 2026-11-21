@@ -14,9 +14,9 @@ from app import auth, config
 from app.db import dal
 from app.i18n import (LANG_COOKIE, SUPPORTED, get_lang, set_current_lang,
                       t as _t)
-from app.routers import (initials, member_color, nombre_examen_corto,
-                         normalize_flag_key, page_lang, templates,
-                         urgency_css_key)
+from app.routers import (initials, member_color, needs_review,
+                         nombre_examen_corto, normalize_flag_key, page_lang,
+                         templates, urgency_css_key)
 from app.routers import accounts, ingest, results, share, vault
 from app.routers.vault import _fecha_corta, _fecha_efectiva
 from app.services.llm import _parse_rango
@@ -184,15 +184,19 @@ def index(request: Request):
     recent_docs = []
     total_docs = 0
     family = []
-    # Revisión pendiente: todavía no hay un sistema de estados de
-    # revisión (paso 2 del rediseño); el héroe muestra "Todo al día"
-    # hasta que los criterios de "requiere acción" existan con datos
-    # reales. Nunca se inventa un número aquí.
+    # Documentos por revisar: requieren revisión (incierto o fuera de
+    # rango, ver needs_review) y aún no se marcaron como revisados.
+    # Cuenta toda la bóveda, no solo los últimos 180 días.
     to_review = 0
     if user:
         limite = datetime.now(timezone.utc) - timedelta(days=180)
         all_docs = dal.list_documents(user["id"])
         total_docs = len(all_docs)
+        to_review = sum(
+            1 for d in all_docs
+            if needs_review(d.get("explanation") or {})
+            and not d.get("reviewed_at")
+        )
         # Orden: por fecha del documento (doctor/laboratorio), no de subida.
         all_docs = sorted(
             all_docs,

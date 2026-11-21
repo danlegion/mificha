@@ -35,6 +35,22 @@ def _iso(dt):
     return dt.isoformat()
 
 
+def _dt(value):
+    """ISO string o datetime -> datetime (o None). Para guardar en una
+    columna DateTime un valor que llega como texto del dict del DAL."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        dt = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 # ---------------------------------------------------------------------------
 # SQLite (SQLAlchemy)
 # ---------------------------------------------------------------------------
@@ -81,6 +97,9 @@ def _sqlite_dal():
         original_key = Column(String, nullable=True)
         explanation_json = Column(Text, nullable=True)
         member_id = Column(String, nullable=True)
+        # Revisión: cuándo se marcó el documento como revisado (None =
+        # pendiente). Lo pone POST /ficha/{id}/revisar; ver needs_review.
+        reviewed_at = Column(DateTime, nullable=True)
         created_at = Column(DateTime, default=_now)
 
     # Family members: profiles owned by one account, not separate logins.
@@ -103,7 +122,8 @@ def _sqlite_dal():
 
     Base.metadata.create_all(engine)
     # create_all does not add columns to existing tables, so backfill
-    # member_id on databases created before family members existed.
+    # member_id on databases created before family members existed, and
+    # reviewed_at on databases created before the review system.
     from sqlalchemy import text as _sa_text
     with engine.begin() as _conn:
         for _table in ("intakes", "documents"):
@@ -112,6 +132,11 @@ def _sqlite_dal():
             if "member_id" not in _cols:
                 _conn.execute(_sa_text(
                     f"ALTER TABLE {_table} ADD COLUMN member_id TEXT"))
+        _doc_cols = [r[1] for r in _conn.execute(
+            _sa_text("PRAGMA table_info(documents)")).fetchall()]
+        if "reviewed_at" not in _doc_cols:
+            _conn.execute(_sa_text(
+                "ALTER TABLE documents ADD COLUMN reviewed_at TEXT"))
 
     def _intake_d(i: Intake) -> dict:
         return {
@@ -138,6 +163,7 @@ def _sqlite_dal():
             "original_key": d.original_key,
             "explanation": json.loads(d.explanation_json) if d.explanation_json else None,
             "member_id": d.member_id,
+            "reviewed_at": _iso(d.reviewed_at),
             "created_at": _iso(d.created_at),
         }
 
@@ -273,8 +299,23 @@ def _sqlite_dal():
                 obj.original_key = doc.get("original_key")
                 if "member_id" in doc:
                     obj.member_id = doc["member_id"]
+                # Solo cuando el dict lo trae: un re-guardado (corrección,
+                # cambio de miembro) no debe borrar el estado de revisión.
+                if "reviewed_at" in doc:
+                    obj.reviewed_at = _dt(doc["reviewed_at"])
                 if doc.get("explanation") is not None:
                     obj.explanation_json = json.dumps(doc["explanation"], ensure_ascii=False)
+                s.commit()
+                return _doc_d(obj)
+
+        def mark_reviewed(self, doc_id: str):
+            """Marca un documento como revisado (ahora). Devuelve el
+            documento o None si no existe."""
+            with Session() as s:
+                obj = s.get(Document, doc_id)
+                if obj is None:
+                    return None
+                obj.reviewed_at = _now()
                 s.commit()
                 return _doc_d(obj)
 
@@ -421,6 +462,7 @@ def _supabase_dal():
             "intake_id": r.get("intake_id"), "original_key": r.get("original_key"),
             "explanation": json.loads(r["explanation_json"]) if r.get("explanation_json") else None,
             "member_id": r.get("member_id"),
+            "reviewed_at": r.get("reviewed_at"),
             "created_at": r.get("created_at"),
         }
 
@@ -505,6 +547,9 @@ def _supabase_dal():
 
         # -- documents --------------------------------------------------
         def save_document(self, doc: dict) -> dict:
+            # reviewed_at NO va en el upsert a propósito: un re-guardado
+            # (corrección, cambio de miembro) no lo toca, y un despliegue
+            # anterior a la migración SQL de Supabase sigue funcionando.
             row = {
                 "id": doc["id"], "user_id": doc["user_id"],
                 "intake_id": doc.get("intake_id", doc["id"]),
@@ -514,6 +559,14 @@ def _supabase_dal():
                 "member_id": doc.get("member_id"),
             }
             return _n_doc(_one(client.table("documents").upsert(row).execute()))
+
+        def mark_reviewed(self, doc_id: str):
+            """Marca un documento como revisado (ahora). Devuelve el
+            documento o None si no existe. Exige la columna reviewed_at
+            en Supabase (ver supabase/schema.sql)."""
+            row = {"reviewed_at": _now().isoformat()}
+            _one(client.table("documents").update(row).eq("id", doc_id).execute())
+            return self.get_document(doc_id)
 
         def get_document(self, doc_id):
             return _n_doc(_one(client.table("documents").select("*").eq("id", doc_id).execute()))

@@ -89,6 +89,24 @@ def normalize_flag_key(flag) -> str:
     return _FLAG_MAP.get(str(flag or "").strip().lower(), "")
 
 
+def needs_review(exp: dict) -> bool:
+    """Un documento requiere revisión cuando tiene valores por confirmar
+    (campos inciertos o biomarcadores inciertos) o valores fuera de
+    rango (alto/bajo).
+
+    Criterio elegido por Daniel (21 nov 2026): incierto + fuera de
+    rango. Nunca fechas de vencimiento de vacunas: el registro nunca
+    calcula próximas dosis.
+    """
+    bios = (exp or {}).get("biomarkers", [])
+    if (exp or {}).get("uncertain_fields"):
+        return True
+    return any(
+        normalize_flag_key(b.get("flag")) in ("alto", "bajo", "uncertain")
+        for b in bios
+    )
+
+
 def urgency_css_key(semantic_level: str) -> str:
     return URGENCY_CSS.get(semantic_level, "amarilla")
 

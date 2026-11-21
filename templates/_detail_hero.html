@@ -27,5 +27,16 @@
     <a class="btn" href="{{ hero_original_url }}" target="_blank" rel="noopener">{{ _t('detail.view_original') }}</a>
     {% endif %}
     <a class="btn btn-outline" href="#compartir">{{ _t('detail.share') }}</a>
+    {# Estado de revisión, dentro del propio documento: solo aparece
+       cuando el documento requiere revisión; al marcarlo, el héroe
+       de inicio deja de contarlo. #}
+    {% if review_id and review_needs and not review_reviewed %}
+    <form action="/ficha/{{ review_id }}/revisar" method="post">
+      <input type="hidden" name="volver" value="{{ review_back or '' }}">
+      <button class="btn btn-outline" type="submit">{{ _t('review.mark') }}</button>
+    </form>
+    {% elif review_id and review_reviewed %}
+    <span class="detail-reviewed">✓ {{ _t('review.reviewed') }}</span>
+    {% endif %}
   </div>
 </section>

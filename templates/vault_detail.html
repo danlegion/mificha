@@ -14,6 +14,10 @@
 {% set hero_meta = " · ".join(_meta) %}
 {% set hero_summary = exp.summary_simple %}
 {% set hero_original_url = doc.original_url if doc.original_available else "" %}
+{% set review_id = doc.id %}
+{% set review_needs = doc.needs_review %}
+{% set review_reviewed = doc.reviewed_at %}
+{% set review_back = '/ficha/' + doc.id %}
 {% include "_detail_hero.html" %}
 
 <div class="detail-narrow">

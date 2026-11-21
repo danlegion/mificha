@@ -10,9 +10,9 @@ from app import auth, config, file_store, schemas
 from app.db import dal
 from app.i18n import MESES_CORTO, get_current_lang, t as _t
 from app.routers import (key_values_with_position, member_color,
-                         nombre_examen_corto, normalize_flag_key, page_lang,
-                         render_explanation, share_ctx, templates,
-                         urgency_css_key)
+                         needs_review, nombre_examen_corto,
+                         normalize_flag_key, page_lang, render_explanation,
+                         share_ctx, templates, urgency_css_key)
 from app.services.vaccines import collect_vaccines, group_vaccines_by_member
 from app.storage import delete_original, get_original_path, original_exists
 
@@ -148,6 +148,8 @@ def ficha(request: Request, miembro: str = ""):
                 "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
                 "fuera": fuera,
                 "por_confirmar": por_confirmar,
+                "needs_review": needs_review(exp),
+                "reviewed_at": d.get("reviewed_at"),
                 "key_metric": key_metric,
                 "member_id": d.get("member_id"),
                 "member_name": by_id.get(d.get("member_id") or ""),
@@ -238,6 +240,39 @@ def cambiar_miembro(doc_id: str, request: Request,
     return RedirectResponse(f"/ficha/{doc_id}", status_code=303)
 
 
+@router.post("/ficha/{doc_id}/revisar")
+def marcar_revisado(doc_id: str, request: Request,
+                    volver: str = Form(default="")):
+    """Marca un documento como revisado: solo el suyo, solo si requiere
+    revisión y solo si aún no lo está. Vuelve a la página desde la que
+    se marcó (detalle o resultado)."""
+    try:
+        user = _require_user(request)
+    except HTTPException:
+        return RedirectResponse("/", status_code=303)
+    doc = dal.get_document(doc_id)
+    if not doc or doc.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    destino = (volver or "").strip()
+    if not destino.startswith("/") or destino.startswith("//"):
+        destino = f"/ficha/{doc_id}"
+    if not needs_review(doc.get("explanation") or {}) or doc.get("reviewed_at"):
+        return RedirectResponse(destino, status_code=303)
+    try:
+        updated = dal.mark_reviewed(doc_id)
+    except Exception:
+        # En Supabase la columna reviewed_at llega con la migración SQL;
+        # si aún no está, el botón no hace nada en vez de romper la página.
+        import logging
+        logging.getLogger("mificha.review").exception(
+            "No se pudo marcar %s como revisado", doc_id)
+        return RedirectResponse(destino, status_code=303)
+    if updated:
+        file_store.set_reviewed_at(
+            doc.get("member_id"), doc_id, updated.get("reviewed_at"))
+    return RedirectResponse(destino, status_code=303)
+
+
 @router.get("/ficha/{doc_id}")
 def ficha_detalle(doc_id: str, request: Request):
     try:
@@ -265,6 +300,8 @@ def ficha_detalle(doc_id: str, request: Request):
                 "original_url": f"/ficha/{doc['id']}/original",
                 "download_url": f"/ficha/{doc['id']}/original?descargar=1",
                 "original_available": original_exists(doc.get("original_key") or ""),
+                "needs_review": needs_review(doc.get("explanation") or {}),
+                "reviewed_at": doc.get("reviewed_at"),
                 "member_id": doc.get("member_id"),
                 "member_name": by_id.get(doc.get("member_id") or ""),
                 "date_label": _fecha_corta(

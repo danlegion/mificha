@@ -10,8 +10,8 @@ from app import auth, config, file_store
 from app.db import dal
 from app.i18n import t as _t
 from app.routers import (can_view_intake, key_values_with_position,
-                         nombre_examen_corto, page_lang, render_explanation,
-                         share_ctx, templates)
+                         needs_review, nombre_examen_corto, page_lang,
+                         render_explanation, share_ctx, templates)
 from app.storage import delete_original, get_original_path
 
 log = logging.getLogger("mificha.results")
@@ -107,6 +107,10 @@ def resultado(intake_id: str, request: Request):
         member_name = next(
             (m["name"] for m in dal.list_members(user["id"])
              if m["id"] == intake.get("member_id")), "")
+    # Revisión en la propia página del resultado: el documento guardado
+    # es el mismo intake (mismo id); sin fila de documento no hay nada
+    # que marcar.
+    doc_row = dal.get_document(intake_id)
     return templates.TemplateResponse(
         request,
         "result.html",
@@ -114,6 +118,9 @@ def resultado(intake_id: str, request: Request):
             **_base_ctx(request, user),
             "exp": render_explanation(intake["explanation"]),
             "intake_id": intake_id,
+            "review_id": intake_id if doc_row else "",
+            "review_needs": needs_review(intake.get("explanation") or {}),
+            "review_reviewed": doc_row.get("reviewed_at") if doc_row else None,
             "exam_name": nombre_examen_corto(intake.get("explanation") or {}),
             "key_values": key_values_with_position(intake.get("explanation") or {}),
             "member_id": intake.get("member_id"),

@@ -48,6 +48,7 @@
         {% if doc.urgency_label %}<span class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</span>{% endif %}
         {% if doc.fuera %}<span class="tag tag-warn">{{ _t('doc.out_of_range', n=doc.fuera) }}</span>{% endif %}
         {% if doc.por_confirmar %}<span class="tag">{{ _t('home.unconfirmed') }}</span>{% endif %}
+        {% if doc.needs_review and not doc.reviewed_at %}<span class="tag tag-warn">{{ _t('review.needs') }}</span>{% endif %}
       </p>
       {% if doc.key_metric %}
       <p class="doc-foot"><span>{{ doc.key_metric.name }}</span><strong>{{ doc.key_metric.value }} →</strong></p>

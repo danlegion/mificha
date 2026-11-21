@@ -13,6 +13,7 @@
 {% set hero_meta = " · ".join(_meta) %}
 {% set hero_summary = exp.summary_simple %}
 {% set hero_original_url = '/resultado/' + intake_id + '/original' if original_available else "" %}
+{% set review_back = '/resultado/' + intake_id %}
 {% include "_detail_hero.html" %}
 
 <div class="detail-narrow">

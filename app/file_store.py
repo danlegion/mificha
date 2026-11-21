@@ -12,7 +12,7 @@ config.DATA_DIR:
         documents/
           <doc_id>/
             meta.json        # {id, user_id, member_id, intake_id,
-                             #  original_key, created_at}
+                             #  original_key, created_at, reviewed_at}
             original.pdf     # the uploaded PDF, untouched
             explanation.json # the plain-language explanation
       unassigned/
@@ -138,6 +138,7 @@ def save_explanation(user_id: str, member_id, doc_id: str,
         "intake_id": doc_id,
         "original_key": original_key(member_id, doc_id),
         "created_at": created_at,
+        "reviewed_at": None,
     })
     _write_json(os.path.join(ddir, "explanation.json"), explanation or {})
     rebuild_biomarkers_csv(member_id)
@@ -163,6 +164,21 @@ def write_explanation(member_id, doc_id: str, explanation: dict) -> str | None:
     _write_json(path, explanation or {})
     rebuild_biomarkers_csv(member_id)
     return path
+
+
+def set_reviewed_at(member_id, doc_id: str, reviewed_at) -> bool:
+    """Record the review timestamp in a document's meta.json, so a
+    rebuild of the index keeps it. No-op when disabled or when the
+    document has no files yet."""
+    if not enabled():
+        return False
+    meta_path = os.path.join(document_dir(member_id, doc_id), "meta.json")
+    meta = _read_json(meta_path)
+    if meta is None:
+        return False
+    meta["reviewed_at"] = reviewed_at
+    _write_json(meta_path, meta)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -410,11 +426,12 @@ def rebuild_index() -> dict:
                 con.execute(
                     "INSERT OR REPLACE INTO documents "
                     "(id, user_id, intake_id, original_key, explanation_json,"
-                    " member_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    " member_id, reviewed_at, created_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (doc_id, owner_id, meta.get("intake_id") or doc_id,
                      meta.get("original_key")
                      or original_key(mid, doc_id),
-                     exp_json, mid, created),
+                     exp_json, mid, meta.get("reviewed_at"), created),
                 )
                 con.execute(
                     "INSERT OR REPLACE INTO intakes "

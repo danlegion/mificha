@@ -56,6 +56,12 @@ create table if not exists members (
 alter table intakes add column if not exists member_id text;
 alter table documents add column if not exists member_id text;
 
+-- Review system (Nov 21, 2026): when a document was marked as reviewed.
+-- Run this line in the Supabase SQL editor before using "Mark reviewed"
+-- on the live site; until then the button does nothing (uploads are
+-- unaffected, they never write this column).
+alter table documents add column if not exists reviewed_at timestamptz;
+
 -- Security: RLS ENABLED on all tables, with no policies for anon or
 -- authenticated (deny by default). The backend accesses them with the
 -- SUPABASE_SERVICE_ROLE_KEY (bypasses RLS) only from the server; the anon key
