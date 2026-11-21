@@ -3,6 +3,10 @@
 {% block title %}{{ _t('result.title') }}{% endblock %}
 
 {% block content %}
+{% set back_href = '/ficha?miembro=' + member_id if member_id else '/ficha' %}
+{% set crumbs = [{'label': _t('nav.my_file'), 'href': back_href}, {'label': exam_name}] %}
+{% include "_breadcrumbs.html" %}
+
 {% include "_explanation.html" %}
 
 <section class="card original-card" aria-label="{{ _t('result.original_h2') }}">

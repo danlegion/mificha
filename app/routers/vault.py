@@ -219,6 +219,7 @@ def ficha_detalle(doc_id: str, request: Request):
         {
             **_base_ctx(request, user),
             "exp": exp,
+            "exam_name": nombre_examen_corto(doc.get("explanation") or {}),
             "doc": {
                 "id": doc["id"],
                 "original_url": f"/ficha/{doc['id']}/original",

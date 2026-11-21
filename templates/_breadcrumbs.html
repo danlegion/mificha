@@ -1,0 +1,14 @@
+{# Breadcrumbs: where you are, and the way back. Pass `crumbs` as a list
+   of {"label": ..., "href": ...}; the last item has no href (current page). #}
+{% if crumbs %}
+<nav class="crumbs" aria-label="{{ _t('nav.breadcrumb') }}">
+  <ol>
+    {% for c in crumbs %}
+    <li>
+      {% if c.href %}<a href="{{ c.href }}">{{ c.label }}</a>
+      {% else %}<span aria-current="page">{{ c.label }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</nav>
+{% endif %}

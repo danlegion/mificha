@@ -102,6 +102,47 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   text-decoration: underline;
 }
 
+.site-nav a[aria-current="page"] {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Breadcrumbs: where you are, and the way back. */
+.crumbs {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+}
+
+.crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.crumbs li + li::before {
+  content: "›";
+  color: var(--ink-soft);
+  margin-right: 0.4rem;
+}
+
+.crumbs a {
+  color: var(--brand-deep);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.crumbs a:hover {
+  text-decoration: underline;
+}
+
+.crumbs [aria-current="page"] {
+  color: var(--ink);
+}
+
 .lang-toggle {
   display: inline-flex;
   align-items: center;

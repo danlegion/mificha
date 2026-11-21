@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="{{ _t('meta.description') }}">
   <title>{% block title %}{{ _t('meta.title_suffix') }}{% endblock %} · {{ _t('meta.title_suffix') }}</title>
-  <link rel="stylesheet" href="/static/app.css?v=28">
+  <link rel="stylesheet" href="/static/app.css?v=29">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -20,14 +20,15 @@
 
   <header class="site-header">
     <div class="container">
-      <nav class="site-nav" aria-label="Cuenta">
+      <nav class="site-nav" aria-label="{{ _t('nav.main') }}">
         <span class="lang-toggle" role="group" aria-label="Idioma / Language">
           <a href="/idioma/es"{% if lang == "es" %} class="lang-active" aria-current="true"{% endif %}>ES</a>
           <span aria-hidden="true">·</span>
           <a href="/idioma/en"{% if lang == "en" %} class="lang-active" aria-current="true"{% endif %}>EN</a>
         </span>
         {% if user %}
-        <a href="/ficha">{{ _t('nav.my_file') }}</a>
+        <a href="/"{% if request.url.path == "/" %} aria-current="page"{% endif %}>{{ _t('nav.home') }}</a>
+        <a href="/ficha"{% if request.url.path.startswith('/ficha') or request.url.path.startswith('/vacunas') %} aria-current="page"{% endif %}>{{ _t('nav.my_file') }}</a>
         <a href="/salir">{{ _t('nav.logout') }}</a>
         {% else %}
         <a href="/entrar">{{ _t('nav.login') }}</a>
@@ -48,7 +49,7 @@
     </div>
   </footer>
 
-  <script src="/static/app.js?v=28" defer></script>
+  <script src="/static/app.js?v=29" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
