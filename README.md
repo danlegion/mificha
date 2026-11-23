@@ -21,11 +21,8 @@ doctor. It's a translator, not a clinician — and it says so on every
 explanation.
 
 You run it yourself, at home, on a small computer. The code is open
-source (AGPLv3) — the repository is currently private while the first
-public release is prepared, so the clone step in the Docker section
-below works once it's public, or now if you have access. This is an
-early version, built for one family's real use and shared in case it
-helps yours.
+for anyone to read. This is an early version, built for one family's
+real use and shared in case it helps yours.
 
 ## How it works
 
