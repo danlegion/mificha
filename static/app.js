@@ -195,10 +195,41 @@
     });
   };
 
+  /* ---------- Family nav: land on the family section, not the top -----
+     The nav link points at the home page's #family section. From another
+     page the browser jumps to /#family, but late web-font swaps can shift
+     the layout after the anchor jump, leaving the page at the top; so
+     re-assert the scroll once the page and its fonts settle. On the home
+     page itself, scroll in place instead of reloading. */
+  window.MIFicha.initFamilyAnchor = function () {
+    var target = document.getElementById("family");
+    if (!target) return;
+    function go() {
+      target.scrollIntoView({ behavior: "auto", block: "start" });
+    }
+    if (window.location.hash === "#family") {
+      go();
+      window.addEventListener("load", function () { go(); });
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(go);
+      }
+    }
+    document.addEventListener("click", function (e) {
+      var link = e.target.closest('a[href="/#family"]');
+      if (!link) return;
+      if (window.location.pathname !== "/") return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      history.replaceState(null, "", "#family");
+    });
+  };
+
   document.addEventListener("DOMContentLoaded", function () {
     window.MIFicha.initConfirmDialogs();
     window.MIFicha.initVaultTabs();
     window.MIFicha.initVaultSearch();
+    window.MIFicha.initFamilyAnchor();
   });
 
   /* ---------- File input: show chosen filename ---------- */

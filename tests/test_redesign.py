@@ -208,3 +208,12 @@ def test_js_busqueda_de_la_boveda():
     assert "window.MIFicha.initVaultSearch" in js
     assert "data-vault-search" in js
     assert "window.MIFicha.initVaultTabs" in js
+
+
+def test_js_family_anchor_lands_on_section():
+    js = open("static/app.js").read()
+    assert "window.MIFicha.initFamilyAnchor" in js
+    assert 'a[href="/#family"]' in js
+    assert 'getElementById("family")' in js
+    assert "document.fonts.ready" in js
+    assert "initFamilyAnchor();" in js

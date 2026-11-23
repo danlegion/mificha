@@ -3,7 +3,7 @@
    - / : network-first (el home es personal y cambia con cada acción:
      borrar, subir, guardar). Solo se usa la caché sin conexión.
    - NEVER cache /resultado, /ficha, /s/* (clinical data must always be fresh). */
-var CACHE = "mificha-shell-v35";
+var CACHE = "mificha-shell-v36";
 var SHELL = ["/static/app.css?v=26", "/static/app.js?v=26", "/static/manifest.json", "/static/brand-mark.svg"];
 
 self.addEventListener("install", function (event) {
