@@ -92,11 +92,14 @@ def _base_ctx(request: Request, user) -> dict:
 
 
 @router.get("/ficha")
-def ficha(request: Request, miembro: str = ""):
+def ficha(request: Request, miembro: str = "", vista: str = ""):
     try:
         user = _require_user(request)
     except HTTPException:
         return RedirectResponse("/", status_code=303)
+    # Una sola página: el filtro Exámenes | Vacunas es del cliente, no
+    # dos páginas. ?vista=vacunas abre en la vista de vacunas.
+    view = "vacunas" if vista.strip() == "vacunas" else "exams"
     members = dal.list_members(user["id"])
     by_id = {m["id"]: m["name"] for m in members}
     # Filter by member when requested; an unknown id shows everything
@@ -156,57 +159,49 @@ def ficha(request: Request, miembro: str = ""):
                 "member_color": color_by_member.get(d.get("member_id") or "", {}),
             }
         )
-    # Group by member, members first in creation order, unassigned last.
-    groups = []
-    for m in members:
-        group_docs = [d for d in docs if d["member_id"] == m["id"]]
-        if not selected or selected == m["id"]:
-            groups.append({"member_id": m["id"], "member_name": m["name"],
-                           "docs": group_docs})
-    unassigned = [d for d in docs if not d.get("member_id")]
-    if not selected:
-        groups.append({"member_id": "", "member_name": "",
-                       "docs": unassigned})
     exams_total = len(docs)
     if selected:
         docs = [d for d in docs if d["member_id"] == selected]
+    # Registro de vacunas: misma página, misma selección de familiar.
+    vax_groups = group_vaccines_by_member(crudos, members)
+    for i, g in enumerate(vax_groups):
+        bg, fg = member_color(i)
+        g["color_bg"] = bg
+        g["color_fg"] = fg
+    if selected:
+        vax_groups = [g for g in vax_groups if g["member_id"] == selected]
+    # Las píldoras de familiar conservan la vista actual, para que un
+    # toque no devuelva a Exámenes estando en Vacunas.
+    pill_suffix = "&vista=vacunas" if view == "vacunas" else ""
+    all_href = "/ficha?vista=vacunas" if view == "vacunas" else "/ficha"
     return templates.TemplateResponse(
         request,
         "vault.html",
-        {**_base_ctx(request, user), "docs": docs, "groups": groups,
+        {**_base_ctx(request, user), "docs": docs,
+         "vax_groups": vax_groups,
          "members": members, "selected_member": selected,
+         "view": view, "all_href": all_href, "pill_suffix": pill_suffix,
          "exams_count": exams_total,
          "vaccines_count": len(collect_vaccines(crudos))})
 
 
 @router.get("/vacunas")
 def vacunas(request: Request, miembro: str = ""):
+    """La vista de vacunas ya no es otra página: redirige a la bóveda
+    con el filtro de vacunas activo (y el mismo familiar, si lo había)."""
     try:
         user = _require_user(request)
     except HTTPException:
         return RedirectResponse("/", status_code=303)
-    members = dal.list_members(user["id"])
-    by_id = {m["id"]: m["name"] for m in members}
-    selected = miembro.strip() if miembro.strip() in by_id else ""
-    all_docs = dal.list_documents(user["id"])
-    groups = group_vaccines_by_member(all_docs, members)
-    for i, g in enumerate(groups):
-        bg, fg = member_color(i)
-        g["color_bg"] = bg
-        g["color_fg"] = fg
-    if selected:
-        groups = [g for g in groups if g["member_id"] == selected]
-    return templates.TemplateResponse(
-        request,
-        "vaccines.html",
-        {**_base_ctx(request, user), "groups": groups,
-         "members": members, "selected_member": selected,
-         "exams_count": len(all_docs),
-         "vaccines_count": len(collect_vaccines(all_docs))})
+    dest = "/ficha?vista=vacunas"
+    if miembro.strip():
+        dest += f"&miembro={miembro.strip()}"
+    return RedirectResponse(dest, status_code=303)
 
 
 @router.post("/ficha/miembros")
-def crear_miembro(request: Request, nombre: str = Form(default="")):
+def crear_miembro(request: Request, nombre: str = Form(default=""),
+                  vista: str = Form(default="")):
     try:
         user = _require_user(request)
     except HTTPException:
@@ -214,7 +209,8 @@ def crear_miembro(request: Request, nombre: str = Form(default="")):
     if (nombre or "").strip():
         member = dal.create_member(user["id"], nombre.strip())
         file_store.save_member_file(member, owner_email=user.get("email"))
-    return RedirectResponse("/ficha", status_code=303)
+    dest = "/ficha?vista=vacunas" if vista.strip() == "vacunas" else "/ficha"
+    return RedirectResponse(dest, status_code=303)
 
 
 @router.post("/ficha/{doc_id}/miembro")

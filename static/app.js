@@ -103,114 +103,81 @@
 
   /* ---------- Vault search: filter cards/rows in place, no reload ----
      The member pills are server links (real navigation); the search box
-     filters the visible panel client-side. The query is kept across tab
-     swaps so the filter survives switching Exams / Vaccines. */
+     filters both sections client-side. Each section has its own
+     "nothing matches" message; apply() is exposed so the view filter
+     can re-run it after switching Exams / Vaccines. */
   window.MIFicha.initVaultSearch = function () {
     var input = document.querySelector("[data-vault-search]");
-    if (!input) return;
+    if (!input || input.dataset.vaultSearchBound) return;
+    input.dataset.vaultSearchBound = "1";
     function apply() {
       var q = input.value.trim().toLowerCase();
       window.MIFicha._vaultQuery = q;
       var panel = input.closest(".vault-panel");
       if (!panel) return;
-      var visible = 0;
-      panel.querySelectorAll("[data-search]").forEach(function (el) {
-        var hit = !q || (el.getAttribute("data-search") || "").toLowerCase().indexOf(q) !== -1;
-        el.style.display = hit ? "" : "none";
-        if (hit) visible++;
+      panel.querySelectorAll("[data-view-section]").forEach(function (section) {
+        var visible = 0;
+        section.querySelectorAll("[data-search]").forEach(function (el) {
+          var hit = !q || (el.getAttribute("data-search") || "").toLowerCase().indexOf(q) !== -1;
+          el.style.display = hit ? "" : "none";
+          if (hit) visible++;
+        });
+        section.querySelectorAll("[data-vax-group]").forEach(function (group) {
+          var any = Array.prototype.some.call(
+            group.querySelectorAll("[data-search]"),
+            function (row) { return row.style.display !== "none"; });
+          group.style.display = any ? "" : "none";
+        });
+        var empty = section.querySelector("[data-vault-empty]");
+        if (empty) empty.hidden = visible !== 0;
       });
-      panel.querySelectorAll("[data-vax-group]").forEach(function (group) {
-        var any = Array.prototype.some.call(
-          group.querySelectorAll("[data-search]"),
-          function (row) { return row.style.display !== "none"; });
-        group.style.display = any ? "" : "none";
-      });
-      var empty = panel.querySelector("[data-vault-empty]");
-      if (empty) empty.hidden = visible !== 0;
     }
+    window.MIFicha.applyVaultSearch = apply;
     input.addEventListener("input", apply);
     var saved = window.MIFicha._vaultQuery;
     if (saved) { input.value = saved; apply(); }
   };
 
-  /* ---------- Vault tabs: switch Exams / Vaccines without a full reload ----
-     The two vault pages are views of the same file. Clicking a tab fetches
-     the other page, swaps only <main>, and updates the URL — no white
-     flash, no fresh document. Without JS (or on any failure) the links
-     work as plain navigation. */
-  window.MIFicha.initVaultTabs = function () {
-    var main = document.querySelector("main.container");
-    if (!main) return;
-    var current = 0; /* guards against out-of-order responses */
-
-    function isVaultPage(url) {
-      var path = new URL(url, window.location.origin).pathname;
-      return path === "/ficha" || path === "/vacunas";
+  /* ---------- Vault filter: Exams / Vaccines is one client-side filter ----
+     Both sections are already on the page; the buttons only switch which
+     one shows. The URL (?vista=vacunas) and the member pills are kept in
+     sync, so a tap on a family member or a refresh doesn't reset the
+     view. No fetch, no reload. */
+  window.MIFicha.initVaultFilter = function () {
+    var panel = document.querySelector(".vault-panel");
+    if (!panel) return;
+    var buttons = panel.querySelectorAll("[data-vault-view]");
+    if (!buttons.length) return;
+    function setView(view, push) {
+      panel.setAttribute("data-view", view);
+      buttons.forEach(function (b) {
+        b.setAttribute("aria-pressed",
+          b.getAttribute("data-vault-view") === view ? "true" : "false");
+      });
+      panel.querySelectorAll(".member-pill").forEach(function (pill) {
+        var u = new URL(pill.getAttribute("href"), window.location.origin);
+        if (view === "vacunas") u.searchParams.set("vista", "vacunas");
+        else u.searchParams.delete("vista");
+        pill.setAttribute("href", u.pathname + u.search);
+      });
+      if (push) {
+        var u = new URL(window.location.href);
+        if (view === "vacunas") u.searchParams.set("vista", "vacunas");
+        else u.searchParams.delete("vista");
+        history.pushState(null, "", u.pathname + u.search);
+      }
+      if (window.MIFicha.applyVaultSearch) window.MIFicha.applyVaultSearch();
     }
-
-    function swap(url, push, retried) {
-      var n = ++current;
-      var retrying = false;
-      main.setAttribute("aria-busy", "true");
-      fetch(url, { credentials: "same-origin", cache: "no-store" })
-        .then(function (resp) {
-          if (!resp.ok) throw new Error("status " + resp.status);
-          return resp.text();
-        })
-        .then(function (html) {
-          if (n !== current) return; /* a newer tab click already won */
-          var doc = new DOMParser().parseFromString(html, "text/html");
-          var next = doc.querySelector("main.container");
-          if (!next) throw new Error("no main in response");
-          main.innerHTML = next.innerHTML;
-          document.title = doc.title || document.title;
-          window.MIFicha.initVaultSearch();
-          if (push) history.pushState(null, "", url);
-          window.scrollTo(0, 0);
-        })
-        .catch(function () {
-          if (n !== current) return;
-          if (!retried) {
-            /* Transient blip (cold start, hiccup): one retry before
-               giving up and navigating for real. */
-            retrying = true;
-            setTimeout(function () {
-              if (n !== current) return;
-              swap(url, push, true);
-            }, 1200);
-            return;
-          }
-          window.location.href = url; /* fall back to a real navigation */
-        })
-        .finally(function () {
-          if (n === current && !retrying) main.removeAttribute("aria-busy");
-        });
-    }
-
-    /* Delegated: the tabs are replaced on every swap, the listener stays. */
-    document.addEventListener("click", function (e) {
-      var link = e.target.closest(".vault-tabs a");
-      if (!link) return;
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-      var url = new URL(link.getAttribute("href"), window.location.origin);
-      /* Keep the member filter when switching views. */
-      var member = new URLSearchParams(window.location.search).get("miembro");
-      if (member) url.searchParams.set("miembro", member);
-      /* The current tab is a no-op, never a reload: prevent the
-         navigation before checking whether it is the tab we're on. */
-      e.preventDefault();
-      if (url.href === window.location.href) return;
-      swap(url.href, true);
-    });
-
-    window.addEventListener("popstate", function () {
-      if (isVaultPage(window.location.href)) swap(window.location.href, false);
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        setView(b.getAttribute("data-vault-view"), true);
+      });
     });
   };
 
   document.addEventListener("DOMContentLoaded", function () {
     window.MIFicha.initConfirmDialogs();
-    window.MIFicha.initVaultTabs();
+    window.MIFicha.initVaultFilter();
     window.MIFicha.initVaultSearch();
   });
 

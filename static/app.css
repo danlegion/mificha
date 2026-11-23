@@ -265,31 +265,38 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 }
 .hero p { margin: 0 0 1rem; color: var(--ink-soft); }
 
-/* Vault views (exams / vaccines): pestañas en píldora — las dos páginas
-   son vistas de la misma bóveda, no acciones. */
+/* Vault views (exams / vaccines): un solo filtro en píldora, centrado
+   justo encima de las tarjetas — no dos páginas ni una navegación. */
 .vault-tabs {
   display: flex;
   gap: 2px;
   width: fit-content;
-  margin: 20px 24px 0;
+  margin: 20px auto 0;
   padding: 4px;
   background: var(--bg2);
   border-radius: 999px;
 }
-.vault-tabs a {
+.vault-tabs button {
+  font: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
   padding: 0.45rem 1rem;
   border-radius: 999px;
   font-weight: 600;
   font-size: 0.92rem;
   color: var(--ink-soft);
-  text-decoration: none;
   white-space: nowrap;
 }
-.vault-tabs a[aria-current="page"] {
+.vault-tabs button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--ink);
   box-shadow: var(--shadow);
 }
+
+/* La vista inactiva se esconde: el filtro solo muestra una sección. */
+.vault-panel[data-view="exams"] [data-view-section="vacunas"] { display: none; }
+.vault-panel[data-view="vacunas"] [data-view-section="exams"] { display: none; }
 .tab-count {
   display: inline-block;
   margin-left: 0.35rem;
@@ -1160,12 +1167,6 @@ dialog.confirm-dialog h2 {
   overflow: hidden;
   margin-top: 2.25rem;
   transition: opacity .15s ease;
-}
-
-/* While a tab swap is in flight, dim the panel so a slow fetch reads as
-   loading, not as a dead click. */
-main[aria-busy="true"] .vault-panel {
-  opacity: .55;
 }
 
 .vault-head {

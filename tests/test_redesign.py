@@ -141,7 +141,8 @@ def test_vacunas_en_filas_con_badge_recibida(client, owner_con_datos):
                        "member_id": owner_con_datos["member_id"],
                        "explanation": exp})
     try:
-        r = client.get("/vacunas", cookies=_cookies(owner_con_datos["uid"]))
+        r = client.get("/ficha?vista=vacunas",
+                       cookies=_cookies(owner_con_datos["uid"]))
         assert r.status_code == 200
         assert 'class="vax-row"' in r.text
         assert "Influenza" in r.text
@@ -207,4 +208,5 @@ def test_js_busqueda_de_la_boveda():
     js = open("static/app.js").read()
     assert "window.MIFicha.initVaultSearch" in js
     assert "data-vault-search" in js
-    assert "window.MIFicha.initVaultTabs" in js
+    assert "window.MIFicha.initVaultFilter" in js
+    assert "data-vault-view" in js

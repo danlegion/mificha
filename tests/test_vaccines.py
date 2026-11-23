@@ -172,7 +172,7 @@ def test_registry_page_groups_by_member(client, owner):
                             "dose": "1"}]),
                        "member_id": member["id"]})
     try:
-        r = client.get("/vacunas", cookies=_cookies(owner))
+        r = client.get("/ficha?vista=vacunas", cookies=_cookies(owner))
         assert r.status_code == 200
         assert "Ana" in r.text
         assert "Influenza" in r.text
@@ -186,55 +186,69 @@ def test_registry_page_groups_by_member(client, owner):
 
 
 def test_vault_pages_share_one_tab_nav(client, owner):
-    """The vault has one navigation between its two views, not a button
-    beside the upload action: /ficha and /vacunas both render the same
-    tab nav, with the current view marked, and the hero carries no
-    cross-link button."""
+    """The vault is one page: the Exams / Vaccines control is a centered
+    client-side filter just above the cards, not a navigation between
+    pages. /vacunas only survives as a redirect to the vaccines view."""
     r = client.get("/ficha", cookies=_cookies(owner))
     assert r.status_code == 200
     assert 'class="vault-tabs"' in r.text
-    assert '<a href="/ficha" aria-current="page">Exams <span class="tab-count">0</span></a>' in r.text
-    assert '<a href="/vacunas">Vaccines <span class="tab-count">0</span></a>' in r.text
-    # The vaccines page is linked once, as a tab — not as a button
-    # beside the upload action in the panel head.
-    assert r.text.count('href="/vacunas"') == 1
-    assert 'href="/#explicar"' in r.text  # the one panel action: upload
-    r2 = client.get("/vacunas", cookies=_cookies(owner))
-    assert r2.status_code == 200
-    assert 'class="vault-tabs"' in r2.text
-    assert '<a href="/ficha">Exams <span class="tab-count">0</span></a>' in r2.text
-    assert '<a href="/vacunas" aria-current="page">Vaccines <span class="tab-count">0</span></a>' in r2.text
+    assert 'data-vault-view="exams"' in r.text
+    assert 'data-vault-view="vacunas"' in r.text
+    assert 'data-view="exams"' in r.text
+    assert 'data-view-section="exams"' in r.text
+    assert 'data-view-section="vacunas"' in r.text
+    # The toggle is a pair of buttons, not links: nothing navigates.
+    assert 'href="/vacunas"' not in r.text
+    assert 'data-vault-view="exams" aria-pressed="true"' in r.text
+    assert 'data-vault-view="vacunas" aria-pressed="false"' in r.text
+    assert 'Exams <span class="tab-count">0</span>' in r.text
+    assert 'Vaccines <span class="tab-count">0</span>' in r.text
+    # The old URL redirects to the same page with the filter on.
+    r2 = client.get("/vacunas", cookies=_cookies(owner),
+                    follow_redirects=False)
+    assert r2.status_code == 303
+    assert r2.headers["location"] == "/ficha?vista=vacunas"
+    r3 = client.get("/ficha?vista=vacunas", cookies=_cookies(owner))
+    assert r3.status_code == 200
+    assert 'data-view="vacunas"' in r3.text
+    assert 'data-vault-view="vacunas" aria-pressed="true"' in r3.text
 
 
 def test_vaccines_empty_state_asks_for_a_vaccine_record(client, owner):
     """The empty registry must not reuse the vault's 'Explain your
     first exam' button: the user may already have exams, just no
-    vaccine records yet."""
-    r = client.get("/vacunas", cookies=_cookies(owner))
+    vaccine records yet. Both sections are on the one page, so the
+    check is scoped to the vaccines section."""
+    r = client.get("/ficha?vista=vacunas", cookies=_cookies(owner))
     assert r.status_code == 200
-    assert "Upload a vaccine record" in r.text
-    assert "Add a document" not in r.text
+    vax = r.text.split('data-view-section="vacunas"')[1]
+    assert "Upload a vaccine record" in vax
+    assert "Add a document" not in vax
+    exams = r.text.split('data-view-section="exams"')[1].split(
+        'data-view-section="vacunas"')[0]
+    assert "Add a document" in exams
 
 
 def test_vault_tabs_swap_without_reload(client):
-    """The tab switch is wired in JS: clicks on .vault-tabs are
-    intercepted, the other view is fetched and only <main> is swapped,
-    with pushState keeping the URL in sync. (The browser behavior
+    """The Exams / Vaccines control is a client-side filter, not a
+    navigation: the JS only switches which section shows (data-view),
+    with no fetch, no <main> swap and no reload. (The browser behavior
     itself can't run in TestClient; this locks the wiring in place.)"""
     r = client.get("/static/app.js")
     assert r.status_code == 200
-    assert "initVaultTabs" in r.text
-    assert ".vault-tabs a" in r.text
-    assert "main.container" in r.text
-    assert "pushState" in r.text
-    assert "popstate" in r.text
-    # Clicking the tab we're already on is a no-op, never a reload:
-    # the navigation is prevented before the same-URL check.
-    assert ("e.preventDefault();\n      if (url.href === window.location.href)"
-            " return;") in r.text
-    # A failed fetch retries once before falling back to navigation.
-    assert "swap(url, push, true)" in r.text
-    # While a swap is in flight the panel dims, so a slow fetch reads
-    # as loading rather than a dead click.
-    css = client.get("/static/app.css")
-    assert 'main[aria-busy="true"] .vault-panel' in css.text
+    assert "initVaultFilter" in r.text
+    assert "initVaultTabs" not in r.text
+    assert "data-vault-view" in r.text
+    assert "aria-pressed" in r.text
+    assert "applyVaultSearch" in r.text
+    # No fetch anywhere in the vault filter: the old swap fetched the
+    # other page. (The one fetch() left in app.js is the processing
+    # page polling its own status, not the vault.)
+    assert "fetch(url" not in r.text
+    assert "main.container" not in r.text
+    # The toggle sits centered just above the cards.
+    css = client.get("/static/app.css").text
+    assert ".vault-tabs {\n  display: flex;" in css
+    assert "margin: 20px auto 0;" in css
+    assert ".vault-panel[data-view=\"exams\"] [data-view-section=\"vacunas\"]" in css
+    assert ".vault-panel[data-view=\"vacunas\"] [data-view-section=\"exams\"]" in css
