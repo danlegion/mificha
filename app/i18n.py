@@ -134,6 +134,7 @@ STRINGS = {
 "family.view_all": "Ver todo →",
 "family.documents": "Documentos",
 "family.to_review": "{n} por revisar",
+"family.up_to_date": "Al día",
 "family.last_exam": "Último examen {date}",
 "family.none": "Sin exámenes aún",
 
@@ -484,6 +485,7 @@ STRINGS = {
 "family.view_all": "View all →",
 "family.documents": "Documents",
 "family.to_review": "{n} to review",
+"family.up_to_date": "Up to date",
 "family.last_exam": "Last exam {date}",
 "family.none": "No exams yet",
 

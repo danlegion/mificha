@@ -1095,7 +1095,7 @@ dialog.confirm-dialog h2 {
   box-shadow: var(--shadow);
 }
 
-.family-top { display: flex; align-items: center; gap: 0.75rem; }
+.family-top { display: flex; justify-content: space-between; align-items: start; }
 
 .initials-tile {
   width: 48px;
@@ -1109,12 +1109,12 @@ dialog.confirm-dialog h2 {
   font-size: 0.95rem;
 }
 
-.family-name { font-size: 1rem; font-weight: 700; margin: 0; }
+.family-name { font-size: 1rem; font-weight: 700; margin: 0.75rem 0 2px; }
 
 .family-note {
   font-size: 0.82rem;
   color: var(--ink-soft);
-  margin: 0.75rem 0 0;
+  margin: 0;
   min-height: 2.5em;
 }
 
@@ -1130,17 +1130,25 @@ dialog.confirm-dialog h2 {
 .family-meta span:first-child { color: var(--ink-soft); }
 .family-meta strong { font-weight: 700; }
 
-/* Cuántos documentos de este familiar necesitan revisión: el mismo
-   ámbar que la etiqueta "Por revisar" de la bóveda. */
+/* Insignia de revisión, como en el diseño aprobado: arriba a la derecha,
+   junto a las iniciales; ámbar con el conteo cuando hay por revisar,
+   verde "Al día" cuando no hay nada pendiente. Sin insignia si el
+   familiar aún no tiene documentos. */
 .family-review {
-  display: inline-block;
-  margin-top: 0.75rem;
-  padding: 0.2rem 0.6rem;
+  flex-shrink: 0;
+  padding: 5px 8px;
   border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  white-space: nowrap;
   background: var(--u-amber-bg);
   color: var(--u-amber-fg);
+}
+
+.family-review--ok {
+  background: var(--u-green-bg);
+  color: var(--u-green-fg);
 }
 
 /* Panel de la bóveda: cabecera, pestañas, filtros en su propia fila. */

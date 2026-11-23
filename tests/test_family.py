@@ -107,11 +107,13 @@ def usuario_family():
     exp_limpio = _exp_campos()
     exp_limpio["biomarkers"][0].update({"value": "150", "flag": "normal"})
     _save_doc(limpio, uid, exp_limpio, member_id=luis["id"])
+    # Elena: sin documentos, sin insignia.
+    elena = dal.create_member(uid, "Elena")
     yield {"uid": uid, "member": member, "actual": actual,
            "previo": previo, "viejo": viejo,
-           "luis": luis, "limpio": limpio}
+           "luis": luis, "limpio": limpio, "elena": elena}
     _clean([uid, actual, previo, viejo, limpio,
-            member["id"], luis["id"]])
+            member["id"], luis["id"], elena["id"]])
 
 
 def test_family_anonimo_redirige(client):
@@ -122,16 +124,24 @@ def test_family_anonimo_redirige(client):
 
 def test_family_tarjetas_muestran_quien_tiene_por_revisar(
         client, usuario_family):
-    # Ana tiene 2 documentos por revisar (previo + actual, colesterol
-    # alto); Luis ninguno. La tarjeta dice de quién es el número del
-    # hero, en /family y en el home.
+    # Insignia como en el diseño aprobado: arriba a la derecha de la
+    # tarjeta, junto a las iniciales. Ana tiene 2 documentos por
+    # revisar (previo + actual, colesterol alto); Luis, con todo al
+    # día, lleva la insignia verde; Elena, sin documentos, ninguna.
+    # La tarjeta dice de quién es el número del hero, en /family y
+    # en el home.
     for path in ("/family", "/"):
         r = client.get(path, cookies=_cookies(usuario_family["uid"]))
         assert r.status_code == 200
         assert "2 por revisar" in r.text
-        # Solo la tarjeta de Ana lleva la insignia.
+        assert r.text.count("Al día") == 1  # solo Luis
+        # Solo la tarjeta de Ana lleva la insignia ámbar.
         assert r.text.count("por revisar") == (
             2 if path == "/" else 1)  # en el home, + la etiqueta del hero
+        # La insignia va en la fila superior, junto a las iniciales.
+        assert 'class="family-top"' in r.text
+        assert "family-review" in r.text
+        assert "family-review--ok" in r.text
 
 
 def test_family_tarjetas_primero_y_lista_reciente(client, usuario_family):
