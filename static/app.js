@@ -101,41 +101,104 @@
     });
   };
 
-  /* ---------- Vault search: filter cards/rows in place, no reload ----
-     The member pills are server links (real navigation); the search box
-     filters both sections client-side. Each section has its own
-     "nothing matches" message; apply() is exposed so the view filter
-     can re-run it after switching Exams / Vaccines. */
+  /* ---------- Vault filters: member, view and search, all in place ----
+     The page carries every document; the name pills, the Exams /
+     Vaccines toggle and the search box only show and hide. Nothing
+     navigates, so the scroll position never resets. The URL (?miembro=,
+     ?vista=) stays in sync, so a refresh or a shared link lands on
+     the same filter. */
+  window.MIFicha.applyVaultFilters = function () {
+    var panel = document.querySelector(".vault-panel");
+    if (!panel) return;
+    var input = document.querySelector("[data-vault-search]");
+    var q = input ? input.value.trim().toLowerCase() : "";
+    window.MIFicha._vaultQuery = q;
+    var member = panel.getAttribute("data-member") || "";
+    panel.querySelectorAll("[data-view-section]").forEach(function (section) {
+      var visible = 0;
+      section.querySelectorAll("[data-search]").forEach(function (el) {
+        var matchesQuery = !q || (el.getAttribute("data-search") || "").toLowerCase().indexOf(q) !== -1;
+        var group = el.closest("[data-vax-group]");
+        var owner = group ? group.getAttribute("data-member") : el.getAttribute("data-member");
+        var matchesMember = !member || (owner || "") === member;
+        var hit = matchesQuery && matchesMember;
+        el.style.display = hit ? "" : "none";
+        if (hit) visible++;
+      });
+      section.querySelectorAll("[data-vax-group]").forEach(function (group) {
+        var any = Array.prototype.some.call(
+          group.querySelectorAll("[data-search]"),
+          function (row) { return row.style.display !== "none"; });
+        group.style.display = any ? "" : "none";
+      });
+      var empty = section.querySelector("[data-vault-empty]");
+      if (empty) {
+        empty.hidden = visible !== 0;
+        if (visible === 0) {
+          var h = empty.querySelector("h2");
+          if (h) h.textContent = q ? empty.getAttribute("data-empty-search")
+                                   : empty.getAttribute("data-empty-member");
+        }
+      }
+    });
+  };
+
+  /* The Exams / Vaccines pill numbers count the selected member only,
+     so they move when the name filter does. */
+  window.MIFicha.updateVaultCounts = function () {
+    var panel = document.querySelector(".vault-panel");
+    if (!panel) return;
+    var member = panel.getAttribute("data-member") || "";
+    var exams = 0, vax = 0;
+    panel.querySelectorAll(".doc-card").forEach(function (card) {
+      if (!member || (card.getAttribute("data-member") || "") === member) exams++;
+    });
+    panel.querySelectorAll(".vax-row").forEach(function (row) {
+      var g = row.closest("[data-vax-group]");
+      if (!member || (g && g.getAttribute("data-member") === member)) vax++;
+    });
+    var e = panel.querySelector('[data-count="exams"]');
+    if (e) e.textContent = exams;
+    var v = panel.querySelector('[data-count="vaccines"]');
+    if (v) v.textContent = vax;
+  };
+
+  window.MIFicha.setVaultMember = function (memberId, push) {
+    var panel = document.querySelector(".vault-panel");
+    if (!panel) return;
+    if (memberId) panel.setAttribute("data-member", memberId);
+    else panel.removeAttribute("data-member");
+    panel.querySelectorAll("[data-member-filter]").forEach(function (pill) {
+      pill.setAttribute("aria-pressed",
+        pill.getAttribute("data-member-filter") === (memberId || "") ? "true" : "false");
+    });
+    if (push) {
+      var u = new URL(window.location.href);
+      if (memberId) u.searchParams.set("miembro", memberId);
+      else u.searchParams.delete("miembro");
+      history.pushState(null, "", u.pathname + u.search);
+    }
+    window.MIFicha.updateVaultCounts();
+    window.MIFicha.applyVaultFilters();
+  };
+
+  window.MIFicha.initVaultMemberFilter = function () {
+    var panel = document.querySelector(".vault-panel");
+    if (!panel) return;
+    panel.querySelectorAll("[data-member-filter]").forEach(function (pill) {
+      pill.addEventListener("click", function () {
+        window.MIFicha.setVaultMember(pill.getAttribute("data-member-filter"), true);
+      });
+    });
+  };
+
   window.MIFicha.initVaultSearch = function () {
     var input = document.querySelector("[data-vault-search]");
     if (!input || input.dataset.vaultSearchBound) return;
     input.dataset.vaultSearchBound = "1";
-    function apply() {
-      var q = input.value.trim().toLowerCase();
-      window.MIFicha._vaultQuery = q;
-      var panel = input.closest(".vault-panel");
-      if (!panel) return;
-      panel.querySelectorAll("[data-view-section]").forEach(function (section) {
-        var visible = 0;
-        section.querySelectorAll("[data-search]").forEach(function (el) {
-          var hit = !q || (el.getAttribute("data-search") || "").toLowerCase().indexOf(q) !== -1;
-          el.style.display = hit ? "" : "none";
-          if (hit) visible++;
-        });
-        section.querySelectorAll("[data-vax-group]").forEach(function (group) {
-          var any = Array.prototype.some.call(
-            group.querySelectorAll("[data-search]"),
-            function (row) { return row.style.display !== "none"; });
-          group.style.display = any ? "" : "none";
-        });
-        var empty = section.querySelector("[data-vault-empty]");
-        if (empty) empty.hidden = visible !== 0;
-      });
-    }
-    window.MIFicha.applyVaultSearch = apply;
-    input.addEventListener("input", apply);
+    input.addEventListener("input", window.MIFicha.applyVaultFilters);
     var saved = window.MIFicha._vaultQuery;
-    if (saved) { input.value = saved; apply(); }
+    if (saved) { input.value = saved; window.MIFicha.applyVaultFilters(); }
   };
 
   /* ---------- Vault filter: Exams / Vaccines is one client-side filter ----
@@ -154,19 +217,13 @@
         b.setAttribute("aria-pressed",
           b.getAttribute("data-vault-view") === view ? "true" : "false");
       });
-      panel.querySelectorAll(".member-pill").forEach(function (pill) {
-        var u = new URL(pill.getAttribute("href"), window.location.origin);
-        if (view === "vacunas") u.searchParams.set("vista", "vacunas");
-        else u.searchParams.delete("vista");
-        pill.setAttribute("href", u.pathname + u.search);
-      });
       if (push) {
         var u = new URL(window.location.href);
         if (view === "vacunas") u.searchParams.set("vista", "vacunas");
         else u.searchParams.delete("vista");
         history.pushState(null, "", u.pathname + u.search);
       }
-      if (window.MIFicha.applyVaultSearch) window.MIFicha.applyVaultSearch();
+      if (window.MIFicha.applyVaultFilters) window.MIFicha.applyVaultFilters();
     }
     buttons.forEach(function (b) {
       b.addEventListener("click", function () {
@@ -178,6 +235,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     window.MIFicha.initConfirmDialogs();
     window.MIFicha.initVaultFilter();
+    window.MIFicha.initVaultMemberFilter();
     window.MIFicha.initVaultSearch();
   });
 

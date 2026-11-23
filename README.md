@@ -1,5 +1,7 @@
 # MiFicha
 
+![MiFicha home: your family vault, explained in plain words](docs/screenshot-home.png)
+
 Your medical records are scattered — a lab result in your email, a
 vaccine card in a drawer, a scan on a portal you can't log into
 anymore. When you need one, you can't find it.

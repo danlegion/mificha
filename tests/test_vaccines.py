@@ -201,8 +201,8 @@ def test_vault_pages_share_one_tab_nav(client, owner):
     assert 'href="/vacunas"' not in r.text
     assert 'data-vault-view="exams" aria-pressed="true"' in r.text
     assert 'data-vault-view="vacunas" aria-pressed="false"' in r.text
-    assert 'Exams <span class="tab-count">0</span>' in r.text
-    assert 'Vaccines <span class="tab-count">0</span>' in r.text
+    assert 'Exams <span class="tab-count" data-count="exams">0</span>' in r.text
+    assert 'Vaccines <span class="tab-count" data-count="vaccines">0</span>' in r.text
     # The old URL redirects to the same page with the filter on.
     r2 = client.get("/vacunas", cookies=_cookies(owner),
                     follow_redirects=False)
@@ -237,10 +237,13 @@ def test_vault_tabs_swap_without_reload(client):
     r = client.get("/static/app.js")
     assert r.status_code == 200
     assert "initVaultFilter" in r.text
+    assert "initVaultMemberFilter" in r.text
     assert "initVaultTabs" not in r.text
     assert "data-vault-view" in r.text
+    assert "data-member-filter" in r.text
     assert "aria-pressed" in r.text
-    assert "applyVaultSearch" in r.text
+    assert "applyVaultFilters" in r.text
+    assert "updateVaultCounts" in r.text
     # No fetch anywhere in the vault filter: the old swap fetched the
     # other page. (The one fetch() left in app.js is the processing
     # page polling its own status, not the vault.)
@@ -252,3 +255,73 @@ def test_vault_tabs_swap_without_reload(client):
     assert "margin: 20px auto 0;" in css
     assert ".vault-panel[data-view=\"exams\"] [data-view-section=\"vacunas\"]" in css
     assert ".vault-panel[data-view=\"vacunas\"] [data-view-section=\"exams\"]" in css
+
+
+def _lab_exp(summary, name, value="250"):
+    return {
+        "document_type": "lab_result",
+        "type_label": "Lab result",
+        "summary_simple": summary,
+        "biomarkers": [{"name": name, "value": value, "unit": "mg/dL",
+                        "flag": "alto", "ref_range": "0 - 200 mg/dL"}],
+        "vaccines": [],
+        "urgency": {"level": "no_urgente", "label": "No urgency",
+                    "action": "a", "timeframe": "t", "reason": "r"},
+        "disclaimer": "Informational only.",
+    }
+
+
+def test_member_filter_is_client_side(client, owner):
+    """The name pills filter in place: the server renders every
+    document, marks the ones outside the chosen member hidden, and
+    counts the pills for that member only — no navigation, so the
+    scroll position never resets."""
+    ana = dal.create_member(owner, "Ana")
+    luis = dal.create_member(owner, "Luis")
+    d1 = "v-" + uuid.uuid4().hex[:12]
+    d2 = "v-" + uuid.uuid4().hex[:12]
+    d3 = "v-" + uuid.uuid4().hex[:12]
+    dal.save_document({"id": d1, "user_id": owner, "intake_id": d1,
+                       "member_id": ana["id"],
+                       "explanation": _lab_exp("Colesterol alto.",
+                                               "Colesterol")})
+    dal.save_document({"id": d2, "user_id": owner, "intake_id": d2,
+                       "member_id": ana["id"],
+                       "explanation": _exp([{"name": "Influenza",
+                                             "date_administered":
+                                             "2024-10-15", "dose": "1"}])})
+    dal.save_document({"id": d3, "user_id": owner, "intake_id": d3,
+                       "member_id": luis["id"],
+                       "explanation": _lab_exp("Glucosa alta.",
+                                               "Glucosa", "180")})
+    try:
+        # No member selected: every card is present and visible, the
+        # pills count the whole vault (3 docs, 1 vaccine).
+        r = client.get("/ficha", cookies=_cookies(owner))
+        assert r.status_code == 200
+        assert r.text.count('class="card doc-card"') == 3
+        assert 'data-count="exams">3<' in r.text
+        assert 'data-count="vaccines">1<' in r.text
+        # The pills are buttons, not links to other pages.
+        assert 'data-member-filter=""' in r.text
+        assert f'data-member-filter="{ana["id"]}"' in r.text
+        assert 'href="/ficha?miembro=' not in r.text
+        # The search matches what the card shows: summary and the
+        # first biomarker's name.
+        assert "Colesterol alto. Colesterol" in r.text
+        # One member selected: the server pre-hides the others inline
+        # (no flash before the JS runs) and counts that member only.
+        r = client.get(f"/ficha?miembro={ana['id']}",
+                       cookies=_cookies(owner))
+        assert r.status_code == 200
+        assert f'data-member="{ana["id"]}"' in r.text
+        assert r.text.count('class="card doc-card"') == 3
+        assert 'data-count="exams">2<' in r.text
+        assert 'data-count="vaccines">1<' in r.text
+        assert 'data-member-filter=""' in r.text
+        # Ana's pills are pressed; Luis's card is hidden inline.
+        assert (f'data-member-filter="{ana["id"]}" aria-pressed="true"'
+                in r.text)
+        assert 'style="display: none"' in r.text
+    finally:
+        _clean([d1, d2, d3, ana["id"], luis["id"]])

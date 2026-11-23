@@ -13,7 +13,7 @@ from app.routers import (key_values_with_position, member_color,
                          needs_review, nombre_examen_corto,
                          normalize_flag_key, page_lang, render_explanation,
                          share_ctx, templates, urgency_css_key)
-from app.services.vaccines import collect_vaccines, group_vaccines_by_member
+from app.services.vaccines import group_vaccines_by_member
 from app.storage import delete_original, get_original_path, original_exists
 
 router = APIRouter()
@@ -160,29 +160,32 @@ def ficha(request: Request, miembro: str = "", vista: str = ""):
             }
         )
     exams_total = len(docs)
-    if selected:
-        docs = [d for d in docs if d["member_id"] == selected]
     # Registro de vacunas: misma página, misma selección de familiar.
     vax_groups = group_vaccines_by_member(crudos, members)
     for i, g in enumerate(vax_groups):
         bg, fg = member_color(i)
         g["color_bg"] = bg
         g["color_fg"] = fg
+    # El filtro por persona es del cliente: el servidor entrega todos
+    # los documentos y marca los que no son del familiar elegido con
+    # display:none, para que no haya un parpadeo al cargar. Los
+    # contadores de las píldoras cuentan solo a esa persona.
     if selected:
-        vax_groups = [g for g in vax_groups if g["member_id"] == selected]
-    # Las píldoras de familiar conservan la vista actual, para que un
-    # toque no devuelva a Exámenes estando en Vacunas.
-    pill_suffix = "&vista=vacunas" if view == "vacunas" else ""
-    all_href = "/ficha?vista=vacunas" if view == "vacunas" else "/ficha"
+        exams_count = len([d for d in docs if d["member_id"] == selected])
+        vaccines_count = sum(len(g["vaccines"]) for g in vax_groups
+                             if g["member_id"] == selected)
+    else:
+        exams_count = exams_total
+        vaccines_count = sum(len(g["vaccines"]) for g in vax_groups)
     return templates.TemplateResponse(
         request,
         "vault.html",
         {**_base_ctx(request, user), "docs": docs,
          "vax_groups": vax_groups,
          "members": members, "selected_member": selected,
-         "view": view, "all_href": all_href, "pill_suffix": pill_suffix,
-         "exams_count": exams_total,
-         "vaccines_count": len(collect_vaccines(crudos))})
+         "view": view,
+         "exams_count": exams_count,
+         "vaccines_count": vaccines_count})
 
 
 @router.get("/vacunas")

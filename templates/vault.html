@@ -3,7 +3,7 @@
 {% block title %}{{ _t('vault.h1') }}{% endblock %}
 
 {% block content %}
-<section class="vault-panel" aria-label="{{ _t('vault.h1') }}" data-view="{{ view }}">
+<section class="vault-panel" aria-label="{{ _t('vault.h1') }}" data-view="{{ view }}"{% if selected_member %} data-member="{{ selected_member }}"{% endif %}>
   <div class="vault-head">
     <div>
       <h2>{{ _t('vault.h1') }}</h2>
@@ -14,9 +14,9 @@
 
   <div class="vault-filters">
     <span class="filter-label">{{ _t('vault.filter_label') }}</span>
-    <a class="member-pill" href="{{ all_href }}"{% if not selected_member %} aria-current="page"{% endif %}>{{ _t('vault.member_all') }}</a>
+    <button type="button" class="member-pill" data-member-filter=""{% if not selected_member %} aria-pressed="true"{% endif %}>{{ _t('vault.member_all') }}</button>
     {% for m in members %}
-    <a class="member-pill" href="/ficha?miembro={{ m.id }}{{ pill_suffix }}"{% if selected_member == m.id %} aria-current="page"{% endif %}>{{ m.name }}</a>
+    <button type="button" class="member-pill" data-member-filter="{{ m.id }}"{% if selected_member == m.id %} aria-pressed="true"{% endif %}>{{ m.name }}</button>
     {% endfor %}
     <div class="vault-search">
       <input type="search" data-vault-search placeholder="{{ _t('vault.search_ph') }}" aria-label="{{ _t('vault.search_ph') }}">
@@ -30,15 +30,15 @@
   </form>
 
   <div class="vault-tabs" role="group" aria-label="{{ _t('vault.tabs_label') }}">
-    <button type="button" data-vault-view="exams" aria-pressed="{{ 'true' if view == 'exams' else 'false' }}">{{ _t('vault.tab_exams') }} <span class="tab-count">{{ exams_count }}</span></button>
-    <button type="button" data-vault-view="vacunas" aria-pressed="{{ 'true' if view == 'vacunas' else 'false' }}">{{ _t('vault.tab_vaccines') }} <span class="tab-count">{{ vaccines_count }}</span></button>
+    <button type="button" data-vault-view="exams" aria-pressed="{{ 'true' if view == 'exams' else 'false' }}">{{ _t('vault.tab_exams') }} <span class="tab-count" data-count="exams">{{ exams_count }}</span></button>
+    <button type="button" data-vault-view="vacunas" aria-pressed="{{ 'true' if view == 'vacunas' else 'false' }}">{{ _t('vault.tab_vaccines') }} <span class="tab-count" data-count="vaccines">{{ vaccines_count }}</span></button>
   </div>
 
   <div data-view-section="exams">
   {% if docs %}
   <div class="doc-grid">
     {% for doc in docs %}
-    <a class="card doc-card" href="/ficha/{{ doc.id }}" data-search="{{ doc.exam_about }} {{ doc.laboratorio }} {{ doc.date_label }} {{ doc.member_name }}">
+    <a class="card doc-card" href="/ficha/{{ doc.id }}" data-search="{{ doc.exam_about }} {{ doc.laboratorio }} {{ doc.date_label }} {{ doc.member_name }} {{ doc.summary }}{% if doc.key_metric %} {{ doc.key_metric.name }}{% endif %}" data-member="{{ doc.member_id or '' }}"{% if selected_member and doc.member_id != selected_member %} style="display: none"{% endif %}>
       <div class="doc-card-head">
         <span class="doc-icon">{% set doc_type = doc.doc_type %}{% include "_doc_icon.html" %}</span>
         <p class="doc-source"><strong>{{ doc.date_label }}</strong>{% if doc.laboratorio %}{{ doc.laboratorio }}{% endif %}</p>
@@ -58,7 +58,7 @@
     </a>
     {% endfor %}
   </div>
-  <div class="vault-empty" data-vault-empty hidden>
+  <div class="vault-empty" data-vault-empty hidden data-empty-search="{{ _t('vault.empty_search') }}" data-empty-member="{{ _t('vault.empty_member') }}">
     <h2>{{ _t('vault.empty_search') }}</h2>
   </div>
   {% else %}
@@ -82,7 +82,7 @@
   {% else %}
     {% for group in vax_groups %}
       {% if group.vaccines %}
-      <section class="vax-group" data-vax-group aria-label="{{ group.member_name or _t('vault.member_unassigned') }}">
+      <section class="vax-group" data-vax-group data-member="{{ group.member_id }}" aria-label="{{ group.member_name or _t('vault.member_unassigned') }}"{% if selected_member and group.member_id != selected_member %} style="display: none"{% endif %}>
         <div class="vax-group-head">
           <span class="initials-tile" style="width: 36px; height: 36px; border-radius: 10px; background: {{ group.color_bg }}; color: {{ group.color_fg }}">{{ (group.member_name or "?")[:1] }}</span>
           <h2>{{ group.member_name or _t('vault.member_unassigned') }}</h2>
@@ -111,7 +111,7 @@
       </section>
       {% endif %}
     {% endfor %}
-  <div class="vault-empty" data-vault-empty hidden>
+  <div class="vault-empty" data-vault-empty hidden data-empty-search="{{ _t('vault.empty_search') }}" data-empty-member="{{ _t('vault.empty_member') }}">
     <h2>{{ _t('vault.empty_search') }}</h2>
   </div>
   {% endif %}

@@ -140,11 +140,17 @@ def test_vault_groups_by_member_and_filters(client, owner):
         assert r.status_code == 200
         assert "Ana" in r.text and "Luis" in r.text
         assert d1 in r.text and d2 in r.text
+        # The filter is client-side: with a member chosen, the server
+        # still renders every document (so the pills need no reload),
+        # but hides the other member's card inline and counts the
+        # pills for the chosen member only.
         r = client.get(f"/ficha?miembro={m1['id']}",
                        cookies=_cookies(owner))
         assert r.status_code == 200
-        assert d1 in r.text
-        assert d2 not in r.text
+        assert d1 in r.text and d2 in r.text
+        assert 'style="display: none"' in r.text
+        assert 'data-count="exams">1<' in r.text
+        assert f'data-member="{m1["id"]}"' in r.text
     finally:
         _clean([d1, d2, m1["id"], m2["id"]])
 

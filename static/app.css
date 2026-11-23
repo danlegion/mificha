@@ -1218,11 +1218,13 @@ dialog.confirm-dialog h2 {
   border: 1px solid var(--line);
   color: var(--ink);
   text-decoration: none;
+  font: inherit;
   font-size: 13.5px;
   font-weight: 600;
+  cursor: pointer;
 }
 
-.member-pill[aria-current="page"] {
+.member-pill[aria-pressed="true"] {
   background: var(--ink);
   color: var(--bg);
   border-color: var(--ink);
@@ -1579,7 +1581,7 @@ dialog.confirm-dialog h2 {
 
   .site-header { background: rgba(17, 23, 20, 0.88); }
   .site-nav a[aria-current="page"] { background: var(--bg); color: var(--ink); }
-  .member-pill[aria-current="page"] { background: var(--bg); color: var(--ink); }
+  .member-pill[aria-pressed="true"] { background: var(--bg); color: var(--ink); }
   .dev-banner { background: #0D1210; }
   .wordmark-mark { color: #0D1210; }
   .btn-primary { color: #0D1210; }
