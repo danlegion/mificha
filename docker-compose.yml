@@ -9,7 +9,8 @@
 # What the data folder holds (plain files, readable without this app):
 #   mificha-data/
 #     mificha.db            # SQLite index: users, documents, intakes, shares
-#     originales/*.pdf      # original uploaded PDFs, untouched
+#     members/<member-id>/  # member.json, biomarkers.csv
+#       documents/<doc-id>/ #   original.pdf, explanation.json, meta.json
 #     quarantine/*.pdf      # uploads held aside during processing
 #
 # Usage:

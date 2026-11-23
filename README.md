@@ -21,8 +21,11 @@ doctor. It's a translator, not a clinician — and it says so on every
 explanation.
 
 You run it yourself, at home, on a small computer. The code is open
-for anyone to read. This is an early version, built for one family's
-real use and shared in case it helps yours.
+source (AGPLv3) — the repository is currently private while the first
+public release is prepared, so the clone step in the Docker section
+below works once it's public, or now if you have access. This is an
+early version, built for one family's real use and shared in case it
+helps yours.
 
 ## How it works
 
@@ -140,8 +143,7 @@ assigns each upload to a member:
 
 - On upload (signed in): pick a member, or type a new member's name to
   create one inline.
-- In the vault (`/ficha`): create members, filter by member, and see
-  documents grouped by member, unassigned last.
+- In the vault (`/ficha`): create members and filter by member.
 - On a saved document's detail page: reassign it to another member.
   Biomarker history on that page stays within the same member, so one
   person's values never mix with another's.
@@ -186,7 +188,7 @@ License: GNU Affero General Public License v3.0, see `LICENSE`.
 ## Installation
 
 ```bash
-cd ~/workspace/mificha
+cd mificha
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -196,7 +198,7 @@ cp .env.example .env
 ## How to run
 
 ```bash
-cd ~/workspace/mificha
+cd mificha
 source .venv/bin/activate
 uvicorn app.main:app --reload --port 18473
 ```
@@ -235,8 +237,8 @@ deterministic explanation with no network calls.
 ### Cloud OCR fallback — optional
 
 Only for pages Tesseract can't read; see "Cloud OCR" below.
-Tesseract is the main OCR and needs no setup (`OCR_PROVIDER`
-defaults to `tesseract`).
+Tesseract is the main OCR (`OCR_PROVIDER=tesseract`, set in
+`.env.example` and on Render — the code default is no OCR provider).
 
 | Variable | What it does | Default |
 |---|---|---|
@@ -266,13 +268,17 @@ and uses local SQLite instead.
 
 - Local deterministic explanation (no LLM): plain-language templates, no network calls.
 - Development auth (no Supabase).
-- Local SQLite in `./data/mificha.db` and PDFs in `./data/originales`.
-- Scanned-page detection: pages are flagged as scanned (without OCR their text is not extracted).
+- Local SQLite index plus per-person files (originals, explanations,
+  biomarker CSVs) under the data folder (`./data` in development,
+  `./mificha-data` with Docker).
+- Scanned pages are read with local Tesseract OCR when
+  `OCR_PROVIDER=tesseract` is set (it is in `.env.example` and on
+  Render); a page Tesseract can't read stays marked as unscannable.
 
 ## For production, connect
 
 1. **Explanation provider**: pick one with `LLM_PROVIDER` (`gemini`, `anthropic`, or `openai`) and set its key — `GEMINI_API_KEY` (+ `GEMINI_MODEL` to pin the model), `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`, or `OPENAI_API_KEY` + `OPENAI_MODEL`. With `auto` (default) the app uses the first provider that has a key, in that order.
-2. **OCR**: local Tesseract by default, with a garbled-text quality gate (`app/services/ocr_quality.py`): text that is clearly garbled is not saved as document text — it goes to the Google Document AI fallback instead, and if the fallback is also garbled (or not configured) the page stays marked as scanned/uncertain. The gate is character-level only and conservative: numbers, units, abbreviations, and dates all count as clean.
+2. **OCR**: local Tesseract (configured in `.env.example` and on Render), with a garbled-text quality gate (`app/services/ocr_quality.py`): text that is clearly garbled is not saved as document text — it goes to the Google Document AI fallback instead, and if the fallback is also garbled (or not configured) the page stays marked as scanned/uncertain. The gate is character-level only and conservative: numbers, units, abbreviations, and dates all count as clean.
 3. **Hosted deployment only**: if you're deploying to Render (or another cloud host) instead of self-hosting, add the three Supabase variables — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`. A self-hosted instance doesn't need them at all.
 
 ### Cloud OCR (Google Document AI, optional fallback)
@@ -327,7 +333,7 @@ tier with rate limits.
 Exact per-token rates change often — the providers' own pricing pages
 have the current numbers.
 
-Model retirements to watch: Claude Sonnet 4.5 retired November 30,
+Model retirements to watch: Claude Sonnet 4.5 retires November 30,
 2026, so the default is now Sonnet 5.5 (which is also cheaper).
 OpenAI retires `gpt-5-mini` on December 11, 2026 — after that, set
 `OPENAI_MODEL=gpt-6.1-terra`.
@@ -343,7 +349,7 @@ OpenAI retires `gpt-5-mini` on December 11, 2026 — after that, set
 ## How to run the tests
 
 ```bash
-cd ~/workspace/mificha
+cd mificha
 python -m pytest -q
 ```
 
@@ -357,24 +363,42 @@ python -m pytest -q
 mificha/
 ├── app/
 │   ├── main.py                 # FastAPI app (backend)
+│   ├── auth.py                 # sessions (Supabase magic link / gate / dev)
+│   ├── config.py               # environment variables
+│   ├── db.py                   # SQLite + Supabase data access
+│   ├── file_store.py           # per-person files (self-hosting)
+│   ├── i18n.py                 # Spanish / English strings
 │   ├── schemas.py              # pydantic models for the Explanation
+│   ├── storage.py              # original PDFs (bucket / disk)
+│   ├── routers/                # pages: upload, vault, results, vaccines
 │   └── services/
+│       ├── llm.py              # explanation providers (Gemini/Claude/OpenAI/demo)
+│       ├── ocr.py              # Tesseract + Document AI fallback
+│       ├── ocr_quality.py      # garbled-text gate
 │       ├── pdf_extract.py      # extract_document(pdf_bytes) -> dict
+│       ├── pipeline.py         # read → explain → validate → save
 │       ├── urgency.py          # decide_urgency(signals) -> dict
-│       └── explain.py          # explanation (local demo or LLM)
+│       └── vaccines.py         # vaccine registry aggregation
 ├── static/                     # frontend assets
 ├── templates/                  # views
 ├── tests/                      # pytest suite (contracts)
-├── data/                       # SQLite + PDFs (local, not committed to git)
+├── supabase/                   # schema for the hosted deployment
 ├── .env.example
+├── docker-compose.yml
+├── Dockerfile
+├── render.yaml
 ├── requirements.txt
 └── README.md
 ```
 
 ## What is implemented vs. what is a stub
 
-- **Real**: text extraction from digital PDFs, scanned-page detection (fewer than 20 characters → scanned), urgency rules, Explanation schemas.
-- **Stub / demo**: plain-language explanation without an LLM (deterministic templates); OCR of scans (only flagged until a provider is connected); dev auth and local SQLite.
+- **Real**: text extraction from digital PDFs, OCR of scanned pages
+  with local Tesseract (Google Document AI as fallback when
+  configured), scanned-page detection (fewer than 20 characters →
+  scanned), urgency rules, Explanation schemas.
+- **Stub / demo**: plain-language explanation without an LLM
+  (deterministic templates).
 
 ## Hard rules
 

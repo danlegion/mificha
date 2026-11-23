@@ -63,6 +63,9 @@ def _exp(nombre="Hemograma completo", fecha_doc="2026-11-18"):
         ],
         "urgency": {"level": "no_urgente", "label": "Sin urgencia",
                     "action": "a", "timeframe": "t", "reason": "r"},
+        "disclaimer": ("Esta explicación es solo informativa y no es un "
+                       "diagnóstico. Consulta siempre a un profesional de "
+                       "la salud."),
     }
 
 
@@ -165,6 +168,16 @@ def test_detalle_cabecera_oscura_y_barras_reales(client, owner_con_datos):
     # test_original_disponible); la acción real del héroe es compartir.
     assert "Ver PDF original" not in r.text
     assert "Compartir de forma segura" in r.text
+
+
+def test_detalle_muestra_aviso_no_diagnostico(client, owner_con_datos):
+    # El README promete que cada explicación dice que no es un
+    # diagnóstico: el aviso debe verse en la página del documento.
+    r = client.get(f"/ficha/{owner_con_datos['doc_id']}",
+                   cookies=_cookies(owner_con_datos["uid"]))
+    assert r.status_code == 200
+    assert 'class="disclaimer-box"' in r.text
+    assert "no es un diagnóstico" in r.text
 
 
 def test_range_position_solo_con_rango_numerico():
