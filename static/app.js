@@ -148,8 +148,9 @@
       return path === "/ficha" || path === "/vacunas";
     }
 
-    function swap(url, push) {
+    function swap(url, push, retried) {
       var n = ++current;
+      var retrying = false;
       main.setAttribute("aria-busy", "true");
       fetch(url, { credentials: "same-origin", cache: "no-store" })
         .then(function (resp) {
@@ -169,10 +170,20 @@
         })
         .catch(function () {
           if (n !== current) return;
+          if (!retried) {
+            /* Transient blip (cold start, hiccup): one retry before
+               giving up and navigating for real. */
+            retrying = true;
+            setTimeout(function () {
+              if (n !== current) return;
+              swap(url, push, true);
+            }, 1200);
+            return;
+          }
           window.location.href = url; /* fall back to a real navigation */
         })
         .finally(function () {
-          if (n === current) main.removeAttribute("aria-busy");
+          if (n === current && !retrying) main.removeAttribute("aria-busy");
         });
     }
 
@@ -185,8 +196,10 @@
       /* Keep the member filter when switching views. */
       var member = new URLSearchParams(window.location.search).get("miembro");
       if (member) url.searchParams.set("miembro", member);
-      if (url.href === window.location.href) return;
+      /* The current tab is a no-op, never a reload: prevent the
+         navigation before checking whether it is the tab we're on. */
       e.preventDefault();
+      if (url.href === window.location.href) return;
       swap(url.href, true);
     });
 

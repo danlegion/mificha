@@ -228,3 +228,13 @@ def test_vault_tabs_swap_without_reload(client):
     assert "main.container" in r.text
     assert "pushState" in r.text
     assert "popstate" in r.text
+    # Clicking the tab we're already on is a no-op, never a reload:
+    # the navigation is prevented before the same-URL check.
+    assert ("e.preventDefault();\n      if (url.href === window.location.href)"
+            " return;") in r.text
+    # A failed fetch retries once before falling back to navigation.
+    assert "swap(url, push, true)" in r.text
+    # While a swap is in flight the panel dims, so a slow fetch reads
+    # as loading rather than a dead click.
+    css = client.get("/static/app.css")
+    assert 'main[aria-busy="true"] .vault-panel' in css.text

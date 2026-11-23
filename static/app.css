@@ -1138,6 +1138,13 @@ dialog.confirm-dialog h2 {
   box-shadow: var(--shadow);
   overflow: hidden;
   margin-top: 2.25rem;
+  transition: opacity .15s ease;
+}
+
+/* While a tab swap is in flight, dim the panel so a slow fetch reads as
+   loading, not as a dead click. */
+main[aria-busy="true"] .vault-panel {
+  opacity: .55;
 }
 
 .vault-head {
