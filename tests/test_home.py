@@ -87,7 +87,7 @@ def test_home_usuario_subir_primero_y_lista_6_meses(client, usuario_con_docs):
     assert "Hola de nuevo" not in html
     assert "Tu último examen" not in html
     # La acción más importante va primera.
-    assert html.index("Explica otro examen") < html.index("<h2>Tus exámenes</h2>")
+    assert html.index("Añade un documento") < html.index("<h2>Tus exámenes</h2>")
     # La tabla trae tipo, urgencia, fuera de rango y link a ver todos.
     assert "Resultado de laboratorio" in html
     assert "Agenda una cita" in html
@@ -103,7 +103,7 @@ def test_home_usuario_sin_docs(client):
     uid = dal.create_user(email)["id"]
     try:
         r = client.get("/", cookies=_cookies(uid))
-        assert "Explica tu primer examen" in r.text
+        assert "Añade un documento" in r.text
         assert "<h2>Tus exámenes</h2>" not in r.text
     finally:
         _clean([uid])
@@ -113,7 +113,7 @@ def test_home_anonimo_igual_que_antes(client):
     r = client.get("/")
     assert r.status_code == 200
     assert "Entiende tu examen en minutos" in r.text
-    assert "Explica tu primer examen" in r.text
+    assert "Añade un documento" in r.text
     assert "Hola de nuevo" not in r.text
 
 

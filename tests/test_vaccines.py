@@ -213,7 +213,7 @@ def test_vaccines_empty_state_asks_for_a_vaccine_record(client, owner):
     r = client.get("/vacunas", cookies=_cookies(owner))
     assert r.status_code == 200
     assert "Upload a vaccine record" in r.text
-    assert "Explain your first exam" not in r.text
+    assert "Add a document" not in r.text
 
 
 def test_vault_tabs_swap_without_reload(client):

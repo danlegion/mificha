@@ -1,6 +1,6 @@
 """La subida responde rápido: el redirect a /procesando no espera a Storage.
 
-El bug de UX (2026-09-30): entre aplastar "Explicar mi examen" y ver la
+El bug de UX (2026-09-30): entre aplastar "Subir y explicar" y ver la
 página de proceso pasaba demasiado tiempo, sin ninguna señal visual.
 Dos causas en el camino crítico:
 1. El servidor subía el PDF a Supabase Storage ANTES de redirigir.

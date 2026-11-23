@@ -102,9 +102,9 @@ def test_fallback_a_en_si_falta_clave():
     assert t("clave_inexistente_xyz") == "clave_inexistente_xyz"
     # una clave real con formato
     assert t("upload.uploading_pct", lang="es", pct=50) == \
-        "Subiendo tu examen… 50%"
+        "Subiendo tu documento… 50%"
     assert t("upload.uploading_pct", lang="en", pct=50) == \
-        "Uploading your exam… 50%"
+        "Uploading your document… 50%"
 
 
 # --- contenido generado en inglés -------------------------------------------
