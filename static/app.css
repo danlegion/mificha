@@ -65,8 +65,10 @@ body {
 /* Páginas de flujo corto (acceso, errores, procesando): columna estrecha. */
 body.narrow main.container { max-width: 640px; }
 
+/* Newsreader is for page titles only — hero, section heads, the vault
+   head and the detail title. Every other heading is Plus Jakarta Sans,
+   as in the approved design. */
 h1, h2, h3 {
-  font-family: var(--font-display);
   letter-spacing: -0.02em;
   line-height: 1.15;
   color: var(--ink);
@@ -116,7 +118,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
-  font-size: 0.875rem;
+  font-size: 14px;
 }
 
 .site-nav a {
@@ -140,7 +142,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   align-items: center;
   gap: 1rem;
   margin-left: auto;
-  font-size: 0.92rem;
+  font-size: 14px;
 }
 
 .header-actions a {
@@ -155,7 +157,8 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 /* Breadcrumbs: where you are, and the way back. */
 .crumbs {
   margin: 0 0 0.25rem;
-  font-size: 0.9rem;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .crumbs ol {
@@ -207,7 +210,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 .wordmark {
   font-family: var(--font-body);
-  font-size: 1.25rem;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--ink);
@@ -254,6 +257,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 .hero h1 {
   margin: 0 0 0.6rem;
+  font-family: var(--font-display);
   font-size: clamp(38px, 5vw, 58px);
   font-weight: 600;
   line-height: 0.95;
@@ -283,8 +287,8 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   cursor: pointer;
   padding: 0.45rem 1rem;
   border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.92rem;
+  font-weight: 700;
+  font-size: 14px;
   color: var(--ink-soft);
   white-space: nowrap;
 }
@@ -304,7 +308,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   border-radius: 999px;
   background: var(--brand-soft-bg);
   color: var(--brand-deep);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -446,13 +450,13 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .file-icon svg { width: 2.5rem; height: 2.5rem; }
 .file-text {
   display: block;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 700;
-  font-size: 1.08rem;
+  font-size: 15px;
   margin: 0.5rem 0 0.25rem;
   color: var(--brand-deep);
 }
-.file-hint { display: block; color: var(--ink-soft); font-size: 0.85rem; }
+.file-hint { display: block; color: var(--ink-soft); font-size: 13px; }
 .file-drop.file-chosen .file-text { color: var(--brand-deep); }
 
 .check-list { list-style: none; padding: 0; margin: 0.75rem 0; }
@@ -492,7 +496,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 }
 
 .urgency-level {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 700;
   font-size: 1.12rem;
   letter-spacing: -0.01em;
@@ -516,7 +520,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 .urgency-chip {
   display: inline-block;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 700;
   font-size: 0.82rem;
   padding: 0.32rem 0.8rem;
@@ -538,7 +542,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 .detail-section summary {
   padding: 1rem 1.15rem;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: 1.02rem;
   cursor: pointer;
@@ -562,7 +566,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .bio-card:first-child, .narrative-item:first-child, .order-card:first-child { border-top: none; }
 
 .bio-value {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -574,7 +578,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 .flag {
   display: inline-block;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -599,7 +603,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .concern-list li:first-child { border-top: none; }
 .concern-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
 .concern-name { font-weight: 600; }
-.concern-value { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.concern-value { font-family: var(--font-body); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .concern-value .flag { margin-left: 0.35rem; }
 .concern-range { display: block; color: var(--ink-soft); font-size: 0.88rem; margin-top: 0.15rem; }
 .concern-names li { padding: 0.45rem 0; }
@@ -677,7 +681,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   background: var(--surface);
 }
 
-.share-options legend { font-weight: 700; padding: 0 0.5rem; font-family: var(--font-display); }
+.share-options legend { font-weight: 700; padding: 0 0.5rem; font-family: var(--font-body); }
 
 .checkbox-row {
   display: flex;
@@ -756,8 +760,10 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
    el espacio, las largas se recortan). Lectura rápida y tarjetas parejas. */
 .doc-about {
   margin: 0 0 0.9rem;
-  font-size: 1.02rem;
-  line-height: 1.45;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   min-height: 2.9em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -789,7 +795,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .history-table th {
   color: var(--ink-soft);
   font-weight: 700;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -817,7 +823,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 }
 .save-cta-eyebrow {
   margin: 0 0 0.35rem;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -837,14 +843,14 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 
 /* Tabla de exámenes en el home (usuario registrado) */
 .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-.section-head h2 { margin-bottom: 0; }
+.section-head h2 { margin-bottom: 0; font-family: var(--font-display); }
 .table-wrap { overflow-x: auto; margin: 0.75rem -0.25rem 0; padding: 0 0.25rem; }
 .docs-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
 .docs-table th { text-align: left; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-faint); font-weight: 600; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .docs-table td { padding: 0.75rem 0.6rem; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
 .docs-table tbody tr:last-child td { border-bottom: none; }
 .docs-table td.nowrap { white-space: nowrap; }
-.docs-table td.num { font-family: var(--font-display); font-weight: 700; text-align: center; }
+.docs-table td.num { font-family: var(--font-body); font-weight: 700; text-align: center; }
 .docs-table th:nth-child(4) { text-align: center; }
 .docs-table .micro-note { display: block; margin-top: 0.15rem; }
 .docs-table .flag { margin-top: 0.3rem; display: inline-block; }
@@ -855,7 +861,7 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   font-weight: 700;
   color: var(--brand-deep);
   margin: 1.1rem 0 0.3rem;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
 }
 .summary-sub:first-of-type { margin-top: 0.6rem; }
 .summary-text {
@@ -929,10 +935,11 @@ dialog.confirm-dialog h2 {
 }
 
 .stat-num {
-  font-family: var(--font-display);
-  font-size: 1.75rem;
-  font-weight: 600;
-  line-height: 1.1;
+  font-family: var(--font-body);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
   color: var(--ink);
 }
 
@@ -940,7 +947,7 @@ dialog.confirm-dialog h2 {
 .stat-num--warn { color: var(--u-amber-fg); }
 .stat-num--ok { color: var(--u-green-fg); }
 
-.stat-label { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.15rem; }
+.stat-label { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-top: 0.15rem; }
 
 .hero-last { margin-top: 1.25rem; font-size: 0.85rem; color: var(--ink-soft); }
 
@@ -968,11 +975,11 @@ dialog.confirm-dialog h2 {
   pointer-events: none;
 }
 
-.hero-upload .upload-card h2 { color: #fff; margin-bottom: 0.375rem; }
+.hero-upload .upload-card h2 { color: #fff; margin-bottom: 0.375rem; font-family: var(--font-body); font-size: 18px; font-weight: 700; }
 
 .hero-upload .upload-lead {
   color: rgba(255, 255, 255, 0.82);
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1.5;
   margin: 0;
 }
@@ -1048,7 +1055,7 @@ dialog.confirm-dialog h2 {
 }
 
 .upload-chips span {
-  font-size: 0.68rem;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.85);
@@ -1066,10 +1073,10 @@ dialog.confirm-dialog h2 {
   margin: 2.25rem 0 1rem;
 }
 
-.section-sub { color: var(--ink-soft); font-size: 0.88rem; margin: 0.25rem 0 0; }
+.section-sub { color: var(--ink-soft); font-size: 14px; margin: 0.25rem 0 0; }
 
 .section-link {
-  font-size: 0.88rem;
+  font-size: 14px;
   font-weight: 700;
   color: var(--brand);
   text-decoration: none;
@@ -1113,13 +1120,14 @@ dialog.confirm-dialog h2 {
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 16px;
 }
 
-.family-name { font-size: 1rem; font-weight: 700; margin: 0.75rem 0 2px; }
+.family-name { font-family: var(--font-body); font-size: 16px; font-weight: 700; margin: 0.75rem 0 2px; }
 
 .family-note {
-  font-size: 0.82rem;
+  font-size: 13px;
+  line-height: 1.45;
   color: var(--ink-soft);
   margin: 0;
   min-height: 2.5em;
@@ -1131,7 +1139,7 @@ dialog.confirm-dialog h2 {
   border-top: 1px solid var(--line-soft);
   margin-top: 0.875rem;
   padding-top: 0.75rem;
-  font-size: 0.85rem;
+  font-size: 12.5px;
 }
 
 .family-meta span:first-child { color: var(--ink-soft); }
@@ -1178,8 +1186,8 @@ dialog.confirm-dialog h2 {
   padding: 1.5rem;
 }
 
-.vault-head h2 { font-size: 2rem; margin: 0 0 0.25rem; }
-.vault-head p { color: var(--ink-soft); font-size: 0.88rem; margin: 0; max-width: 480px; }
+.vault-head h2 { font-size: 2rem; margin: 0 0 0.25rem; font-family: var(--font-display); }
+.vault-head p { color: var(--ink-soft); font-size: 14px; margin: 0; max-width: 480px; }
 
 .vault-filters {
   display: flex;
@@ -1193,7 +1201,7 @@ dialog.confirm-dialog h2 {
 }
 
 .filter-label {
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1210,7 +1218,7 @@ dialog.confirm-dialog h2 {
   border: 1px solid var(--line);
   color: var(--ink);
   text-decoration: none;
-  font-size: 0.85rem;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
@@ -1245,7 +1253,7 @@ dialog.confirm-dialog h2 {
   border: 1px solid var(--line);
   background: var(--surface);
   padding: 0.5rem 1rem 0.5rem 2.375rem;
-  font-size: 0.92rem;
+  font-size: 14px;
   font-family: var(--font-body);
   color: var(--ink);
 }
@@ -1314,11 +1322,11 @@ dialog.confirm-dialog h2 {
 
 .doc-icon svg { width: 22px; height: 22px; }
 
-.doc-source { margin: 0; font-size: 0.8rem; color: var(--ink-soft); text-align: right; }
+.doc-source { margin: 0; font-size: 12px; color: var(--ink-soft); text-align: right; }
 
 .doc-source strong {
   display: block;
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1330,7 +1338,7 @@ dialog.confirm-dialog h2 {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.82rem;
+  font-size: 13px;
   color: var(--ink-soft);
   margin: 0 0 0.5rem;
 }
@@ -1344,7 +1352,8 @@ dialog.confirm-dialog h2 {
 }
 
 .doc-summary {
-  font-size: 0.85rem;
+  font-size: 13.5px;
+  line-height: 1.55;
   color: var(--ink-soft);
   margin: 0 0 0.75rem;
   display: -webkit-box;
@@ -1357,7 +1366,7 @@ dialog.confirm-dialog h2 {
 
 .tag {
   display: inline-block;
-  font-size: 0.72rem;
+  font-size: 11.5px;
   font-weight: 700;
   padding: 0.2rem 0.65rem;
   border-radius: 999px;
@@ -1377,10 +1386,10 @@ dialog.confirm-dialog h2 {
   border-top: 1px dashed var(--line);
   margin: auto 0 0;
   padding-top: 0.75rem;
-  font-size: 0.82rem;
+  font-size: 13px;
 }
 
-.doc-foot span { color: var(--ink-soft); font-weight: 600; }
+.doc-foot span { color: var(--ink-soft); font-weight: 600; font-size: 12px; }
 .doc-foot strong { font-weight: 700; white-space: nowrap; }
 
 /* Vacunas: filas agrupadas por familiar, no tarjetas. */
@@ -1393,7 +1402,7 @@ dialog.confirm-dialog h2 {
   margin-bottom: 0.5rem;
 }
 
-.vax-group-head h2 { font-size: 1.1rem; margin: 0; }
+.vax-group-head h2 { font-size: 14px; font-family: var(--font-body); margin: 0; }
 
 .vax-row {
   display: flex;
@@ -1420,23 +1429,24 @@ dialog.confirm-dialog h2 {
 .vax-icon svg { width: 20px; height: 20px; }
 
 .vax-main { flex: 1; min-width: 0; }
-.vax-main strong { display: block; font-size: 0.92rem; }
-.vax-main span { font-size: 0.82rem; color: var(--ink-soft); }
+.vax-main strong { display: block; font-size: 14.5px; }
+.vax-main span { font-size: 13px; color: var(--ink-soft); }
 
 .vax-done { text-align: right; flex-shrink: 0; }
 
 .vax-badge {
   display: inline-block;
-  font-size: 0.75rem;
+  font-size: 11px;
   font-weight: 800;
+  letter-spacing: 0.04em;
   padding: 0.2rem 0.7rem;
   border-radius: 999px;
   background: var(--u-green-bg);
   color: var(--u-green-fg);
 }
 
-.vax-date { display: block; font-size: 0.82rem; font-weight: 700; margin-top: 0.2rem; }
-.vax-doc-link { font-size: 0.82rem; }
+.vax-date { display: block; font-size: 13px; font-weight: 700; margin-top: 0.2rem; }
+.vax-doc-link { font-size: 13px; }
 
 /* Detalle del documento: cabecera oscura con lo esencial arriba. */
 .detail-hero {
@@ -1447,14 +1457,14 @@ dialog.confirm-dialog h2 {
   margin-top: 1.25rem;
 }
 
-.detail-hero h1 { color: var(--bg); font-size: 2rem; margin: 0.5rem 0 0; }
+.detail-hero h1 { color: var(--bg); font-size: 2rem; margin: 0.5rem 0 0; font-family: var(--font-display); line-height: 1; }
 .detail-hero .crumbs a { color: #BFE0D4; }
 .detail-hero .crumbs [aria-current="page"] { color: var(--bg); }
 .detail-hero .crumbs li + li::before { color: rgba(234, 240, 237, 0.5); }
 
 .detail-meta {
   color: rgba(234, 240, 237, 0.8);
-  font-size: 0.92rem;
+  font-size: 13px;
   margin: 0.5rem 0 0;
 }
 
@@ -1472,7 +1482,7 @@ dialog.confirm-dialog h2 {
 }
 
 .detail-plain h2, .detail-keys h2 {
-  font-size: 0.82rem;
+  font-size: 13px;
   font-family: var(--font-body);
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1481,12 +1491,12 @@ dialog.confirm-dialog h2 {
   margin: 0 0 0.75rem;
 }
 
-.detail-plain p { font-size: 0.95rem; line-height: 1.65; margin: 0; }
+.detail-plain p { font-size: 15px; line-height: 1.65; margin: 0; }
 
 .kv-row { padding: 0.625rem 0; border-top: 1px solid rgba(255, 255, 255, 0.14); }
 .kv-row:first-of-type { border-top: none; }
 
-.kv-top { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.92rem; }
+.kv-top { display: flex; justify-content: space-between; gap: 1rem; font-size: 14px; }
 .kv-top span:first-child { color: rgba(234, 240, 237, 0.75); }
 .kv-top strong { font-weight: 700; white-space: nowrap; }
 
