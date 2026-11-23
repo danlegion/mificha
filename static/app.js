@@ -192,6 +192,33 @@
     });
   };
 
+  /* ---------- Vault layout: cards or list, same documents ---------- */
+  window.MIFicha.initVaultLayout = function () {
+    var panel = document.querySelector(".vault-panel");
+    if (!panel) return;
+    var buttons = panel.querySelectorAll("[data-vault-layout]");
+    if (!buttons.length) return;
+    function setLayout(layout, push) {
+      panel.setAttribute("data-layout", layout);
+      buttons.forEach(function (b) {
+        b.setAttribute("aria-pressed",
+          b.getAttribute("data-vault-layout") === layout ? "true" : "false");
+      });
+      if (push) {
+        var u = new URL(window.location.href);
+        if (layout === "list") u.searchParams.set("layout", "list");
+        else u.searchParams.delete("layout");
+        history.pushState(null, "", u.pathname + u.search);
+      }
+      if (window.MIFicha.applyVaultFilters) window.MIFicha.applyVaultFilters();
+    }
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        setLayout(b.getAttribute("data-vault-layout"), true);
+      });
+    });
+  };
+
   window.MIFicha.initVaultSearch = function () {
     var input = document.querySelector("[data-vault-search]");
     if (!input || input.dataset.vaultSearchBound) return;
@@ -236,6 +263,7 @@
     window.MIFicha.initConfirmDialogs();
     window.MIFicha.initVaultFilter();
     window.MIFicha.initVaultMemberFilter();
+    window.MIFicha.initVaultLayout();
     window.MIFicha.initVaultSearch();
   });
 

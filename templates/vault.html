@@ -3,7 +3,7 @@
 {% block title %}{{ _t('vault.h1') }}{% endblock %}
 
 {% block content %}
-<section class="vault-panel" aria-label="{{ _t('vault.h1') }}" data-view="{{ view }}"{% if selected_member %} data-member="{{ selected_member }}"{% endif %}>
+<section class="vault-panel" aria-label="{{ _t('vault.h1') }}" data-view="{{ view }}" data-layout="{{ layout }}"{% if selected_member %} data-member="{{ selected_member }}"{% endif %}>
   <div class="vault-head">
     <div>
       <h2>{{ _t('vault.h1') }}</h2>
@@ -20,6 +20,10 @@
     {% endfor %}
     <div class="vault-search">
       <input type="search" data-vault-search placeholder="{{ _t('vault.search_ph') }}" aria-label="{{ _t('vault.search_ph') }}">
+    </div>
+    <div class="layout-toggle" role="group" aria-label="{{ _t('vault.layout_label') }}">
+      <button type="button" data-vault-layout="cards" aria-pressed="{{ 'true' if layout == 'cards' else 'false' }}">{{ _t('vault.layout_cards') }}</button>
+      <button type="button" data-vault-layout="list" aria-pressed="{{ 'true' if layout == 'list' else 'false' }}">{{ _t('vault.layout_list') }}</button>
     </div>
   </div>
 
@@ -57,6 +61,30 @@
       {% endif %}
     </a>
     {% endfor %}
+  </div>
+  <div class="table-wrap doc-list">
+    <table class="docs-table">
+      <thead>
+        <tr><th>{{ _t('home.th_date') }}</th><th>{{ _t('home.th_exam') }}</th><th>{{ _t('home.th_urgency') }}</th><th>{{ _t('home.th_out') }}</th></tr>
+      </thead>
+      <tbody>
+        {% for doc in docs %}
+        <tr data-search="{{ doc.exam_about }} {{ doc.laboratorio }} {{ doc.date_label }} {{ doc.member_name }} {{ doc.summary }}{% if doc.key_metric %} {{ doc.key_metric.name }}{% endif %}" data-member="{{ doc.member_id or '' }}"{% if selected_member and doc.member_id != selected_member %} style="display: none"{% endif %}>
+          <td class="nowrap">{{ doc.date_label }}</td>
+          <td>
+            <a href="/ficha/{{ doc.id }}"><strong>{{ doc.exam_about }}</strong></a>
+            {% if doc.member_name %}<span class="micro-note">{{ doc.member_name }}</span>{% endif %}
+            {% if doc.laboratorio %}<span class="micro-note">{{ doc.laboratorio }}</span>{% endif %}
+            {% if doc.key_metric %}<span class="micro-note">{{ doc.key_metric.name }} {{ doc.key_metric.value }}</span>{% endif %}
+            {% if doc.por_confirmar %}<span class="flag flag-uncertain">{{ _t('home.unconfirmed') }}</span>{% endif %}
+            {% if doc.needs_review and not doc.reviewed_at %}<span class="tag tag-warn">{{ _t('review.needs') }}</span>{% endif %}
+          </td>
+          <td>{% if doc.urgency_label %}<span class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</span>{% endif %}</td>
+          <td class="num">{{ doc.fuera }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
   <div class="vault-empty" data-vault-empty hidden data-empty-search="{{ _t('vault.empty_search') }}" data-empty-member="{{ _t('vault.empty_member') }}">
     <h2>{{ _t('vault.empty_search') }}</h2>

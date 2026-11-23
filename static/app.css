@@ -298,6 +298,42 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   box-shadow: var(--shadow);
 }
 
+/* Layout toggle: cards or list, same documents, no reload. The list
+   is the same table as the /family recent list. */
+.layout-toggle {
+  display: inline-flex;
+  margin-left: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.layout-toggle button {
+  font: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.layout-toggle button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.doc-list { display: none; }
+.vault-panel[data-layout="list"] .doc-list { display: block; }
+.vault-panel[data-layout="list"] .doc-grid { display: none; }
+.vault-panel[data-layout="list"] .doc-list .micro-note { display: block; }
+
 /* La vista inactiva se esconde: el filtro solo muestra una sección. */
 .vault-panel[data-view="exams"] [data-view-section="vacunas"] { display: none; }
 .vault-panel[data-view="vacunas"] [data-view-section="exams"] { display: none; }

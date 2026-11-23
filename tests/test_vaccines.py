@@ -238,6 +238,8 @@ def test_vault_tabs_swap_without_reload(client):
     assert r.status_code == 200
     assert "initVaultFilter" in r.text
     assert "initVaultMemberFilter" in r.text
+    assert "initVaultLayout" in r.text
+    assert "data-vault-layout" in r.text
     assert "initVaultTabs" not in r.text
     assert "data-vault-view" in r.text
     assert "data-member-filter" in r.text
@@ -325,3 +327,36 @@ def test_member_filter_is_client_side(client, owner):
         assert 'style="display: none"' in r.text
     finally:
         _clean([d1, d2, d3, ana["id"], luis["id"]])
+
+
+def test_vault_cards_or_list_layout(client, owner):
+    """The vault offers Cards and List (the /family table) for the same
+    documents, switched in place: the server renders both, the toggle
+    only changes which one shows, and ?layout=list lands on the list."""
+    ana = dal.create_member(owner, "Ana")
+    d1 = "v-" + uuid.uuid4().hex[:12]
+    dal.save_document({"id": d1, "user_id": owner, "intake_id": d1,
+                       "member_id": ana["id"],
+                       "explanation": _lab_exp("Colesterol alto.",
+                                               "Colesterol")})
+    try:
+        r = client.get("/ficha", cookies=_cookies(owner))
+        assert r.status_code == 200
+        assert 'data-layout="cards"' in r.text
+        assert 'data-vault-layout="cards" aria-pressed="true"' in r.text
+        assert 'data-vault-layout="list" aria-pressed="false"' in r.text
+        # Both layouts carry the same document: the card and the row.
+        assert r.text.count('class="card doc-card"') == 1
+        assert r.text.count("<tr data-search=") == 1
+        assert "Colesterol alto. Colesterol" in r.text
+        # The list is the /family table: date, exam, urgency, out.
+        assert 'class="table-wrap doc-list"' in r.text
+        assert "Colesterol" in r.text
+        # ?layout=list lands on the list; anything else falls back.
+        r = client.get("/ficha?layout=list", cookies=_cookies(owner))
+        assert 'data-layout="list"' in r.text
+        assert 'data-vault-layout="list" aria-pressed="true"' in r.text
+        r = client.get("/ficha?layout=grid", cookies=_cookies(owner))
+        assert 'data-layout="cards"' in r.text
+    finally:
+        _clean([d1, ana["id"]])

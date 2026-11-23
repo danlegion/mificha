@@ -92,7 +92,8 @@ def _base_ctx(request: Request, user) -> dict:
 
 
 @router.get("/ficha")
-def ficha(request: Request, miembro: str = "", vista: str = ""):
+def ficha(request: Request, miembro: str = "", vista: str = "",
+          layout: str = ""):
     try:
         user = _require_user(request)
     except HTTPException:
@@ -100,6 +101,7 @@ def ficha(request: Request, miembro: str = "", vista: str = ""):
     # Una sola página: el filtro Exámenes | Vacunas es del cliente, no
     # dos páginas. ?vista=vacunas abre en la vista de vacunas.
     view = "vacunas" if vista.strip() == "vacunas" else "exams"
+    layout = layout.strip() if layout.strip() in ("cards", "list") else "cards"
     members = dal.list_members(user["id"])
     by_id = {m["id"]: m["name"] for m in members}
     # Filter by member when requested; an unknown id shows everything
@@ -183,7 +185,7 @@ def ficha(request: Request, miembro: str = "", vista: str = ""):
         {**_base_ctx(request, user), "docs": docs,
          "vax_groups": vax_groups,
          "members": members, "selected_member": selected,
-         "view": view,
+         "view": view, "layout": layout,
          "exams_count": exams_count,
          "vaccines_count": vaccines_count})
 

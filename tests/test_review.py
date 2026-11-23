@@ -113,7 +113,11 @@ def test_hero_cuenta_solo_los_pendientes(client, owner_docs):
     # La tarjeta del documento con valores fuera de rango lleva la etiqueta.
     r2 = client.get("/ficha", cookies=_cookies(owner_docs["uid"]))
     assert "Por revisar" in r2.text
-    assert r2.text.count("Por revisar") == 1  # solo el documento con flag
+    # Una por presentación: la tarjeta y la fila de la lista muestran el
+    # mismo documento, así que la etiqueta aparece dos veces en la página.
+    cards_html = r2.text.partition('<div class="table-wrap doc-list">')[0]
+    assert cards_html.count("Por revisar") == 1
+    assert r2.text.count("Por revisar") == 2
 
 
 def test_marcar_revisado_baja_el_heroe_y_muestra_revisado(client, owner_docs):
