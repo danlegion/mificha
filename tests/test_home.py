@@ -80,21 +80,14 @@ def _cookies(uid):
     return {auth.SESSION_COOKIE: auth.create_session(uid)}
 
 
-def test_home_usuario_subir_primero_y_lista_6_meses(client, usuario_con_docs):
+def test_home_sin_lista_reciente(client, usuario_con_docs):
     r = client.get("/", cookies=_cookies(usuario_con_docs["uid"]))
     assert r.status_code == 200
     html = r.text
-    assert "Hola de nuevo" not in html
-    assert "Tu último examen" not in html
-    # La acción más importante va primera.
-    assert html.index("Añade un documento") < html.index("<h2>Tus exámenes</h2>")
-    # La tabla trae tipo, urgencia, fuera de rango y link a ver todos.
-    assert "Resultado de laboratorio" in html
-    assert "Agenda una cita" in html
-    assert '<td class="num">2</td>' in html
-    assert "Ver todos" in html
-    assert f"/ficha/{usuario_con_docs['reciente']}" in html
-    # El documento viejo (>6 meses) no aparece en el home.
+    # El hero y la subida siguen; la tabla de exámenes recientes ya no.
+    assert "Añade un documento" in html
+    assert "<h2>Tus exámenes</h2>" not in html
+    assert f"/ficha/{usuario_con_docs['reciente']}" not in html
     assert f"/ficha/{usuario_con_docs['viejo']}" not in html
 
 
@@ -137,121 +130,39 @@ def _exp_campos(**kw):
     return base
 
 
-@pytest.fixture()
-def usuario_campos():
-    from datetime import datetime, timezone
-    email = f"c-{uuid.uuid4().hex[:8]}@x.test"
-    uid = dal.create_user(email)["id"]
-    # Previo (hace 60 días): colesterol peor, glucosa fuera de rango.
-    previo = "c-" + uuid.uuid4().hex[:12]
-    exp_prev = _exp_campos()
-    exp_prev["biomarkers"][0].update({"value": "260"})
-    exp_prev["biomarkers"][1].update({"value": "120", "flag": "alto"})
-    dal.save_intake({"id": previo, "status": "ready", "explanation": exp_prev,
-                     "owner_user_id": uid})
-    dal.save_document({"id": previo, "user_id": uid, "intake_id": previo,
-                       "explanation": exp_prev})
-    con = sqlite3.connect(_db_path())
-    con.execute(
-        "UPDATE documents SET created_at=? WHERE id=?",
-        ((datetime.now(timezone.utc) - timedelta(days=60)).isoformat(), previo))
-    con.execute(
-        "UPDATE intakes SET created_at=? WHERE id=?",
-        ((datetime.now(timezone.utc) - timedelta(days=60)).isoformat(), previo))
-    con.commit()
-    con.close()
-    # Actual: con laboratorio, por confirmar y enlace compartido.
-    actual = "c-" + uuid.uuid4().hex[:12]
-    exp_act = _exp_campos(laboratorio="Lab Clínico Norte",
-                          uncertain_fields=[{"field": "x", "reason": "y"}])
-    dal.save_intake({"id": actual, "status": "ready", "explanation": exp_act,
-                     "owner_user_id": uid})
-    dal.save_document({"id": actual, "user_id": uid, "intake_id": actual,
-                       "explanation": exp_act})
-    dal.create_share({
-        "intake_id": actual, "token": "tok-" + uuid.uuid4().hex[:8],
-        "snapshot": {},
-        "expires_at": datetime.now(timezone.utc) + timedelta(days=30),
-    })
-    yield {"uid": uid, "actual": actual, "previo": previo}
-    _clean([uid, actual, previo])
-
-
-def test_home_muestra_laboratorio_por_confirmar_y_compartido(
-        client, usuario_campos):
-    r = client.get("/", cookies=_cookies(usuario_campos["uid"]))
-    assert r.status_code == 200
-    html = r.text
-    assert "Lab Clínico Norte" in html
-    assert "por confirmar" in html
-    assert "Compartido con tu doctor" in html
-
-
-def test_home_compara_con_examen_anterior(client, usuario_campos):
-    r = client.get("/", cookies=_cookies(usuario_campos["uid"]))
-    html = r.text
-    # Colesterol: 260 -> 210 (sigue alto pero más cerca del rango) = mejoró.
-    # Glucosa: 120 alto -> 90 en rango = mejoró.
-    assert "2 mejoraron" in html
-    assert "Desde tu examen de" in html
-
-
-def test_comparar_empeora_y_sin_datos():
-    import app.main as m
-    bios_prev = [{"name": "X", "value": "90", "ref_range": "70 - 99"}]
-    bios_act = [{"name": "X", "value": "150", "ref_range": "70 - 99"}]
-    mej, emp, _ = m._comparar_con_anterior(
-        bios_act, [{"explanation": {"biomarkers": bios_prev},
-                    "created_at": "2026-01-01T00:00:00+00:00"}])
-    assert (mej, emp) == (0, 1)
-    # Sin biomarcadores comparables: no hay resumen.
-    mej, emp, fecha = m._comparar_con_anterior(
-        [{"name": "Y", "value": "no numérico", "ref_range": "1 - 5"}], [])
-    assert (mej, emp, fecha) == (0, 0, "")
-
-
 # ------------------------------------------------- fecha del documento
 
 
-@pytest.fixture()
-def usuario_fechas():
-    from datetime import datetime, timezone
-    email = f"f-{uuid.uuid4().hex[:8]}@x.test"
+def test_home_ultimo_explicado_usa_fecha_del_documento(client):
+    from datetime import datetime, timedelta, timezone
+    from app.i18n import MESES_CORTO
+    email = f"f3-{uuid.uuid4().hex[:8]}@x.test"
     uid = dal.create_user(email)["id"]
-    ids = []
-
-    def _doc(fecha_doc):
-        did = "f-" + uuid.uuid4().hex[:12]
+    try:
+        # Subido hoy pero con fecha de documento de hace 90 días: el
+        # hero muestra la fecha del documento, no la de subida.
+        dt = datetime.now(timezone.utc) - timedelta(days=90)
+        fecha_doc = dt.date().isoformat()
+        did = "f3-" + uuid.uuid4().hex[:12]
         exp = _exp_campos(fecha_documento=fecha_doc)
         dal.save_intake({"id": did, "status": "ready", "explanation": exp,
                          "owner_user_id": uid})
         dal.save_document({"id": did, "user_id": uid, "intake_id": did,
                            "explanation": exp})
-        ids.append(did)
-        return did
-
-    # Subido hoy pero completado por el laboratorio hace 3 meses.
-    con_fecha = _doc("2026-06-27")
-    # Subido hoy, sin fecha de documento: usa la de subida.
-    sin_fecha = _doc(None)
-    yield {"uid": uid, "con_fecha": con_fecha, "sin_fecha": sin_fecha}
-    _clean([uid] + ids)
+        r = client.get("/", cookies=_cookies(uid))
+        esperado = f"{dt.day} {MESES_CORTO['es'][dt.month - 1]} {dt.year}"
+        assert esperado in r.text
+    finally:
+        _clean([uid, did])
 
 
-def test_home_muestra_fecha_del_documento_no_de_subida(
-        client, usuario_fechas):
-    r = client.get("/", cookies=_cookies(usuario_fechas["uid"]))
-    html = r.text
-    assert "27 jun 2026" in html
-
-
-def test_home_filtra_por_fecha_del_documento(client):
+def test_home_ultimo_explicado_solo_ultimos_6_meses(client):
     from datetime import datetime, timezone
     email = f"f2-{uuid.uuid4().hex[:8]}@x.test"
     uid = dal.create_user(email)["id"]
     try:
-        # Subido hoy pero con fecha de documento de hace 8 meses: no va
-        # en "últimos 6 meses".
+        # Subido hoy pero con fecha de documento de hace 8 meses: el
+        # hero no muestra línea de último explicado.
         did = "f2-" + uuid.uuid4().hex[:12]
         exp = _exp_campos(fecha_documento="2025-12-01")
         dal.save_intake({"id": did, "status": "ready", "explanation": exp,
@@ -260,6 +171,7 @@ def test_home_filtra_por_fecha_del_documento(client):
                            "explanation": exp})
         r = client.get("/", cookies=_cookies(uid))
         assert f"/ficha/{did}" not in r.text
-        assert "más de 6 meses" in r.text
+        assert "Último explicado" not in r.text
     finally:
         _clean([uid, did])
+

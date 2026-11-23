@@ -15,11 +15,9 @@ from app.db import dal
 from app.i18n import (LANG_COOKIE, SUPPORTED, get_lang, set_current_lang,
                       t as _t)
 from app.routers import (initials, member_color, needs_review,
-                         nombre_examen_corto, normalize_flag_key, page_lang,
-                         templates, urgency_css_key)
+                         nombre_examen_corto, page_lang, templates)
 from app.routers import accounts, ingest, results, share, vault
 from app.routers.vault import _fecha_corta, _fecha_efectiva
-from app.services.llm import _parse_rango
 
 logging.basicConfig(
     level=logging.INFO,
@@ -98,90 +96,12 @@ async def referrer_policy(request: Request, call_next):
     return resp
 
 
-def _num_valor(s) -> float | None:
-    """Primer número parseable del texto de un valor, o None."""
-    if s is None:
-        return None
-    m = re.search(r"-?\d+(?:[.,]\d+)?", str(s))
-    if not m:
-        return None
-    try:
-        return float(m.group(0).replace(",", "."))
-    except ValueError:
-        return None
-
-
-def _distancia_fuera(valor: float | None, ref_range) -> float | None:
-    """Qué tan lejos está el valor de su rango (0.0 = en rango)."""
-    lo, hi = _parse_rango(ref_range)
-    if valor is None or (lo is None and hi is None):
-        return None
-    if lo is not None and valor < lo:
-        return lo - valor
-    if hi is not None and valor > hi:
-        return valor - hi
-    return 0.0
-
-
-def _comparar_con_anterior(
-    bios_actual: list, docs_previos: list
-) -> tuple[int, int, str]:
-    """Compara valores con el examen anterior comparable.
-
-    Devuelve (mejoraron, empeoraron, fecha_label_del_previo).
-    """
-    actual = {}
-    for b in bios_actual:
-        nombre = str(b.get("name") or "").strip().lower()
-        d = _distancia_fuera(_num_valor(b.get("value")), b.get("ref_range"))
-        if nombre and d is not None:
-            actual[nombre] = d
-    if not actual:
-        return 0, 0, ""
-    for previo in docs_previos:
-        pexp = previo.get("explanation") or {}
-        prev = {}
-        for b in pexp.get("biomarkers", []):
-            nombre = str(b.get("name") or "").strip().lower()
-            d = _distancia_fuera(_num_valor(b.get("value")), b.get("ref_range"))
-            if nombre and d is not None and nombre in actual:
-                prev[nombre] = d
-        if not prev:
-            continue
-        mejoraron = empeoraron = 0
-        for nombre, d_prev in prev.items():
-            d_curr = actual[nombre]
-            if d_prev > 0 and d_curr == 0:
-                mejoraron += 1
-            elif d_prev == 0 and d_curr > 0:
-                empeoraron += 1
-            elif d_prev > 0 and d_curr > 0:
-                if d_curr < d_prev * 0.9:
-                    mejoraron += 1
-                elif d_curr > d_prev * 1.1:
-                    empeoraron += 1
-        iso_prev, _dt_prev = _fecha_efectiva(pexp, previo.get("created_at") or "")
-        return mejoraron, empeoraron, _fecha_corta(iso_prev)
-    return 0, 0, ""
-
-
-def _resumen_cambio(mejoraron: int, empeoraron: int, fecha_prev: str) -> str:
-    partes = []
-    if mejoraron:
-        partes.append(_t("main.improved_one") if mejoraron == 1
-                      else _t("main.improved_many", n=mejoraron))
-    if empeoraron:
-        partes.append(_t("main.worsened_one") if empeoraron == 1
-                      else _t("main.worsened_many", n=empeoraron))
-    if not partes:
-        return ""
-    return _t("main.change_from", fecha=fecha_prev) + " · ".join(partes)
 
 
 @app.get("/")
 def index(request: Request):
     user = auth.get_current_user(request)
-    recent_docs = []
+    last_explained = None
     total_docs = 0
     family = []
     # Documentos por revisar: requieren revisión (incierto o fuera de
@@ -205,41 +125,20 @@ def index(request: Request):
             )[1] or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
         )
-        for i, d in enumerate(all_docs):
+        # Último explicado (hero): el documento más reciente de los
+        # últimos 180 días. La lista de recientes ya no se muestra en
+        # el home: las tarjetas de la familia son la lista.
+        for d in all_docs:
             exp = d.get("explanation") or {}
-            creado_raw = d.get("created_at") or ""
-            fecha_iso, fecha_dt = _fecha_efectiva(exp, creado_raw)
+            fecha_iso, fecha_dt = _fecha_efectiva(
+                exp, d.get("created_at") or "")
             if fecha_dt is not None and fecha_dt < limite:
                 continue
-            urg = exp.get("urgency") or {}
-            bios = exp.get("biomarkers", [])
-            fuera = sum(
-                1 for b in bios
-                if normalize_flag_key(b.get("flag")) in ("alto", "bajo")
-            )
-            por_confirmar = bool(exp.get("uncertain_fields")) or any(
-                normalize_flag_key(b.get("flag")) == "uncertain" for b in bios
-            )
-            compartido = bool(
-                dal.get_active_share_for_intake(d.get("intake_id") or "")
-            )
-            mej, emp, fecha_prev = _comparar_con_anterior(bios, all_docs[i + 1:])
-            recent_docs.append(
-                {
-                    "id": d["id"],
-                    "exam_about": nombre_examen_corto(exp),
-                    "laboratorio": exp.get("laboratorio"),
-                    "fecha": _fecha_corta(fecha_iso),
-                    "urgency_label": urg.get("label", ""),
-                    "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
-                    "fuera_de_rango": fuera,
-                    "por_confirmar": por_confirmar,
-                    "compartido": compartido,
-                    "cambio_resumen": _resumen_cambio(mej, emp, fecha_prev),
-                }
-            )
-            if len(recent_docs) >= 10:
-                break
+            last_explained = {
+                "exam_about": nombre_examen_corto(exp),
+                "fecha": _fecha_corta(fecha_iso),
+            }
+            break
         # Familia de un vistazo: un dato real por familiar (cuántos
         # documentos y el último examen), sin estados inventados.
         members = dal.list_members(user["id"])
@@ -267,11 +166,10 @@ def index(request: Request):
             "request": request,
             "lang": page_lang(request),
             "user": user,
-            "recent_docs": recent_docs,
             "total_docs": total_docs,
             "family": family,
             "to_review": to_review,
-            "last_explained": recent_docs[0] if recent_docs else None,
+            "last_explained": last_explained,
             "members": dal.list_members(user["id"]) if user else [],
             "demo_mode": not bool(config.ANTHROPIC_API_KEY),
             "dev_auth": auth.DEV_AUTH,
