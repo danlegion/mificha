@@ -94,7 +94,7 @@ def needs_review(exp: dict) -> bool:
     (campos inciertos o biomarcadores inciertos) o valores fuera de
     rango (alto/bajo).
 
-    Criterio elegido por Daniel (21 nov 2026): incierto + fuera de
+    Criterio elegido (21 nov 2026): incierto + fuera de
     rango. Nunca fechas de vencimiento de vacunas: el registro nunca
     calcula próximas dosis.
     """

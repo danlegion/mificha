@@ -1,6 +1,6 @@
 """Estado de revisión (paso 2 del rediseño, Nov 21, 2026).
 
-Criterio elegido por Daniel: un documento requiere revisión cuando tiene
+Criterio elegido: un documento requiere revisión cuando tiene
 valores por confirmar (inciertos) o fuera de rango. La revisión se marca
 dentro del propio documento (detalle o resultado), nunca con un botón en
 la tarjeta de familia. El héroe cuenta los documentos que requieren
