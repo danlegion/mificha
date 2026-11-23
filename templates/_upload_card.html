@@ -4,6 +4,9 @@
          data-uploading-pct="{{ _t('upload.uploading_pct') }}"
          data-upload-error="{{ _t('upload.error') }}">
   <h2>{{ titulo }}</h2>
+  {% if hero_variant|default(false) %}
+  <p class="upload-lead">{{ _t('hero.upload_lead') }}</p>
+  {% endif %}
   <form action="/subir" method="post" enctype="multipart/form-data">
     <label class="file-drop" for="archivo">
       <span class="file-icon" aria-hidden="true">

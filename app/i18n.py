@@ -127,6 +127,7 @@ STRINGS = {
 "hero.chip_pdf": "PDF",
 "hero.chip_lang": "ES · EN",
 "hero.chip_private": "Privado por defecto",
+"hero.upload_lead": "Resultados de laboratorio, cartillas de vacunas, recetas — PDF o foto. Extraemos los valores y los explicamos.",
 
 "family.h2": "Tu familia de un vistazo",
 "family.sub": "Quién tiene registros y cuál fue su último examen.",
@@ -474,6 +475,7 @@ STRINGS = {
 "hero.chip_pdf": "PDF",
 "hero.chip_lang": "ES · EN",
 "hero.chip_private": "Private by default",
+"hero.upload_lead": "Lab results, vaccine cards, prescriptions — PDF or photo. We extract the values and explain them.",
 
 "family.h2": "Your family at a glance",
 "family.sub": "Who has records, and the latest exam for each person.",
