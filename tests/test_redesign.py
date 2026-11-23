@@ -86,7 +86,7 @@ def test_header_pildora_con_familia(client, owner_con_datos):
     r = client.get("/", cookies=_cookies(owner_con_datos["uid"]))
     assert r.status_code == 200
     assert 'class="site-nav"' in r.text
-    assert 'href="/#family"' in r.text
+    assert 'href="/family"' in r.text
     assert '<a href="/ficha">Bóveda</a>' in r.text
 
 
@@ -208,12 +208,3 @@ def test_js_busqueda_de_la_boveda():
     assert "window.MIFicha.initVaultSearch" in js
     assert "data-vault-search" in js
     assert "window.MIFicha.initVaultTabs" in js
-
-
-def test_js_family_anchor_lands_on_section():
-    js = open("static/app.js").read()
-    assert "window.MIFicha.initFamilyAnchor" in js
-    assert 'a[href="/#family"]' in js
-    assert 'getElementById("family")' in js
-    assert "document.fonts.ready" in js
-    assert "initFamilyAnchor();" in js

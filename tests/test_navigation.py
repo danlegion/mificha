@@ -77,10 +77,17 @@ def test_header_nav_marks_current_section(client, owner):
     assert r.status_code == 200
     assert '<a href="/" aria-current="page">Home</a>' in r.text
     assert '<a href="/ficha">Vault</a>' in r.text
+    assert '<a href="/family">Family</a>' in r.text
 
     r = client.get("/ficha", cookies=_cookies(owner))
     assert r.status_code == 200
     assert '<a href="/ficha" aria-current="page">Vault</a>' in r.text
+    assert '<a href="/">Home</a>' in r.text
+    assert '<a href="/family">Family</a>' in r.text
+
+    r = client.get("/family", cookies=_cookies(owner))
+    assert r.status_code == 200
+    assert '<a href="/family" aria-current="page">Family</a>' in r.text
     assert '<a href="/">Home</a>' in r.text
 
 

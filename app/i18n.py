@@ -101,7 +101,18 @@ STRINGS = {
 "home.accepts_note": "Notas del doctor",
 "home.upload_first": "Añade un documento",
 "home.upload_another": "Añade un documento",
+"home.recent_h2": "Tus exámenes",
+"home.recent_note": "Últimos 6 meses · fecha del documento",
+"home.view_all": "Ver todos",
+"home.th_date": "Fecha",
+"home.th_exam": "Examen",
+"home.th_urgency": "Urgencia",
+"home.th_out": "Fuera de rango",
 "home.unconfirmed": "por confirmar",
+"home.shared_doctor": "Compartido con tu doctor",
+"home.old_before": "Tus exámenes tienen más de 6 meses. Están todos en",
+"home.old_link": "Bóveda",
+"home.old_after": ".",
 
 "hero.eyebrow": "La bóveda de tu familia",
 "hero.h1a": "Cada resultado,",
@@ -409,6 +420,12 @@ STRINGS = {
 "ingest.no_pages": "El PDF no tiene páginas.",
 "ingest.too_many_pages": "El PDF tiene {n} páginas y el límite es {max_p}.",
 
+"main.change_from": "Desde tu examen de {fecha}: ",
+"main.improved_one": "1 mejoró",
+"main.improved_many": "{n} mejoraron",
+"main.worsened_one": "1 empeoró",
+"main.worsened_many": "{n} empeoraron",
+
 },
 "en": {
 "meta.html_lang": "en",
@@ -433,7 +450,18 @@ STRINGS = {
 "home.accepts_note": "Doctor's notes",
 "home.upload_first": "Add a document",
 "home.upload_another": "Add a document",
+"home.recent_h2": "Your exams",
+"home.recent_note": "Last 6 months · document date",
+"home.view_all": "View all",
+"home.th_date": "Date",
+"home.th_exam": "Exam",
+"home.th_urgency": "Urgency",
+"home.th_out": "Out of range",
 "home.unconfirmed": "unconfirmed",
+"home.shared_doctor": "Shared with your doctor",
+"home.old_before": "Your exams are older than 6 months. They're all in",
+"home.old_link": "Vault",
+"home.old_after": ".",
 
 "hero.eyebrow": "Your family vault",
 "hero.h1a": "Every result,",
@@ -740,6 +768,12 @@ STRINGS = {
 "ingest.cant_open": "We couldn't open the PDF. Check that it isn't damaged.",
 "ingest.no_pages": "The PDF has no pages.",
 "ingest.too_many_pages": "The PDF has {n} pages and the limit is {max_p}.",
+
+"main.change_from": "Since your exam of {fecha}: ",
+"main.improved_one": "1 improved",
+"main.improved_many": "{n} improved",
+"main.worsened_one": "1 worsened",
+"main.worsened_many": "{n} worsened",
 
 },
 }

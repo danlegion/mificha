@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ _t('nav.family') }}{% endblock %}
+{% block content %}
+
+  {% if family %}
+  <section id="family" aria-label="{{ _t('family.h2') }}">
+    <div class="section-head">
+      <div>
+        <h2>{{ _t('family.h2') }}</h2>
+        <p class="section-sub">{{ _t('family.sub') }}</p>
+      </div>
+      <a class="section-link" href="/ficha">{{ _t('family.view_all') }}</a>
+    </div>
+    <div class="family-grid">
+      {% for f in family %}
+      <a class="family-card" href="/ficha?miembro={{ f.id }}">
+        <div class="family-top">
+          <span class="initials-tile" style="background: {{ f.color_bg }}; color: {{ f.color_fg }}">{{ f.initials }}</span>
+          <h3 class="family-name">{{ f.name }}</h3>
+        </div>
+        <p class="family-note">{% if f.last_exam %}{{ _t('family.last_exam', date=f.last_exam) }}{% else %}{{ _t('family.none') }}{% endif %}</p>
+        <div class="family-meta">
+          <span>{{ _t('family.documents') }}</span>
+          <strong>{{ f.docs_count }}</strong>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if recent_docs %}
+  <section class="card" aria-label="{{ _t('home.recent_h2') }}">
+    <div class="section-head">
+      <div>
+        <h2>{{ _t('home.recent_h2') }}</h2>
+        <p class="micro-note">{{ _t('home.recent_note') }}</p>
+      </div>
+      <a class="section-link" href="/ficha">{{ _t('home.view_all') }}</a>
+    </div>
+    <div class="table-wrap">
+      <table class="docs-table">
+        <thead>
+          <tr><th>{{ _t('home.th_date') }}</th><th>{{ _t('home.th_exam') }}</th><th>{{ _t('home.th_urgency') }}</th><th>{{ _t('home.th_out') }}</th></tr>
+        </thead>
+        <tbody>
+          {% for doc in recent_docs %}
+          <tr>
+            <td class="nowrap">{{ doc.fecha }}</td>
+            <td>
+              <a href="/ficha/{{ doc.id }}"><strong>{{ doc.exam_about }}</strong></a>
+              {% if doc.laboratorio %}<span class="micro-note">{{ doc.laboratorio }}</span>{% endif %}
+              {% if doc.cambio_resumen %}<span class="micro-note">{{ doc.cambio_resumen }}</span>{% endif %}
+              {% if doc.por_confirmar %}<span class="flag flag-uncertain">{{ _t('home.unconfirmed') }}</span>{% endif %}
+              {% if doc.compartido %}<span class="micro-note">{{ _t('home.shared_doctor') }}</span>{% endif %}
+            </td>
+            <td>{% if doc.urgency_label %}<span class="urgency-chip urgency-{{ doc.urgency_key }}">{{ doc.urgency_label }}</span>{% endif %}</td>
+            <td class="num">{{ doc.fuera_de_rango }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% elif total_docs %}
+  <section class="card" aria-label="{{ _t('home.recent_h2') }}">
+    <p>{{ _t('home.old_before') }} <a href="/ficha">{{ _t('home.old_link') }}</a>{{ _t('home.old_after') }}</p>
+  </section>
+  {% endif %}
+
+{% endblock %}

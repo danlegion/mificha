@@ -15,9 +15,11 @@ from app.db import dal
 from app.i18n import (LANG_COOKIE, SUPPORTED, get_lang, set_current_lang,
                       t as _t)
 from app.routers import (initials, member_color, needs_review,
-                         nombre_examen_corto, page_lang, templates)
+                         nombre_examen_corto, normalize_flag_key, page_lang,
+                         templates, urgency_css_key)
 from app.routers import accounts, ingest, results, share, vault
 from app.routers.vault import _fecha_corta, _fecha_efectiva
+from app.services.llm import _parse_rango
 
 logging.basicConfig(
     level=logging.INFO,
@@ -98,6 +100,165 @@ async def referrer_policy(request: Request, call_next):
 
 
 
+def _num_valor(s) -> float | None:
+    """Primer número parseable del texto de un valor, o None."""
+    if s is None:
+        return None
+    m = re.search(r"-?\d+(?:[.,]\d+)?", str(s))
+    if not m:
+        return None
+    try:
+        return float(m.group(0).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _distancia_fuera(valor: float | None, ref_range) -> float | None:
+    """Qué tan lejos está el valor de su rango (0.0 = en rango)."""
+    lo, hi = _parse_rango(ref_range)
+    if valor is None or (lo is None and hi is None):
+        return None
+    if lo is not None and valor < lo:
+        return lo - valor
+    if hi is not None and valor > hi:
+        return valor - hi
+    return 0.0
+
+
+def _comparar_con_anterior(
+    bios_actual: list, docs_previos: list
+) -> tuple[int, int, str]:
+    """Compara valores con el examen anterior comparable.
+
+    Devuelve (mejoraron, empeoraron, fecha_label_del_previo).
+    """
+    actual = {}
+    for b in bios_actual:
+        nombre = str(b.get("name") or "").strip().lower()
+        d = _distancia_fuera(_num_valor(b.get("value")), b.get("ref_range"))
+        if nombre and d is not None:
+            actual[nombre] = d
+    if not actual:
+        return 0, 0, ""
+    for previo in docs_previos:
+        pexp = previo.get("explanation") or {}
+        prev = {}
+        for b in pexp.get("biomarkers", []):
+            nombre = str(b.get("name") or "").strip().lower()
+            d = _distancia_fuera(_num_valor(b.get("value")), b.get("ref_range"))
+            if nombre and d is not None and nombre in actual:
+                prev[nombre] = d
+        if not prev:
+            continue
+        mejoraron = empeoraron = 0
+        for nombre, d_prev in prev.items():
+            d_curr = actual[nombre]
+            if d_prev > 0 and d_curr == 0:
+                mejoraron += 1
+            elif d_prev == 0 and d_curr > 0:
+                empeoraron += 1
+            elif d_prev > 0 and d_curr > 0:
+                if d_curr < d_prev * 0.9:
+                    mejoraron += 1
+                elif d_curr > d_prev * 1.1:
+                    empeoraron += 1
+        iso_prev, _dt_prev = _fecha_efectiva(pexp, previo.get("created_at") or "")
+        return mejoraron, empeoraron, _fecha_corta(iso_prev)
+    return 0, 0, ""
+
+
+def _resumen_cambio(mejoraron: int, empeoraron: int, fecha_prev: str) -> str:
+    partes = []
+    if mejoraron:
+        partes.append(_t("main.improved_one") if mejoraron == 1
+                      else _t("main.improved_many", n=mejoraron))
+    if empeoraron:
+        partes.append(_t("main.worsened_one") if empeoraron == 1
+                      else _t("main.worsened_many", n=empeoraron))
+    if not partes:
+        return ""
+    return _t("main.change_from", fecha=fecha_prev) + " · ".join(partes)
+
+
+def _sort_by_doc_date(all_docs: list) -> list:
+    """Orden: por fecha del documento (doctor/laboratorio), no de subida."""
+    return sorted(
+        all_docs,
+        key=lambda d: _fecha_efectiva(
+            d.get("explanation") or {}, d.get("created_at") or ""
+        )[1] or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+
+
+def _family_cards(members: list, all_docs: list) -> list:
+    """Un dato real por familiar (cuántos documentos y el último examen),
+    sin estados inventados. all_docs debe venir ya ordenado por fecha
+    del documento, descendente."""
+    family = []
+    for i, m in enumerate(members):
+        mdocs = [d for d in all_docs if d.get("member_id") == m["id"]]
+        last = ""
+        if mdocs:
+            exp0 = mdocs[0].get("explanation") or {}
+            iso0, _ = _fecha_efectiva(exp0, mdocs[0].get("created_at") or "")
+            last = _fecha_corta(iso0)
+        bg, fg = member_color(i)
+        family.append({
+            "id": m["id"],
+            "name": m["name"],
+            "initials": initials(m["name"]),
+            "color_bg": bg,
+            "color_fg": fg,
+            "docs_count": len(mdocs),
+            "last_exam": last,
+        })
+    return family
+
+
+def _recent_docs(all_docs: list, limite) -> list:
+    """Los 10 documentos más recientes dentro del límite (180 días),
+    con laboratorio, urgencia, fuera de rango y comparación con el
+    examen anterior. Es la lista de /family."""
+    recent = []
+    for i, d in enumerate(all_docs):
+        exp = d.get("explanation") or {}
+        creado_raw = d.get("created_at") or ""
+        fecha_iso, fecha_dt = _fecha_efectiva(exp, creado_raw)
+        if fecha_dt is not None and fecha_dt < limite:
+            continue
+        urg = exp.get("urgency") or {}
+        bios = exp.get("biomarkers", [])
+        fuera = sum(
+            1 for b in bios
+            if normalize_flag_key(b.get("flag")) in ("alto", "bajo")
+        )
+        por_confirmar = bool(exp.get("uncertain_fields")) or any(
+            normalize_flag_key(b.get("flag")) == "uncertain" for b in bios
+        )
+        compartido = bool(
+            dal.get_active_share_for_intake(d.get("intake_id") or "")
+        )
+        mej, emp, fecha_prev = _comparar_con_anterior(bios, all_docs[i + 1:])
+        recent.append(
+            {
+                "id": d["id"],
+                "exam_about": nombre_examen_corto(exp),
+                "laboratorio": exp.get("laboratorio"),
+                "fecha": _fecha_corta(fecha_iso),
+                "urgency_label": urg.get("label", ""),
+                "urgency_key": urgency_css_key(urg.get("level", "no_urgente")),
+                "fuera_de_rango": fuera,
+                "por_confirmar": por_confirmar,
+                "compartido": compartido,
+                "cambio_resumen": _resumen_cambio(mej, emp, fecha_prev),
+            }
+        )
+        if len(recent) >= 10:
+            break
+    return recent
+
+
 @app.get("/")
 def index(request: Request):
     user = auth.get_current_user(request)
@@ -118,16 +279,9 @@ def index(request: Request):
             and not d.get("reviewed_at")
         )
         # Orden: por fecha del documento (doctor/laboratorio), no de subida.
-        all_docs = sorted(
-            all_docs,
-            key=lambda d: _fecha_efectiva(
-                d.get("explanation") or {}, d.get("created_at") or ""
-            )[1] or datetime.min.replace(tzinfo=timezone.utc),
-            reverse=True,
-        )
+        all_docs = _sort_by_doc_date(all_docs)
         # Último explicado (hero): el documento más reciente de los
-        # últimos 180 días. La lista de recientes ya no se muestra en
-        # el home: las tarjetas de la familia son la lista.
+        # últimos 180 días. La lista de recientes vive en /family.
         for d in all_docs:
             exp = d.get("explanation") or {}
             fecha_iso, fecha_dt = _fecha_efectiva(
@@ -141,24 +295,7 @@ def index(request: Request):
             break
         # Familia de un vistazo: un dato real por familiar (cuántos
         # documentos y el último examen), sin estados inventados.
-        members = dal.list_members(user["id"])
-        for i, m in enumerate(members):
-            mdocs = [d for d in all_docs if d.get("member_id") == m["id"]]
-            last = ""
-            if mdocs:
-                exp0 = mdocs[0].get("explanation") or {}
-                iso0, _ = _fecha_efectiva(exp0, mdocs[0].get("created_at") or "")
-                last = _fecha_corta(iso0)
-            bg, fg = member_color(i)
-            family.append({
-                "id": m["id"],
-                "name": m["name"],
-                "initials": initials(m["name"]),
-                "color_bg": bg,
-                "color_fg": fg,
-                "docs_count": len(mdocs),
-                "last_exam": last,
-            })
+        family = _family_cards(dal.list_members(user["id"]), all_docs)
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -171,6 +308,32 @@ def index(request: Request):
             "to_review": to_review,
             "last_explained": last_explained,
             "members": dal.list_members(user["id"]) if user else [],
+            "demo_mode": not bool(config.ANTHROPIC_API_KEY),
+            "dev_auth": auth.DEV_AUTH,
+        },
+    )
+
+
+@app.get("/family")
+def family_page(request: Request):
+    """Página de la familia: empieza con las tarjetas de un vistazo
+    (las mismas del home, para dar continuidad al tocar una) y sigue
+    con la lista de documentos subidos y explicados recientemente."""
+    user = auth.get_current_user(request)
+    if not user:
+        return RedirectResponse("/", status_code=303)
+    limite = datetime.now(timezone.utc) - timedelta(days=180)
+    all_docs = _sort_by_doc_date(dal.list_documents(user["id"]))
+    return templates.TemplateResponse(
+        request,
+        "family.html",
+        {
+            "request": request,
+            "lang": page_lang(request),
+            "user": user,
+            "family": _family_cards(dal.list_members(user["id"]), all_docs),
+            "recent_docs": _recent_docs(all_docs, limite),
+            "total_docs": len(all_docs),
             "demo_mode": not bool(config.ANTHROPIC_API_KEY),
             "dev_auth": auth.DEV_AUTH,
         },
