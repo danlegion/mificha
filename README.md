@@ -26,32 +26,11 @@ real use and shared in case it helps yours.
 
 ## How it works
 
-1. **You sign in and upload.** Sign-in is a magic link by email;
-   the first time creates your account. There is no guest upload —
-   everything you upload is saved to your vault automatically. You
-   pick which family member the document belongs to, or add a new
-   one on the spot.
-2. **The app reads the document.** It pulls the text straight out
-   of the PDF. If a page is a scan with no readable text, it tries
-   to read it with OCR — Tesseract on the machine first, then
-   Google Document AI if you've set it up. If a page still can't
-   be read, it's marked as uncertain, never guessed at.
-3. **An AI explains it in plain language.** The text goes to the
-   provider you chose (Gemini, Claude, or OpenAI) — or to the
-   built-in demo explainer if you have no key. It comes back as a
-   structured explanation: what each value means, which ones are
-   out of range and by how much, and how soon it's worth bringing
-   up with a doctor.
-4. **The explanation is checked before you see it.** It has to
-   match the app's fixed format, and a set of hard rules runs over
-   it — no invented reference ranges, no made-up dates, no
-   diagnosis. Anything the app isn't sure about is flagged as
-   uncertain, in the open.
-5. **It lands in your vault, under the right person.** Documents
-   group by family member, biomarkers build a history per person,
-   and vaccine records feed the vaccine registry. You can reassign
-   a document, download the original PDF, or share a read-only
-   link that expires in 7 days.
+1. **Sign in and upload.** Hosted, sign-in is a magic link by email; self-hosted with the single-password gate, it's one username and password. Either way the first sign-in creates your account — there is no guest upload, and everything you upload is saved to your vault.
+2. **The app reads the document.** Text comes straight out of the PDF; a scanned page goes through OCR (Tesseract first, Google Document AI if set up). A page that still can't be read is marked uncertain, never guessed at.
+3. **An AI explains it in plain language.** Gemini, Claude, or OpenAI — whichever you chose — or the built-in demo explainer with no key. You get what each value means, which are out of range and by how much, and how soon to bring it up with a doctor.
+4. **The explanation is checked first.** It must match a fixed format, and hard rules run over it: no invented reference ranges, no made-up dates, no diagnosis. Anything uncertain is flagged in the open.
+5. **It lands in your vault, under the right person.** Pick the family member on upload (or add one on the spot). Biomarkers build a history per person, vaccines feed the registry, and you can reassign a document, download the original, or share a read-only link that expires in 7 days.
 
 ### Where your data lives
 
@@ -145,9 +124,12 @@ key, the app runs in local demo mode, with no network calls.
 ## Accounts
 
 There is no guest access: uploading requires signing in, and every
-upload is saved to that account's vault automatically. Sign-in is a
-magic link by email (`/entrar`); entering for the first time creates
-the account. There is no password, and no separate sign-up page.
+upload is saved to that account's vault automatically. How you sign
+in depends on the deployment:
+
+- **Hosted (Supabase):** a magic link by email (`/entrar`). The first sign-in creates the account — there is no password and no separate sign-up page.
+- **Self-hosted with the single-password gate:** one username and password (`/acceso`), set in `.env` as `APP_USERNAME` and `APP_PASSWORD`. The first login creates the one owner account. See "Single-password gate" below.
+- **Self-hosted without the gate:** email only, no password and no verification — anyone who can reach the port can sign in as any email. Local development only; set the gate for any real use.
 
 ## Family members
 
