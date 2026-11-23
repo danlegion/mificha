@@ -22,8 +22,8 @@
       <input type="search" data-vault-search placeholder="{{ _t('vault.search_ph') }}" aria-label="{{ _t('vault.search_ph') }}">
     </div>
     <div class="layout-toggle" role="group" aria-label="{{ _t('vault.layout_label') }}">
-      <button type="button" data-vault-layout="cards" aria-pressed="{{ 'true' if layout == 'cards' else 'false' }}">{{ _t('vault.layout_cards') }}</button>
-      <button type="button" data-vault-layout="list" aria-pressed="{{ 'true' if layout == 'list' else 'false' }}">{{ _t('vault.layout_list') }}</button>
+      <button type="button" data-vault-layout="cards" aria-pressed="{{ 'true' if layout == 'cards' else 'false' }}" aria-label="{{ _t('vault.layout_cards') }}" title="{{ _t('vault.layout_cards') }}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg></button>
+      <button type="button" data-vault-layout="list" aria-pressed="{{ 'true' if layout == 'list' else 'false' }}" aria-label="{{ _t('vault.layout_list') }}" title="{{ _t('vault.layout_list') }}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg></button>
     </div>
   </div>
 

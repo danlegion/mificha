@@ -316,12 +316,17 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
   background: none;
   border: 0;
   cursor: pointer;
-  padding: 0.35rem 0.8rem;
+  padding: 0.4rem;
   border-radius: 999px;
-  font-weight: 700;
-  font-size: 13px;
   color: var(--ink-soft);
   white-space: nowrap;
+  line-height: 0;
+}
+
+.layout-toggle button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
 }
 
 .layout-toggle button[aria-pressed="true"] {
@@ -333,6 +338,12 @@ h3 { font-size: 1.08rem; margin: 0 0 0.5rem; }
 .vault-panel[data-layout="list"] .doc-list { display: block; }
 .vault-panel[data-layout="list"] .doc-grid { display: none; }
 .vault-panel[data-layout="list"] .doc-list .micro-note { display: block; }
+/* The list gets the same frame as the card grid: 24px in from the
+   panel edges, roomy cells. (The shared .table-wrap pulls the table
+   to the very edge, which is why the list looked cramped.) */
+.vault-panel .doc-list { margin: 0; padding: 20px 24px 24px; }
+.vault-panel .doc-list .docs-table th { padding: 0.5rem 1rem; }
+.vault-panel .doc-list .docs-table td { padding: 0.75rem 1rem; }
 
 /* La vista inactiva se esconde: el filtro solo muestra una sección. */
 .vault-panel[data-view="exams"] [data-view-section="vacunas"] { display: none; }

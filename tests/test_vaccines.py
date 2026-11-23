@@ -345,6 +345,15 @@ def test_vault_cards_or_list_layout(client, owner):
         assert 'data-layout="cards"' in r.text
         assert 'data-vault-layout="cards" aria-pressed="true"' in r.text
         assert 'data-vault-layout="list" aria-pressed="false"' in r.text
+        # Icon buttons: no word labels, the names live in aria-labels.
+        assert 'aria-label="Cards"' in r.text
+        assert 'aria-label="List"' in r.text
+        assert ">Cards<" not in r.text and ">List<" not in r.text
+        assert r.text.count("<svg") >= 2
+        # The list sits in the same 24px frame as the card grid.
+        css = client.get("/static/app.css").text
+        assert ".vault-panel .doc-list { margin: 0; padding: 20px 24px 24px; }" in css
+        assert ".vault-panel .doc-list .docs-table td { padding: 0.75rem 1rem; }" in css
         # Both layouts carry the same document: the card and the row.
         assert r.text.count('class="card doc-card"') == 1
         assert r.text.count("<tr data-search=") == 1
