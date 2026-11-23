@@ -58,6 +58,7 @@
           <span>{{ _t('family.documents') }}</span>
           <strong>{{ f.docs_count }}</strong>
         </div>
+        {% if f.to_review %}<span class="family-review">{{ _t('family.to_review', n=f.to_review) }}</span>{% endif %}
       </a>
       {% endfor %}
     </div>

@@ -1130,6 +1130,19 @@ dialog.confirm-dialog h2 {
 .family-meta span:first-child { color: var(--ink-soft); }
 .family-meta strong { font-weight: 700; }
 
+/* Cuántos documentos de este familiar necesitan revisión: el mismo
+   ámbar que la etiqueta "Por revisar" de la bóveda. */
+.family-review {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--u-amber-bg);
+  color: var(--u-amber-fg);
+}
+
 /* Panel de la bóveda: cabecera, pestañas, filtros en su propia fila. */
 .vault-panel {
   background: var(--surface);

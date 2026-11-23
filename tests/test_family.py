@@ -101,15 +101,37 @@ def usuario_family():
     # Viejo (hace 200 días): fuera de la ventana de 6 meses.
     viejo = "f-" + uuid.uuid4().hex[:12]
     _save_doc(viejo, uid, _exp_campos(), days_ago=200)
+    # Luis: un documento limpio, sin nada por revisar.
+    luis = dal.create_member(uid, "Luis")
+    limpio = "f-" + uuid.uuid4().hex[:12]
+    exp_limpio = _exp_campos()
+    exp_limpio["biomarkers"][0].update({"value": "150", "flag": "normal"})
+    _save_doc(limpio, uid, exp_limpio, member_id=luis["id"])
     yield {"uid": uid, "member": member, "actual": actual,
-           "previo": previo, "viejo": viejo}
-    _clean([uid, actual, previo, viejo, member["id"]])
+           "previo": previo, "viejo": viejo,
+           "luis": luis, "limpio": limpio}
+    _clean([uid, actual, previo, viejo, limpio,
+            member["id"], luis["id"]])
 
 
 def test_family_anonimo_redirige(client):
     r = client.get("/family", follow_redirects=False)
     assert r.status_code == 303
     assert r.headers["location"] == "/"
+
+
+def test_family_tarjetas_muestran_quien_tiene_por_revisar(
+        client, usuario_family):
+    # Ana tiene 2 documentos por revisar (previo + actual, colesterol
+    # alto); Luis ninguno. La tarjeta dice de quién es el número del
+    # hero, en /family y en el home.
+    for path in ("/family", "/"):
+        r = client.get(path, cookies=_cookies(usuario_family["uid"]))
+        assert r.status_code == 200
+        assert "2 por revisar" in r.text
+        # Solo la tarjeta de Ana lleva la insignia.
+        assert r.text.count("por revisar") == (
+            2 if path == "/" else 1)  # en el home, + la etiqueta del hero
 
 
 def test_family_tarjetas_primero_y_lista_reciente(client, usuario_family):

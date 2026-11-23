@@ -212,6 +212,14 @@ def _family_cards(members: list, all_docs: list) -> list:
             "color_fg": fg,
             "docs_count": len(mdocs),
             "last_exam": last,
+            # Documentos de este familiar que necesitan revisión
+            # (inciertos o fuera de rango, aún sin marcar): la tarjeta
+            # muestra de quién es el número del hero.
+            "to_review": sum(
+                1 for d in mdocs
+                if needs_review(d.get("explanation") or {})
+                and not d.get("reviewed_at")
+            ),
         })
     return family
 

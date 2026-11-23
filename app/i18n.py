@@ -133,6 +133,7 @@ STRINGS = {
 "family.sub": "Quién tiene registros y cuál fue su último examen.",
 "family.view_all": "Ver todo →",
 "family.documents": "Documentos",
+"family.to_review": "{n} por revisar",
 "family.last_exam": "Último examen {date}",
 "family.none": "Sin exámenes aún",
 
@@ -482,6 +483,7 @@ STRINGS = {
 "family.sub": "Who has records, and the latest exam for each person.",
 "family.view_all": "View all →",
 "family.documents": "Documents",
+"family.to_review": "{n} to review",
 "family.last_exam": "Last exam {date}",
 "family.none": "No exams yet",
 
