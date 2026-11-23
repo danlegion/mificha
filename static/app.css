@@ -973,7 +973,7 @@ dialog.confirm-dialog h2 {
 .hero-upload .file-drop {
   border: 1.5px dashed rgba(255, 255, 255, 0.45);
   background: rgba(255, 255, 255, 0.08);
-  padding: 18px;
+  padding: 1.5rem 1.25rem;
   position: relative;
   z-index: 1;
 }
@@ -981,7 +981,50 @@ dialog.confirm-dialog h2 {
 .hero-upload .file-drop:hover { background: rgba(255, 255, 255, 0.14); }
 .hero-upload .file-icon, .hero-upload .file-text { color: #fff; }
 .hero-upload .file-hint { color: rgba(255, 255, 255, 0.8); }
-.hero-upload .field-label { color: rgba(255, 255, 255, 0.9); }
+
+/* Campos del formulario dentro de la tarjeta: mismo alto y radio que el
+   resto de la app, fondo blanco a juego con el botón. */
+.hero-upload .field-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.4rem;
+}
+
+.hero-upload .upload-card select,
+.hero-upload .upload-card input[type="text"] {
+  width: 100%;
+  min-height: 52px;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--ink);
+}
+
+.hero-upload .upload-card select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230A4237' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem;
+  padding-right: 2.75rem;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+}
+
+.hero-upload .upload-card input[type="text"] { margin-bottom: 1rem; }
+
+.hero-upload .upload-card select:focus,
+.hero-upload .upload-card input[type="text"]:focus {
+  outline: 3px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 1px;
+  border-color: #fff;
+}
 
 .hero-upload .upload-card .btn-primary { background: #fff; color: var(--brand-deep); width: 100%; }
 .hero-upload .upload-card .btn-primary:hover { background: var(--brand-soft-bg); }
@@ -1505,6 +1548,7 @@ dialog.confirm-dialog h2 {
   .detail-hero { background: #0D1210; }
   .save-cta { background: linear-gradient(160deg, #0E594A 0%, #0A4237 100%); }
   .hero-upload .upload-card .btn-primary { color: #0A4237; }
+  .hero-upload .field-label { color: #0A4237; }
   .field input[type="text"],
   .field input[type="email"],
   .field input[type="tel"],
